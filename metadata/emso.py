@@ -15,9 +15,9 @@ import rich
 import pandas as pd
 import json
 
-emso_metadata_url = "https://gitlab.emso.eu/Martinez/emso-metadata/-/raw/v0.1/EMSO_metadata.md?inline=false"
-oceansites_codes_url = "https://gitlab.emso.eu/Martinez/emso-metadata/-/raw/v0.1/OceanSites_codes.md?inline=false"
-emso_codes_url = "https://gitlab.emso.eu/Martinez/emso-metadata/-/raw/v0.1/EMSO_codes.md?inline=false"
+emso_metadata_url = "https://gitlab.emso.eu/Martinez/emso-metadata-specification/-/raw/v0.1/EMSO_metadata.md"
+oceansites_codes_url = "https://gitlab.emso.eu/Martinez/emso-metadata-specification/-/raw/v0.1/OceanSites_codes.md"
+emso_codes_url = "https://gitlab.emso.eu/Martinez/emso-metadata-specification/-/raw/v0.1/EMSO_codes.md"
 
 sdn_vocab_p01 = "https://vocab.nerc.ac.uk/collection/P01/current/?_profile=nvs&_mediatype=application/ld+json"
 sdn_vocab_p02 = "https://vocab.nerc.ac.uk/collection/P01/current/?_profile=nvs&_mediatype=application/ld+json"
