@@ -165,25 +165,31 @@ class ErddapTester:
 
         return passed, message, value
 
-    def validate_dataset(self, metadata, verbose=True):
+    def test_group_handler(self, test_group: pd.DataFrame, metadata: dict, variable: str, verbose: bool, results={}
+                           ) -> dict:
         """
-        Takes the well-formatted JSON metadata from an ERDDAP dataset and processes it
-        :param metadata: well-formatted JSON metadta for an ERDDAP dataset
-        :return: a DataFrame with the following columns: [attribute, variable, required, passed, message, value]
+        Takes a list of tests from the metadata specification and applies it to the metadata json structure
+        :param test_group: DataFrame of the group of tests required
+        :param metadata: JSON structure (dict) under test
+        :param variable: Variable being tested, 'global' for global dataset attributes
+        :param verbose: if True, will add attributes present in the dataset but not required by the standard.
+        :param results: a dict to store the results. If empty a new one will be created
+        :returns: result structure
         """
-        rich.print(f"#### Validating dataset {metadata['global']['title']} ####")
-        results = {
-            "attribute": [],
-            "variable": [],
-            "required": [],
-            "passed": [],
-            "message": [],
-            "value": []
-        }
+        if not results:
+            results = {
+                "attribute": [],
+                "variable": [],
+                "required": [],
+                "passed": [],
+                "message": [],
+                "value": []
+            }
+        attribute_col = test_group.columns[0]
 
         # Run Global Attributes test
-        for _, row in self.metadata.global_attr.iterrows():
-            attribute = row["Global Attributes"]
+        for _, row in test_group.iterrows():
+            attribute = row[attribute_col]
             test_name = row["Compliance test"]
             required = row["Required"]
 
@@ -196,14 +202,14 @@ class ErddapTester:
                 test_name, args = test_name.split("#")
                 args = args.split(",")  # comma-separated fields are args
 
-            self.run_test(test_name, args, attribute, metadata["global"], required, "global", results)
+            self.run_test(test_name, args, attribute, metadata, required, variable, results)
 
         if verbose:  # add all parameters not listed in the standard
-            checks = list(self.metadata.global_attr["Global Attributes"].values)
-            for key, value in metadata["global"].items():
+            checks = list(test_group[attribute_col].values)
+            for key, value in metadata.items():
                 if key not in checks:
                     results["attribute"].append(key)
-                    results["variable"].append("global")
+                    results["variable"].append(variable)
                     results["passed"].append("n/a")
                     results["required"].append("n/a")
                     results["message"].append("not defined")
@@ -211,38 +217,28 @@ class ErddapTester:
                     if type(value) == str and len(value) > 100:
                         value = value.strip()[:60] + "..."
                     results["value"].append(value)
+        return results
 
-        # Variable tests
+    def validate_dataset(self, metadata, verbose=True):
+        """
+        Takes the well-formatted JSON metadata from an ERDDAP dataset and processes it
+        :param metadata: well-formatted JSON metadta for an ERDDAP dataset
+        :return: a DataFrame with the following columns: [attribute, variable, required, passed, message, value]
+        """
+        rich.print(f"#### Validating dataset {metadata['global']['title']} ####")
+
+        # Test global attributes
+        results = self.test_group_handler(self.metadata.global_attr, metadata["global"], "global", verbose)
+
+        # Test every variable
         for varname, var_metadata in metadata["variables"].items():
-            for _, row in self.metadata.variable_attr.iterrows():
-                attribute = row["Variable Attributes"]
-                test_name = row["Compliance test"]
-                required = row["Required"]
-
-                if not test_name:
-                    rich.print(f"[yellow]WARNING: test for {attribute} not implemented!")
-                    continue
-
-                args = []
-                if "#" in test_name:
-                    test_name, args = test_name.split("#")
-                    args = args.split(",")  # comma-separated fields are args
-                self.run_test(test_name, args, attribute, metadata["variables"][varname], required, varname, results)
-
-            if verbose:  # add all parameters not listed in the standard
-                checks = list(self.metadata.variable_attr["Variable Attributes"].values)
-                for key, value in metadata["variables"][varname].items():
-                    if key not in checks:
-                        results["attribute"].append(key)
-                        results["variable"].append(varname)
-                        results["passed"].append("n/a")
-                        results["required"].append("n/a")
-                        results["message"].append("not defined")
-
-                        if type(value) == str and len(value) > 100:
-                            value = value.strip()[:60] + "..."
-                        results["value"].append(value)
-
+            results = self.test_group_handler(self.metadata.variable_attr, metadata["variables"][varname], varname,
+                                              verbose, results)
+        # Test every QC column
+        rich.print(self.metadata.qc_attr)
+        for varname, var_metadata in metadata["qc"].items():
+            results = self.test_group_handler(self.metadata.qc_attr, metadata["qc"][varname], varname,
+                                              verbose, results)
         df = pd.DataFrame(results)
         self.print_results(df, verbose=verbose)
         return df
@@ -291,7 +287,6 @@ class ErddapTester:
             raise ValueError(f"Unrecodgnized data type '{data_type}'...")
 
         return True, ""
-
 
     def __test_depth(self, value, args) -> (bool, str):
         # from mariana trench bottom (11km) to 1000 m above sea (enough for marine data)
@@ -393,4 +388,3 @@ class ErddapTester:
         Checks if value is in Climate and Forescast standard names
         """
         return False, "unimplemented"
-

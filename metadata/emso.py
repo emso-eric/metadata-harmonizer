@@ -207,6 +207,7 @@ class EmsoMetadata:
         tables = process_markdown_file(self.emso_metadata_file)
         self.global_attr = tables["Global Attributes"]
         self.variable_attr = tables["Variable Attributes"]
+        self.qc_attr = tables["Quality Control Attributes"]
 
         tables = process_markdown_file(self.oceansites_file)
         self.sensor_mount = tables["Sensor Mount"]
