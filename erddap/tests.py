@@ -86,19 +86,19 @@ class ErddapTester:
         console = Console()
         console.print(table)
 
-        total_tests = len(df)
-        total_passed = len(df[df["passed"] == True])
-        rich.print(f"Total tests passed: {total_passed} of {total_tests}")
-
         r = df[df["required"] == True]  # required test
         req_tests = len(r)
         req_passed = len(r[r["passed"] == True])
-        rich.print(f"Required tests passed: {req_tests} of {req_passed}")
 
         o = df[df["required"] == False]  # required test
         opt_tests = len(o)
         opt_passed = len(o[o["passed"] == True])
+
+        total_tests = len(df)
+        total_passed = len(df[df["passed"] == True])
+        rich.print(f"Required tests passed: {req_passed} of {req_tests}")
         rich.print(f"Required tests passed: {opt_passed} of {opt_tests}")
+        rich.print(f"   [bold]Total tests passed: {total_passed} of {total_tests}")
 
         def generate_bar_col(n):
             if n > 0.95:
@@ -210,9 +210,7 @@ class ErddapTester:
 
                     if type(value) == str and len(value) > 100:
                         value = value.strip()[:60] + "..."
-
                     results["value"].append(value)
-                    rich.print(f"adding '{value}'")
 
         # Variable tests
         for varname, var_metadata in metadata["variables"].items():
@@ -230,6 +228,20 @@ class ErddapTester:
                     test_name, args = test_name.split("#")
                     args = args.split(",")  # comma-separated fields are args
                 self.run_test(test_name, args, attribute, metadata["variables"][varname], required, varname, results)
+
+            if verbose:  # add all parameters not listed in the standard
+                checks = list(self.metadata.variable_attr["Variable Attributes"].values)
+                for key, value in metadata["variables"][varname].items():
+                    if key not in checks:
+                        results["attribute"].append(key)
+                        results["variable"].append(varname)
+                        results["passed"].append("n/a")
+                        results["required"].append("n/a")
+                        results["message"].append("not defined")
+
+                        if type(value) == str and len(value) > 100:
+                            value = value.strip()[:60] + "..."
+                        results["value"].append(value)
 
         df = pd.DataFrame(results)
         self.print_results(df, verbose=verbose)
