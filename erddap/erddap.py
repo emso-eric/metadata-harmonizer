@@ -56,7 +56,7 @@ class ERDDAP:
 
         return dataset_ids
 
-    def datasetet_metadata(self, dataset_id):
+    def dataset_metadata(self, dataset_id):
         """
         Formats from ERDDAP's ugly and disgusting JSON format to a nice, well-structured JSON
         :param url: ERDDAP url
@@ -78,7 +78,8 @@ class ERDDAP:
 
         metadata = {
             "global": {},
-            "variables": {}
+            "variables": {},
+            "qc": {}
         }
         for row in r["table"]["rows"]:
             # Each row is similar to: ['attribute', 'NC_GLOBAL', 'author', 'String', 'Enoc Martinez']
@@ -98,4 +99,11 @@ class ERDDAP:
                     metadata["variables"][param][attribute_key] = attribute_value  # process variable attribute
             else:
                 rich.print(f"WARNING could not process row {row}")
+
+        rich.print(metadata)
+
+        for key, var_metadata in metadata["variables"].copy().items():
+            if key.endswith("_QC") or key.endswith("_qc"):
+                metadata["qc"][key] = metadata["variables"].pop(key)
+        rich.print(metadata)
         return metadata

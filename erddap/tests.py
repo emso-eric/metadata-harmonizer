@@ -39,7 +39,6 @@ class ErddapTester:
         self.implemented_tests = {
             "data_type": self.__test_data_type,
             "coordinate": self.__test_coordinate,
-            "depth": self.__test_depth,
             "edmo_code": self.__test_edmo_code,
             "emso_site_code": self.__test_emso_site_code,
             "emso_facility": self.__test_emso_site_code,
@@ -50,7 +49,7 @@ class ErddapTester:
             "oceansites_sensor_orientation": self.__test_oceansites_sensor_orientation,
         }
 
-    def print_results(self, df):
+    def print_results(self, df, verbose=False):
         """
         Prints the results in a nice-looking table using rich
         :param df: DataFrame with test results
@@ -68,6 +67,8 @@ class ErddapTester:
             style = ""
             if row["message"] == "unimplemented":
                 style = Style(color="bright_black", bold=False)
+            elif row["message"] == "not defined":
+                style = Style(color="medium_purple4", bold=False)
             elif row["required"] and not row["passed"]:
                 style = Style(color="red", bold=True)
             elif row["passed"]:
@@ -148,7 +149,12 @@ class ErddapTester:
 
             value = metadata[attribute]
             test_method = self.implemented_tests[test_name]
-            passed, message = test_method(value, args) # apply test method
+
+            try:
+                passed, message = test_method(value, args)  # apply test method
+            except Exception as e:
+                rich.print(f"[red]Error when executing test '{test_name}' with arguments '{args}'")
+                raise e
 
         results["attribute"].append(attribute)
         results["variable"].append(varname)
@@ -159,7 +165,7 @@ class ErddapTester:
 
         return passed, message, value
 
-    def validate_dataset(self, metadata):
+    def validate_dataset(self, metadata, verbose=True):
         """
         Takes the well-formatted JSON metadata from an ERDDAP dataset and processes it
         :param metadata: well-formatted JSON metadta for an ERDDAP dataset
@@ -192,6 +198,22 @@ class ErddapTester:
 
             self.run_test(test_name, args, attribute, metadata["global"], required, "global", results)
 
+        if verbose:  # add all parameters not listed in the standard
+            checks = list(self.metadata.global_attr["Global Attributes"].values)
+            for key, value in metadata["global"].items():
+                if key not in checks:
+                    results["attribute"].append(key)
+                    results["variable"].append("global")
+                    results["passed"].append("n/a")
+                    results["required"].append("n/a")
+                    results["message"].append("not defined")
+
+                    if type(value) == str and len(value) > 100:
+                        value = value.strip()[:60] + "..."
+
+                    results["value"].append(value)
+                    rich.print(f"adding '{value}'")
+
         # Variable tests
         for varname, var_metadata in metadata["variables"].items():
             for _, row in self.metadata.variable_attr.iterrows():
@@ -210,7 +232,7 @@ class ErddapTester:
                 self.run_test(test_name, args, attribute, metadata["variables"][varname], required, varname, results)
 
         df = pd.DataFrame(results)
-        self.print_results(df)
+        self.print_results(df, verbose=verbose)
         return df
 
     # ---------------------- TEST METHODS ------------------------ #
@@ -258,13 +280,7 @@ class ErddapTester:
 
         return True, ""
 
-    def __test_date(self, value, args) -> (bool, str):
-        return False, "unimplemented"
 
-    def __test_datetime(self, value, args):
-        return False, "unimplemented"
-
-    # -------- coordinates -------- #
     def __test_depth(self, value, args) -> (bool, str):
         # from mariana trench bottom (11km) to 1000 m above sea (enough for marine data)
         __depth_limits = [-1000, 11000]
@@ -277,12 +293,32 @@ class ErddapTester:
         return True, ""
 
     def __test_coordinate(self, value, args) -> (bool, str):
+        """
+        Checks if a coordinate is valid. Within args a single string indicating "latitude" "longitude" or "depth" must
+        be passed
+        """
+
+        __cordinate_types = ["latitude", "longitude", "depth"]
+
+        if len(args) != 1:
+            raise SyntaxError("Coordinate type should be passed in args, e.g. 'P01'")
+
+        coordinate = args[0].lower()  # force lowercase
+        if coordinate not in __cordinate_types:
+            raise SyntaxError(f"Coordinate type should be 'latitude', 'longitude' or 'depth'")
         try:
             value = float(value)
         except ValueError:
             return False, f"Could not convert '{value}' to float"
-        if value < -90 or value > 90:
-            return False, "coordiante should be between -90 and +90"
+
+        if coordinate == "latitude" and (value < -90 or value > 90):
+            return False, "latitude should be between -90 and +90"
+        elif coordinate == "longitude" and (value < -180 or value > 180):
+            return False, "longitude should be between -90 and +90"
+        # depth is valid from a 2km tall mountain to the depths of the mariana trench
+        elif coordinate == "depth" and (value < -2000 or value > 11000):
+            return False, "depth should be between -2000 and 11000 metres"
+
         return True, ""
 
     # -------- Common formats -------- #
