@@ -44,7 +44,7 @@ def process_markdown_file(file) -> (dict, dict):
     Processes the Markdown file and parses their tables. Every table is returned as a pandas dataframe.
     :returns: a dict wher keys are table titles and values are dataframes with the info
     """
-    with open(file) as f:
+    with open(file, encoding="utf-8") as f:
         lines = f.readlines()
 
     title = ""
@@ -129,7 +129,7 @@ def download_files(tasks, force_download=False):
 
 
 def get_sdn_jsonld_ids(file, label):
-    with rich.progress.open(file, "rb", description=f"loading {label}") as f:
+    with open(file, encoding="utf-8") as f:
         data = json.load(f)
     ids = []
     for element in data["@graph"]:
@@ -140,7 +140,7 @@ def get_sdn_jsonld_ids(file, label):
 
 
 def get_standard_names(file):
-    with open(file) as f:
+    with open(file, encoding="utf-8") as f:
         data = json.load(f)
 
     names = []
@@ -151,7 +151,7 @@ def get_standard_names(file):
 
 
 def get_edmo_codes(file):
-    with open(file) as f:
+    with open(file, encoding="utf-8") as f:
         data = json.load(f)
 
     codes = []
