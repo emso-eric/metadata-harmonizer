@@ -45,6 +45,7 @@ class ErddapTester:
             "email": self.__test_email,
             "cf_standard_name": self.__test_cf_standard_name,
             "sdn_vocab_urn": self.__test_sdn_vocab_urn,
+            "sdn_vocab_name": self.__test_sdn_vocab_name,
             "oceansites_sensor_mount": self.__test_oceansites_sensor_mount,
             "oceansites_sensor_orientation": self.__test_oceansites_sensor_orientation,
         }
@@ -235,7 +236,6 @@ class ErddapTester:
             results = self.test_group_handler(self.metadata.variable_attr, metadata["variables"][varname], varname,
                                               verbose, results)
         # Test every QC column
-        rich.print(self.metadata.qc_attr)
         for varname, var_metadata in metadata["qc"].items():
             results = self.test_group_handler(self.metadata.qc_attr, metadata["qc"][varname], varname,
                                               verbose, results)
@@ -358,6 +358,9 @@ class ErddapTester:
             return True, ""
 
         return False, f"Not a valid '{vocab}' URN"
+
+    def __test_sdn_vocab_name(self, value, args):
+        return False, "unimplemented"
 
     def __test_emso_site_code(self, value, args):
         __valid_codes = ["Azores", "Black Sea", "Canary Islands", "Cretan Sea", "Hellenic Arc", "Iberian Margin",
