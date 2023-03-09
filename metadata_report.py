@@ -20,7 +20,7 @@ from metadata import EmsoMetadata
 
 if __name__ == "__main__":
     argparser = ArgumentParser()
-    argparser.add_argument("url", type=str, help="ERDDAP URL", default="")
+    argparser.add_argument("url", type=str, help="ERDDAP URL", default="", nargs='?')
     argparser.add_argument("-d", "--datasets", type=str, help="List of datasets to check", nargs="+", default=[])
     argparser.add_argument("-l", "--list", action="store_true", help="List dataset in ERDDAP and exit")
     argparser.add_argument("-p", "--print", action="store_true", help="Just pretty-print the metadata")
@@ -28,9 +28,19 @@ if __name__ == "__main__":
     argparser.add_argument("-f", "--from-file", type=str, help="Load metadata from a file")
     argparser.add_argument("-s", "--save-metadata", type=str, help="Save dataset's metadata into the specified folder",
                            default="")
+    argparser.add_argument("-c", "--clear", action="store_true", help="Clears downloaded files")
 
     args = argparser.parse_args()
-    rich.print(f"Analyzing ERDDAP services {args.url}")
+
+    if args.clear:
+        rich.print("Clearing downloaded files...", end="")
+        EmsoMetadata.clear_downloads()
+        rich.print("[green]done")
+        exit()
+
+    if not args.url:
+        rich.print("[red]ERDDAP URL required!")
+        exit()
 
     erddap = ERDDAP(args.url)
 

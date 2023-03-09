@@ -229,3 +229,13 @@ class EmsoMetadata:
         self.standard_names = get_standard_names(self.standard_names_file)
         self.edmo_codes = get_edmo_codes(self.edmo_codes_file)
 
+    @staticmethod
+    def clear_downloads():
+        """
+        Clears all files in .emso folder
+        """
+        files = os.listdir(".emso")
+        for f in files:
+            if os.path.isfile(f):
+                os.remove(os.path.join(".emso", f))
+
