@@ -72,10 +72,7 @@ class ERDDAP:
             }
         """
         metadata_url = f"{self.url}/info/{dataset_id}/index.json"
-        rich.print(f"Getting metadata from '{metadata_url}'...", end="")
         r = self.get(metadata_url)
-        rich.print(f"[green]ok")
-
         metadata = {
             "global": {},
             "variables": {},
@@ -100,10 +97,7 @@ class ERDDAP:
             else:
                 rich.print(f"WARNING could not process row {row}")
 
-        rich.print(metadata)
-
         for key, var_metadata in metadata["variables"].copy().items():
             if key.endswith("_QC") or key.endswith("_qc"):
                 metadata["qc"][key] = metadata["variables"].pop(key)
-        rich.print(metadata)
         return metadata

@@ -13,10 +13,11 @@ import json
 import os
 from argparse import ArgumentParser
 import rich
-import requests
+import time
 from erddap import ErddapTester, ERDDAP
 
 from metadata import EmsoMetadata
+from metadata.emso import threadify
 
 if __name__ == "__main__":
     argparser = ArgumentParser()
@@ -75,7 +76,10 @@ if __name__ == "__main__":
         datasets_metadata = [metadata]  # an array with only one value
     else:
         # Get all Metadata from all datasets
-        datasets_metadata = [erddap.dataset_metadata(dataset_id) for dataset_id in datasets]
+        t = time.time()
+        tasks = [(dataset_id,) for dataset_id in datasets]
+        datasets_metadata = threadify(tasks, erddap.dataset_metadata, text="Getting metadata from ERDDAP...", max_threads=3)
+        rich.print(f"Getting metadata took {time.time() - t:.02f} seconds")
 
     if args.print:
         for d in datasets:
@@ -84,8 +88,72 @@ if __name__ == "__main__":
 
     tests = ErddapTester()
 
+    total = []
+    required = []
+    optional = []
+    institution = []
     for i in range(len(datasets_metadata)):
         metadata = datasets_metadata[i]
-        tests.validate_dataset(metadata, verbose=args.verbose)
-        if i < len(datasets_metadata) - 1:
-            input("press key to analyze next dataset...\n")
+        r = tests.validate_dataset(metadata, verbose=args.verbose)
+        total.append(100*r["total"])
+        required.append(100*r["required"])
+        optional.append(100*r["optional"])
+        institution.append(r["institution"])
+
+
+    import pandas as pd
+
+    tests = pd.DataFrame(
+        {
+            "total": total,
+            "required": required,
+            "optional": optional,
+            "institution": institution
+        })
+
+    tests.to_csv("report.csv", index=False)
+    #
+    # institutions = tests["institution"].unique()
+    # rich.print(institutions)
+    # alltests = tests.copy()
+    # for ins in institutions:
+    #     tests = alltests["institution" == ins]
+    #     import seaborn as sns
+    #     import matplotlib.pyplot as plt
+    #     sns.set(style="whitegrid")
+    #
+    #     fig, axd = plt.subplot_mosaic([['left', 'right'], ['bottom', 'bottom']],
+    #                                   constrained_layout=True)
+    #
+    #
+    #     ax2 = axd['left']
+    #     ax3 = axd['right']
+    #     ax1 = axd['bottom']
+    #
+    #     ax1.set_title("Total tests")
+    #     ax2.set_title("Required tests")
+    #     ax3.set_title("Optional tests")
+    #
+    #     bindwitdh=5
+    #     sns.histplot(data=tests, x="total", ax=ax1, binwidth=bindwitdh)
+    #     sns.histplot(data=tests, x="required", ax=ax2, binwidth=bindwitdh)
+    #     sns.histplot(data=tests, x="optional", ax=ax3, binwidth=bindwitdh)
+    #     ax1.set_xlim([0, 100])
+    #     ax2.set_xlim([0, 100])
+    #     ax3.set_xlim([0, 100])
+    #
+    #     [ax.set_xlabel("tests passed (%)") for ax in [ax1, ax2, ax3]]
+    #     [ax.set_ylabel("number of tests") for ax in [ax1, ax2, ax3]]
+    #
+    #
+    #
+    #     import numpy as np
+    #
+    #     total = np.array(total)
+    #     required = np.array(required)
+    #     optional = np.array(optional)
+    #     fig.suptitle(ins, fontsize=14)
+    #
+    #     print(f"total median: {np.median(total)}")
+    #     print(f"total mean: {np.mean(total)}")
+    # plt.show()

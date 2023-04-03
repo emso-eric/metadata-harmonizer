@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 """
+This file implements the tests to ensure that a dataset is harmonized. To include a new tests simply add a new method
+like
+ my_new_test(self, value, args) -> (bool, str)
 
 author: Enoc Martínez
 institution: Universitat Politècnica de Catalunya (UPC)
@@ -16,6 +19,8 @@ from rich.progress import Progress
 import pandas as pd
 import re
 from metadata import EmsoMetadata
+import inspect
+import numpy as np
 
 
 class ErddapTester:
@@ -30,27 +35,30 @@ class ErddapTester:
 
         self.metadata = EmsoMetadata(True)
 
-        self.__config_file = "EMSO_metadata.md"
-        self.global_tests = []  # tests to be applied to global attributes
-        self.variable_tests = []  # tests to be applied to variable attributes
+        self.implemented_tests = {}
+        for name, element in inspect.getmembers(self):
+            if name == "validate_dataset":  # exclude validate dataset from tests
+                continue
+            # Assume that all methods not starting with "_" are tests!
+            elif inspect.ismethod(element) and not name.startswith("_"):
+                self.implemented_tests[name] = element
 
-        # This dict assigns a key (or test name) with a method within this class.
-        # To implement a new test add a new
-        self.implemented_tests = {
-            "data_type": self.__test_data_type,
-            "coordinate": self.__test_coordinate,
-            "edmo_code": self.__test_edmo_code,
-            "emso_site_code": self.__test_emso_site_code,
-            "emso_facility": self.__test_emso_site_code,
-            "email": self.__test_email,
-            "cf_standard_name": self.__test_cf_standard_name,
-            "sdn_vocab_urn": self.__test_sdn_vocab_urn,
-            "sdn_vocab_name": self.__test_sdn_vocab_name,
-            "oceansites_sensor_mount": self.__test_oceansites_sensor_mount,
-            "oceansites_sensor_orientation": self.__test_oceansites_sensor_orientation,
-        }
+        rich.print(f"Currently there are {len(self.implemented_tests)} tests implemented")
 
-    def print_results(self, df, verbose=False):
+        # ensure that all required test are implemented...
+        all_tests = list(self.metadata.global_attr["Compliance test"].values)
+        all_tests += list(self.metadata.variable_attr["Compliance test"].values)
+        all_tests = [value.split("#")[0] for value in all_tests]
+        all_tests = np.unique(all_tests)
+        error = False
+        for test in all_tests:
+            if test not in self.implemented_tests.keys():
+                rich.print(f"[red]ERROR test {test} not implemented!")
+                error = True
+        if error:
+            raise ValueError("Some tests are not implemented")
+
+    def __process_results(self, df, verbose=False):
         """
         Prints the results in a nice-looking table using rich
         :param df: DataFrame with test results
@@ -126,7 +134,13 @@ class ErddapTester:
             progress.update(total_task, advance=total_passed)
             progress.stop()
 
-    def run_test(self, test_name, args, attribute: str, metadata, required, varname, results) -> (bool, str, any):
+        return {
+            "total": total_passed/total_tests,
+            "required": req_passed / req_tests,
+            "optional": opt_passed/opt_tests
+        }
+
+    def __run_test(self, test_name, args, attribute: str, metadata, required, multiple, varname, results) -> (bool, str, any):
         """
         Applies the method test to the dict data and stores the output into results
         :param test_name: Name of the test tp apply
@@ -134,6 +148,7 @@ class ErddapTester:
         :param attribute: name of the attribute to be tested
         :param metadata: dict with the metadata being tested
         :param required: flag indicating if test is mandatory
+        :param multiple: If set, multiple values separated by ; are allowed for this metadata field
         :param varname: variable name for the applied test (global for generic dataset metadata)
         :param results: dict with arrays to store the results of the tests
         :return: a tuple with (bool, str, any). Boolean indicates success, str is an error message and any is the value
@@ -149,13 +164,34 @@ class ErddapTester:
                 raise LookupError(f"Test {test_name} not found")
 
             value = metadata[attribute]
-            test_method = self.implemented_tests[test_name]
 
-            try:
-                passed, message = test_method(value, args)  # apply test method
-            except Exception as e:
-                rich.print(f"[red]Error when executing test '{test_name}' with arguments '{args}'")
-                raise e
+            if type(value) == str and ";" in value:
+                values = value.split(";")  # split multiple values
+            else:
+                values = [value]
+
+            if len(values) > 1 and not multiple:
+                # got multiple values for a single-value test!
+                passed = False
+                message = f"Got {len(values)} values for a single-value test"
+            else:
+                messages = []
+                passed_flags = []
+                for v in values:
+                    test_method = self.implemented_tests[test_name]
+                    try:
+                        p, m = test_method(v, args)  # apply test method
+                    except Exception as e:
+                        rich.print(f"[red]Error when executing test '{test_name}' with arguments '{args}' and value '{v}'")
+                        raise e
+                    if m == "":
+                        m = "ok"
+                    messages.append(m)
+                    passed_flags.append(p)
+                message = "; ".join(messages)
+                passed = True
+                for p in passed_flags:
+                    passed *= p  # multiple for every flag
 
         results["attribute"].append(attribute)
         results["variable"].append(varname)
@@ -163,11 +199,10 @@ class ErddapTester:
         results["required"].append(required)
         results["message"].append(message)
         results["value"].append(value)
-
         return passed, message, value
 
-    def test_group_handler(self, test_group: pd.DataFrame, metadata: dict, variable: str, verbose: bool, results={}
-                           ) -> dict:
+    def __test_group_handler(self, test_group: pd.DataFrame, metadata: dict, variable: str, verbose: bool, results={}
+                             ) -> dict:
         """
         Takes a list of tests from the metadata specification and applies it to the metadata json structure
         :param test_group: DataFrame of the group of tests required
@@ -193,6 +228,7 @@ class ErddapTester:
             attribute = row[attribute_col]
             test_name = row["Compliance test"]
             required = row["Required"]
+            multiple = row["Multiple"]
 
             if not test_name:
                 rich.print(f"[yellow]WARNING: test for {attribute} not implemented!")
@@ -203,7 +239,7 @@ class ErddapTester:
                 test_name, args = test_name.split("#")
                 args = args.split(",")  # comma-separated fields are args
 
-            self.run_test(test_name, args, attribute, metadata, required, variable, results)
+            self.__run_test(test_name, args, attribute, metadata, required, multiple, variable, results)
 
         if verbose:  # add all parameters not listed in the standard
             checks = list(test_group[attribute_col].values)
@@ -229,27 +265,200 @@ class ErddapTester:
         rich.print(f"#### Validating dataset {metadata['global']['title']} ####")
 
         # Test global attributes
-        results = self.test_group_handler(self.metadata.global_attr, metadata["global"], "global", verbose)
+        results = self.__test_group_handler(self.metadata.global_attr, metadata["global"], "global", verbose)
 
         # Test every variable
         for varname, var_metadata in metadata["variables"].items():
-            results = self.test_group_handler(self.metadata.variable_attr, metadata["variables"][varname], varname,
-                                              verbose, results)
+            results = self.__test_group_handler(self.metadata.variable_attr, metadata["variables"][varname], varname,
+                                                verbose, results)
         # Test every QC column
         for varname, var_metadata in metadata["qc"].items():
-            results = self.test_group_handler(self.metadata.qc_attr, metadata["qc"][varname], varname,
-                                              verbose, results)
+            results = self.__test_group_handler(self.metadata.qc_attr, metadata["qc"][varname], varname,
+                                                verbose, results)
         df = pd.DataFrame(results)
-        self.print_results(df, verbose=verbose)
-        return df
+        r = self.__process_results(df, verbose=verbose)
+        r["institution"] = metadata["global"]["institution"]
+        return r
 
-    # ---------------------- TEST METHODS ------------------------ #
+    # ------------------------------------------------ TEST METHODS -------------------------------------------------- #
     # Test methods implement checks to be applied to a group metadata attributes, such as coordinates or valid email.
     # All tests should return a tuple (bool, str) tuple. The bool indicates success (true/false), while the message str
     # indicates in plain text the reason why the test failed. If the test successfully passes sucess, the return str
     # should be empty.
-    # ------------------------------------------------------- #
-    def __test_data_type(self, value, args) -> (bool, str):
+    # ---------------------------------------------------------------------------------------------------------------- #
+
+    # ------------ EDMO -------- #
+    def edmo_code(self, value, args):
+        if type(value) == str:
+            rich.print("[yellow]WARNING: EDMO code should be integer! converting from string to int")
+            value = int(value)
+        if value in self.metadata.edmo_codes:
+            return True, ""
+        return False, f"'{value}' is not a valid EDMO code"
+
+    def edmo_uri(self, value, args):
+        if type(value) != str:
+            return False, "EDMO URI should be a string"
+
+        uri = value.replace("http", "https")  # make sure to use http
+        if uri.endswith("/"):
+            uri = uri[:-1] # remove ending /
+
+        code = int(uri.split("/")[-1])
+
+        if not uri.startswith("https://edmo.seadatanet.org/report") and code in self.metadata.edmo_codes:
+            return True, ""
+
+        return False, f"'{value}' is not a valid EDMO code"
+
+    # -------- SeaDataNet -------- #
+    def sdn_vocab_urn(self, value, args):
+        """
+        Tests that the value is a valid URN for a specific SeaDataNet Vocabulary. the vocab should be specified in *args
+        """
+        if len(args) != 1:
+            raise SyntaxError("Vocabulary identifier should be passed in args, e.g. 'P01'")
+        vocab = args[0]
+
+        if vocab not in self.metadata.sdn_vocabs_ids.keys():
+            raise ValueError(f"Vocabulary '{vocab}' not loaded! Loaded vocabs are {self.metadata.sdn_vocabs_ids.keys()}")
+
+        if value in self.metadata.sdn_vocabs_ids[vocab]:
+            return True, ""
+
+        return False, f"Not a valid '{vocab}' URN"
+
+    def sdn_vocab_pref_label(self, value, args):
+        """
+        Tests that the value is a valid prefered label for a SeaDataNet Vocabulary. the vocab should be specified in
+        *args
+        """
+        if len(args) != 1:
+            raise SyntaxError("Vocabulary identifier should be passed in args, e.g. 'P01'")
+        vocab = args[0]
+
+        if vocab not in self.metadata.sdn_vocabs_pref_label.keys():
+            raise ValueError(f"Vocabulary '{vocab}' not loaded! Loaded vocabs are {self.metadata.sdn_vocabs_pref_label.keys()}")
+
+        if value in self.metadata.sdn_vocabs_pref_label[vocab]:
+            return True, ""
+
+        return False, f"Not a valid '{vocab}' prefered label"
+
+    def cf_standard_name(self, value, args):
+        """
+        Tests that the value is a valid prefered label for a SeaDataNet Vocabulary. the vocab should be specified in
+        *args
+        """
+        vocab = "P07"
+        if vocab not in self.metadata.sdn_vocabs_pref_label.keys():
+            raise ValueError(f"Vocabulary '{vocab}' not loaded! Loaded vocabs are {self.metadata.sdn_vocabs_pref_label.keys()}")
+
+        if value in self.metadata.sdn_vocabs_pref_label[vocab]:
+            return True, ""
+        return False, f"Not a valid '{vocab}' prefered label"
+
+    def sdn_vocab_uri(self, value, args):
+        """
+        Tests that the value is a valid URI for a SeaDataNet Vocabulary. the vocab should be specified in
+        *args
+        """
+        if len(args) != 1:
+            raise SyntaxError("Vocabulary identifier should be passed in args, e.g. 'P01'")
+        vocab = args[0]
+
+        uri = value.replace("https", "http")  # make sure to use http
+        if not uri.endswith("/"):
+            uri += "/"  # make sure that the uri ends with /
+
+        if vocab not in self.metadata.sdn_vocabs_uris.keys():
+            raise ValueError(f"Vocabulary '{vocab}' not loaded! Loaded vocabs are {self.metadata.sdn_vocabs_uris.keys()}")
+
+        if value in self.metadata.sdn_vocabs_uris[vocab]:
+            return True, ""
+
+        return False, f"Not a valid '{vocab}' URN"
+
+    # --------- OceanSITES -------- #
+    def oceansites_sensor_mount(self, value, args):
+        if value in self.metadata.oceansites_sensor_mount:
+            return True, ""
+        return False, f"Sensor mount not valid, valid values are {self.metadata.oceansites_sensor_mount}"
+
+    def oceansites_sensor_orientation(self, value, args):
+        if value in self.metadata.oceansites_sensor_orientation:
+            return True, ""
+        return False, f"Sensor orientation not valid, valid values are {self.metadata.oceansites_sensor_orientation}"
+
+    def oceansites_data_type(self, value, args):
+        if value in self.metadata.oceansites_data_types:
+            return True, ""
+        return False, f"Data type not valid, valid values are {self.metadata.oceansites_data_types}"
+
+    def oceansites_data_mode(self, value, args):
+        if value in self.metadata.oceansites_data_modes:
+            return True, ""
+        return False, f"Data mode not valid, valid values are {self.metadata.oceansites_data_modes}"
+
+    # -------- EMSO Data -------- #
+    def emso_facility(self, value, args):
+        if value in self.metadata.emso_regional_facilities:
+            return True, ""
+        return False, f"not a valid EMSO Regional Facility"
+
+    def emso_site_code(self, value, args):
+        if value in self.metadata.emso_sites:
+            return True, ""
+        return False, f"not a valid EMSO site"
+
+    # -------- SPDX Licenses -------- #
+    def spdx_license_name(self, value, args):
+        if value in self.metadata.spdx_license_names:
+            return True, ""
+        return False, "Not a valid SPDX license code"
+
+    def spdx_license_uri(self, value, args):
+        value = value.replace("http://", "https://")  # ensure https
+        value = value.replace(".jsonld", "").replace(".json", "").replace(".html", "")  # delete format
+        if value in self.metadata.spdx_license_uris:
+            return True, ""
+        return False, f"Not a valid SDPX license uri '{value}' {self.metadata.spdx_license_uris[91:93]}"
+
+    # -------- Geospatial Coordinates -------- #
+    def coordinate(self, value, args) -> (bool, str):
+        """
+        Checks if a coordinate is valid. Within args a single string indicating "latitude" "longitude" or "depth" must
+        be passed
+        """
+        __cordinate_types = ["latitude", "longitude", "depth"]
+        if len(args) != 1:
+            raise SyntaxError("Coordinate type should be passed in args, e.g. 'P01'")
+
+        coordinate = args[0].lower()  # force lowercase
+        if coordinate not in __cordinate_types:
+            raise SyntaxError(f"Coordinate type should be 'latitude', 'longitude' or 'depth'")
+        try:
+            value = float(value)
+        except ValueError:
+            return False, f"Could not convert '{value}' to float"
+
+        if coordinate == "latitude" and (value < -90 or value > 90):
+            return False, "latitude should be between -90 and +90"
+        elif coordinate == "longitude" and (value < -180 or value > 180):
+            return False, "longitude should be between -90 and +90"
+        # depth is valid from a 2km tall mountain to the depths of the mariana trench
+        elif coordinate == "depth" and (value < -2000 or value > 11000):
+            return False, "depth should be between -2000 and 11000 metres"
+
+        return True, ""
+
+    # --------- Other tests -------- #
+    def equals(self, value, args):
+        if value == args[0]:
+            return True, ""
+        return False, f"expected value {args[0]}"
+
+    def data_type(self, value, args) -> (bool, str):
         """
         Check if value is of the exepcted type.
         :param value: value to be tested
@@ -288,106 +497,13 @@ class ErddapTester:
 
         return True, ""
 
-    def __test_depth(self, value, args) -> (bool, str):
-        # from mariana trench bottom (11km) to 1000 m above sea (enough for marine data)
-        __depth_limits = [-1000, 11000]
-        try:
-            value = float(value)
-        except ValueError:
-            return False, f"Could not convert '{value}' to float"
-        if value < __depth_limits[0] or value > __depth_limits[1]:
-            return False, f"Valid depth range {__depth_limits}"
-        return True, ""
-
-    def __test_coordinate(self, value, args) -> (bool, str):
-        """
-        Checks if a coordinate is valid. Within args a single string indicating "latitude" "longitude" or "depth" must
-        be passed
-        """
-
-        __cordinate_types = ["latitude", "longitude", "depth"]
-
-        if len(args) != 1:
-            raise SyntaxError("Coordinate type should be passed in args, e.g. 'P01'")
-
-        coordinate = args[0].lower()  # force lowercase
-        if coordinate not in __cordinate_types:
-            raise SyntaxError(f"Coordinate type should be 'latitude', 'longitude' or 'depth'")
-        try:
-            value = float(value)
-        except ValueError:
-            return False, f"Could not convert '{value}' to float"
-
-        if coordinate == "latitude" and (value < -90 or value > 90):
-            return False, "latitude should be between -90 and +90"
-        elif coordinate == "longitude" and (value < -180 or value > 180):
-            return False, "longitude should be between -90 and +90"
-        # depth is valid from a 2km tall mountain to the depths of the mariana trench
-        elif coordinate == "depth" and (value < -2000 or value > 11000):
-            return False, "depth should be between -2000 and 11000 metres"
-
-        return True, ""
-
-    # -------- Common formats -------- #
-    def __test_email(self, value, args) -> (bool, str):
+    def email(self, value, args) -> (bool, str):
         if len(value) > 7:
-            if not re.match("[^@ \t\r\n]+@[^@ \t\r\n]+\.[^@ \t\r\n]+", value):
+            if re.match("^.+@(\[?)[a-zA-Z0-9-.]+.([a-zA-Z]{2,3}|[0-9]{1,3})(]?)$", value):
                 return True, ""
-            return False, f"email '{value} not valid"
+        return False, f"email '{value}' not valid"
 
-    def __test_edmo_code(self, value, args):
-        if type(value) == str:
-            rich.print("[yellow]WARNING: EDMO code should be integer! converting from string to int")
-            value = int(value)
-        if value in self.metadata.edmo_codes:
+    def valid_doi(self, value, args) -> (bool, str):
+        if re.match("^(10\.\d{4,5}\/[\S]+[^;,.\s])$ ", value):
             return True, ""
-        return False, f"'{value}' is not a valid EDMO code"
-
-    def __test_sdn_vocab_urn(self, value, args):
-        """
-        Tests that the value is a valid URN for a specific SeaDataNet Vocabulary. the vocab should be specified in *args
-        """
-        if len(args) != 1:
-            raise SyntaxError("Vocabulary identifier should be passed in args, e.g. 'P01'")
-        vocab = args[0]
-
-        if vocab not in self.metadata.sdn_vocabs.keys():
-            raise ValueError(f"Vocabulary '{vocab}' not loaded! Loaded vocabs are {self.metadata.sdn_vocabs.keys()}")
-
-        if value in self.metadata.sdn_vocabs[vocab]:
-            return True, ""
-
-        return False, f"Not a valid '{vocab}' URN"
-
-    def __test_sdn_vocab_name(self, value, args):
-        return False, "unimplemented"
-
-    def __test_emso_site_code(self, value, args):
-        __valid_codes = ["Azores", "Black Sea", "Canary Islands", "Cretan Sea", "Hellenic Arc", "Iberian Margin",
-                         "Ligurian Sea", "Molène", "OBSEA", "SmartBay", "South Adriatic Sea", "Western Ionian",
-                         "Western Mediterranean Sea"]
-        if value not in __valid_codes:
-            return False, "EMSO site code not valid"
-
-        return True, ""
-
-    def __test_cf_standard_name(self, value, args):
-        """
-        Checks if value is in Climate and Forescast standard names
-        """
-        if value in self.metadata.standard_names:
-            return True, ""
-
-        return False, "Not a valid CF Standard Name"
-
-    def __test_oceansites_sensor_mount(self, value, args):
-        """
-        Checks if value is in OceanSites sensor mount table
-        """
-        return False, "unimplemented"
-
-    def __test_oceansites_sensor_orientation(self, value, args):
-        """
-        Checks if value is in Climate and Forescast standard names
-        """
-        return False, "unimplemented"
+        return False, f"DOI '{value}' not valid"
