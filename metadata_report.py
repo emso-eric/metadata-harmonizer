@@ -15,7 +15,7 @@ from argparse import ArgumentParser
 import rich
 import time
 from erddap import ErddapTester, ERDDAP
-
+import pandas as pd
 from metadata import EmsoMetadata
 from metadata.emso import threadify
 
@@ -29,6 +29,8 @@ if __name__ == "__main__":
     argparser.add_argument("-f", "--from-file", type=str, help="Load metadata from a file")
     argparser.add_argument("-s", "--save-metadata", type=str, help="Save dataset's metadata into the specified folder",
                            default="")
+    argparser.add_argument("-o", "--output", type=str, help="File to store the results as CSV", default="")
+
     argparser.add_argument("-c", "--clear", action="store_true", help="Clears downloaded files")
 
     args = argparser.parse_args()
@@ -100,60 +102,14 @@ if __name__ == "__main__":
         optional.append(100*r["optional"])
         institution.append(r["institution"])
 
-
-    import pandas as pd
-
-    tests = pd.DataFrame(
-        {
-            "total": total,
-            "required": required,
-            "optional": optional,
-            "institution": institution
-        })
-
-    tests.to_csv("report.csv", index=False)
-    #
-    # institutions = tests["institution"].unique()
-    # rich.print(institutions)
-    # alltests = tests.copy()
-    # for ins in institutions:
-    #     tests = alltests["institution" == ins]
-    #     import seaborn as sns
-    #     import matplotlib.pyplot as plt
-    #     sns.set(style="whitegrid")
-    #
-    #     fig, axd = plt.subplot_mosaic([['left', 'right'], ['bottom', 'bottom']],
-    #                                   constrained_layout=True)
-    #
-    #
-    #     ax2 = axd['left']
-    #     ax3 = axd['right']
-    #     ax1 = axd['bottom']
-    #
-    #     ax1.set_title("Total tests")
-    #     ax2.set_title("Required tests")
-    #     ax3.set_title("Optional tests")
-    #
-    #     bindwitdh=5
-    #     sns.histplot(data=tests, x="total", ax=ax1, binwidth=bindwitdh)
-    #     sns.histplot(data=tests, x="required", ax=ax2, binwidth=bindwitdh)
-    #     sns.histplot(data=tests, x="optional", ax=ax3, binwidth=bindwitdh)
-    #     ax1.set_xlim([0, 100])
-    #     ax2.set_xlim([0, 100])
-    #     ax3.set_xlim([0, 100])
-    #
-    #     [ax.set_xlabel("tests passed (%)") for ax in [ax1, ax2, ax3]]
-    #     [ax.set_ylabel("number of tests") for ax in [ax1, ax2, ax3]]
-    #
-    #
-    #
-    #     import numpy as np
-    #
-    #     total = np.array(total)
-    #     required = np.array(required)
-    #     optional = np.array(optional)
-    #     fig.suptitle(ins, fontsize=14)
-    #
-    #     print(f"total median: {np.median(total)}")
-    #     print(f"total mean: {np.mean(total)}")
-    # plt.show()
+    if args.output:
+        rich.print(f"Storing tests results in {args.output}...", end="")
+        tests = pd.DataFrame(
+            {
+                "total": total,
+                "required": required,
+                "optional": optional,
+                "institution": institution
+            })
+        tests.to_csv(args.output, index=False)
+        rich.print("[green]done")
