@@ -12,6 +12,7 @@ import os
 import urllib
 import ssl
 import rich
+from rich.progress import Progress
 import pandas as pd
 import json
 import concurrent.futures as futures
@@ -24,7 +25,7 @@ emso_metadata_url = f"https://gitlab.emso.eu/Martinez/emso-metadata-specificatio
 oceansites_codes_url = f"https://gitlab.emso.eu/Martinez/emso-metadata-specification/-/raw/{emso_version}/OceanSites_codes.md"
 emso_codes_url = f"https://gitlab.emso.eu/Martinez/emso-metadata-specification/-/raw/{emso_version}/EMSO_codes.md"
 
-sdn_vocab_p01 = "https://vocab.nerc.ac.uk/collection/P01/current/?_profile=nvs&_mediatype=application/ld+json"
+sdn_vocab_p01 = "https://vocab.nerc.ac.uk/downloads/publish/P01.json"
 sdn_vocab_p02 = "https://vocab.nerc.ac.uk/collection/P02/current/?_profile=nvs&_mediatype=application/ld+json"
 sdn_vocab_p06 = "https://vocab.nerc.ac.uk/collection/P06/current/?_profile=nvs&_mediatype=application/ld+json"
 sdn_vocab_p07 = "https://vocab.nerc.ac.uk/collection/P07/current/?_profile=nvs&_mediatype=application/ld+json"
@@ -126,7 +127,7 @@ def threadify(arg_list, handler, max_threads=10, text: str = "progress..."):
             index += 1
 
         # wait for all threads to end
-        with rich.progress.Progress() as progress:  # Use Progress() to show a nice progress bar
+        with Progress() as progress:  # Use Progress() to show a nice progress bar
             task = progress.add_task(text, total=index)
             for future in futures.as_completed(threads):
                 future_result = future.result()  # result of the handler
@@ -142,11 +143,9 @@ def threadify(arg_list, handler, max_threads=10, text: str = "progress..."):
         return final_results
 
 
-
 def download_files(tasks, force_download=False):
     if len(tasks) == 1:
         return None
-
     rich.print("Downloading files...")
     args = []
     for url, file, name in tasks:
@@ -211,6 +210,7 @@ def get_edmo_codes(file):
 
 class EmsoMetadata:
     def __init__(self, force_update=False):
+
         self.__folder = ".emso"
         os.makedirs(".emso", exist_ok=True)  # create a conf dir to store Markdown and other stuff
         ssl._create_default_https_context = ssl._create_unverified_context
@@ -268,7 +268,7 @@ class EmsoMetadata:
         # remove extra '[' ']' in license identifiers
         new_ids = [value.replace("[", "").replace("]", "") for value in t["Short Identifier"]]
         self.spdx_license_names = new_ids
-        self.spdx_license_uris = [f"https://spdx.org/licenses/{lic}" for lic in self.spdx_license_names]
+        self.spdx_license_uris = {lic: f"https://spdx.org/licenses/{lic}" for lic in self.spdx_license_names}
 
         rich.print("Loading SeaDataNet vocabularies...")
         sdn_vocabs = {
@@ -285,44 +285,27 @@ class EmsoMetadata:
         self.sdn_vocabs_ids = {}
         self.sdn_vocabs_pref_label = {}
         self.sdn_vocabs_uris = {}
+        self.sdn_vocabs = {}
+        self.sdn_vocabs_narrower = {}
+        self.sdn_vocabs_broader = {}
+        self.sdn_vocabs_related = {}
 
         t = time.time()
         # Process raw SeaDataNet JSON-ld files and store them sliced in short JSON files
         for vocab, filename in sdn_vocabs.items():
-            preflabel = os.path.join(self.__folder, f"{vocab}_sdn_pref_label.json")
-            uris = os.path.join(self.__folder, f"{vocab}_sdn_uris.json")
-            urns = os.path.join(self.__folder, f"{vocab}_sdn_urn.json")
+            rich.print(f"Loading SDN {vocab}...", end="")
+            df, narrower, broader, related = self.load_sdn_vocab(filename)
+            self.sdn_vocabs[vocab] = df
+            self.sdn_vocabs_narrower[vocab] = narrower
+            self.sdn_vocabs_broader[vocab] = broader
+            self.sdn_vocabs_related[vocab] = related
+            rich.print("[green]done!")
 
-            # Process and store prefered labels
-            if not os.path.exists(preflabel):
-                self.sdn_vocabs_pref_label[vocab] = get_sdn_jsonld_pref_label(filename)
-                with open(preflabel, "w") as f:
-                    f.write(json.dumps(self.sdn_vocabs_pref_label[vocab]))
+        for vocab, df in self.sdn_vocabs.items():
+            self.sdn_vocabs_pref_label[vocab] = df["prefLabel"].values
+            self.sdn_vocabs_ids[vocab] = df["id"].values
+            self.sdn_vocabs_uris[vocab] = df["uri"].values
 
-            # Process and store URNs (or identifiers)
-            if not os.path.exists(uris):
-                with open(urns, "w") as f:
-                    self.sdn_vocabs_ids[vocab] = get_sdn_jsonld_ids(filename)
-                    f.write(json.dumps(self.sdn_vocabs_ids[vocab]))
-
-            # Process and store URIs
-            if not os.path.exists(uris):
-                with open(uris, "w") as f:
-                    self.sdn_vocabs_uris[vocab] = get_sdn_jsonld_uri(filename)
-                    f.write(json.dumps(self.sdn_vocabs_uris[vocab]))
-        rich.print(f"[purple]Slice and store took {time.time() - t:.02f} seconds")
-
-        t = time.time()
-        for vocab, _ in sdn_vocabs.items():
-            preflabel = os.path.join(self.__folder, f"{vocab}_sdn_pref_label.json")
-            urns = os.path.join(self.__folder, f"{vocab}_sdn_urn.json")
-            uris = os.path.join(self.__folder, f"{vocab}_sdn_uris.json")
-            with open(preflabel) as f:
-                self.sdn_vocabs_pref_label[vocab] = json.load(f)
-            with open(urns) as f:
-                self.sdn_vocabs_ids[vocab] = json.load(f)
-            with open(uris) as f:
-                self.sdn_vocabs_uris[vocab] = json.load(f)
         rich.print(f"[purple]Load SDN prefered labels, URIs and Identifiers took {time.time() - t:.02f} seconds")
 
         edmo_file = os.path.join(self.__folder, f"edmo_codes_sliced.json")
@@ -344,4 +327,132 @@ class EmsoMetadata:
         for f in files:
             if os.path.isfile(f):
                 os.remove(os.path.join(".emso", f))
+
+    @staticmethod
+    def load_sdn_vocab(filename):
+        """
+        Loads a SDN vocab into a pandas dataframe
+        """
+        with open(filename, encoding="utf-8") as f:
+            contents = json.load(f)
+
+        data = {
+            "@id": [],
+            "dce:identifier": [],
+            "prefLabel": [],
+            "definition": []
+        }
+        narrower = {}
+        broader = {}
+        related = {}
+        for element in contents["@graph"]:
+            uri = element["@id"]
+            if element["@type"] != "skos:Concept":
+                continue
+
+            for key in data.keys():
+                if type(element[key]) == dict:
+                    value = element[key]["@value"]
+                else:  # assuming string
+                    value = element[key]
+                data[key].append(value)
+
+            # Initialize as empty list
+            narrower[uri] = []
+            broader[uri] = []
+            related[uri] = []
+
+            # If present, store relationships
+            if "narrower" in element.keys():
+                narrower[uri] = element["narrower"]
+            if "broader" in element.keys():
+                broader[uri] = element["broader"]
+            if "related" in element.keys():
+                related[uri] = element["related"]
+
+        df = pd.DataFrame(data)
+        df = df.rename(columns={"@id": "uri", "dce:identifier": "id"})
+        return df, narrower, broader, related
+
+    @staticmethod
+    def harmonize_uri(uri):
+        """
+        Takes a SDN URI and make sure that uses http instead of https and that it finishes with a /
+        """
+        if uri.startswith("https"):
+            uri = uri.replace("https", "http")
+
+        if not uri.endswith("/"):
+            uri += "/"
+        return uri
+
+    def vocab_get(self, vocab_id, uri, key):
+        """
+        Search in vocab <vocab_id> for the element with matching uri and return element identified by key
+        """
+        uri = self.harmonize_uri(uri)
+        __allowed_keys = ["prefLabel", "id", "definition"]
+        if key not in __allowed_keys:
+            raise ValueError(f"Key '{key}' not valid, allowed keys: {__allowed_keys}")
+
+        df = self.sdn_vocabs[vocab_id]
+        row = df.loc[df["uri"] == uri]
+        return row[key].values[0]
+
+    def get_relations(self, vocab_id, uri, relation, target_vocab):
+        """
+        Takes a relation list from a vocabulary (narrower, broader or related), looks for a term identified by URI and
+        returns a list of all the terms within that relationtship that are from the vocabuary target_vocab.
+
+        This function is useful to get related metadata from a term, from instance
+
+            "P01", <param>, "related", "P06" -> get the prefered units for a parameter listed within P01
+            "L22", <model>, "related", "L35" -> get the  manufacturer of a sensor
+            "P02", <param>, "narrower", "P01" -> get all possible fine-grained parameters values from a braod parameter
+
+        :param vocab_id: ID of the vocabulary being used
+        :param uri: URI of the term whose relations will be explored
+        :param relation: type of relationship, possible values are narrower, broader and related
+        :param target_vocab: id of the vocabulary terms that we want to find
+        :returns: list with matches
+        """
+        __valid_relations = ["narrower", "broader", "related"]
+        uri = self.harmonize_uri(uri)
+
+        if relation not in __valid_relations:
+            raise LookupError(f"Not a valid relation: '{relation}', expected one of '{__valid_relations} ")
+
+        if relation == "narrower":
+            relations = self.sdn_vocabs_narrower[vocab_id]
+        elif relation == "broader":
+            relations = self.sdn_vocabs_broader[vocab_id]
+        else:  # related
+            relations = self.sdn_vocabs_related[vocab_id]
+
+        uri_relations = relations[uri]
+
+        if type(uri_relations) == str:  # make sure it's a list
+            uri_relations = [uri_relations]
+
+        results = []
+        for term in uri_relations:
+            if target_vocab in term:
+                results.append(term)
+        return results
+
+    def get_relation(self, vocab_id, uri, relation, target_vocab):
+        """
+        The same as get relations but throws an error if more than one element are found
+        """
+        results = self.get_relations(vocab_id, uri, relation, target_vocab)
+        if len(results) != 1:
+            raise LookupError(f"Expected 1 value, got {len(results)}")
+
+        return results[0]
+
+
+
+
+
+
 
