@@ -420,9 +420,9 @@ class ErddapTester:
     def spdx_license_uri(self, value, args):
         value = value.replace("http://", "https://")  # ensure https
         value = value.replace(".jsonld", "").replace(".json", "").replace(".html", "")  # delete format
-        if value in self.metadata.spdx_license_uris:
+        if value in self.metadata.spdx_license_uris.values():
             return True, ""
-        return False, f"Not a valid SDPX license uri '{value}' {self.metadata.spdx_license_uris[91:93]}"
+        return False, f"Not a valid SDPX license uri '{value}'"
 
     # -------- Geospatial Coordinates -------- #
     def coordinate(self, value, args) -> (bool, str):
