@@ -23,7 +23,7 @@ import inspect
 import numpy as np
 
 
-class ErddapTester:
+class EmsoMetadataTester:
     def __init__(self):
         """
         This class implements the tests to ensure that the metadata in a particular ERDDAP is harmonized with the EMSO
