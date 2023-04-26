@@ -89,22 +89,30 @@ class EmsoMetadataTester:
                 section = row["variable"]
                 table.add_row(style=style, end_section=True)
 
-            table.add_row(row["variable"], row["attribute"], str(row["required"]), str(row["passed"]), row["message"],
-                          row["value"], style=style)
+            variable = row["variable"]
+            attribute = row["attribute"]
+            required = str(row["required"])
+            passed = str(row["passed"])
+            message = row["message"]
+            value = str(row["value"])
+            table.add_row(variable, attribute, required, passed, message, value, style=style)
 
         console = Console()
         console.print(table)
 
-        r = df[df["required"] == True]  # required test
+        df["required"] = df["required"].astype(bool)
+        df["passed"] = df["passed"].astype(bool)
+
+        r = df[df["required"]]  # required test
         req_tests = len(r)
-        req_passed = len(r[r["passed"] == True])
+        req_passed = len(r[r["passed"]])
 
         o = df[df["required"] == False]  # required test
         opt_tests = len(o)
-        opt_passed = len(o[o["passed"] == True])
+        opt_passed = len(o[o["passed"]])
 
         total_tests = len(df)
-        total_passed = len(df[df["passed"] == True])
+        total_passed = len(df[df["passed"]])
         rich.print(f"Required tests passed: {req_passed} of {req_tests}")
         rich.print(f"Required tests passed: {opt_passed} of {opt_tests}")
         rich.print(f"   [bold]Total tests passed: {total_passed} of {total_tests}")
@@ -135,12 +143,13 @@ class EmsoMetadataTester:
             progress.stop()
 
         return {
-            "total": total_passed/total_tests,
+            "total": total_passed / total_tests,
             "required": req_passed / req_tests,
-            "optional": opt_passed/opt_tests
+            "optional": opt_passed / opt_tests
         }
 
-    def __run_test(self, test_name, args, attribute: str, metadata, required, multiple, varname, results) -> (bool, str, any):
+    def __run_test(self, test_name, args, attribute: str, metadata, required, multiple, varname, results) -> (
+    bool, str, any):
         """
         Applies the method test to the dict data and stores the output into results
         :param test_name: Name of the test tp apply
@@ -182,16 +191,19 @@ class EmsoMetadataTester:
                     try:
                         p, m = test_method(v, args)  # apply test method
                     except Exception as e:
-                        rich.print(f"[red]Error when executing test '{test_name}' with arguments '{args}' and value '{v}'")
+                        rich.print(
+                            f"[red]Error when executing test '{test_name}' with arguments '{args}' and value '{v}'")
                         raise e
-                    if m == "":
-                        m = "ok"
+                    if not m:
+                        m = "ok"  # instead of empty message just leave ok
+
                     messages.append(m)
                     passed_flags.append(p)
                 message = "; ".join(messages)
                 passed = True
+
                 for p in passed_flags:
-                    passed *= p  # multiple for every flag
+                    passed = p and passed
 
         results["attribute"].append(attribute)
         results["variable"].append(varname)
@@ -262,7 +274,7 @@ class EmsoMetadataTester:
         :param metadata: well-formatted JSON metadta for an ERDDAP dataset
         :return: a DataFrame with the following columns: [attribute, variable, required, passed, message, value]
         """
-        rich.print(f"#### Validating dataset {metadata['global']['title']} ####")
+        rich.print(f"#### Validating dataset [cyan]{metadata['global']['title']}[/cyan] ####")
 
         # Test global attributes
         results = self.__test_group_handler(self.metadata.global_attr, metadata["global"], "global", verbose)
@@ -277,7 +289,12 @@ class EmsoMetadataTester:
                                                 verbose, results)
         df = pd.DataFrame(results)
         r = self.__process_results(df, verbose=verbose)
-        r["institution"] = metadata["global"]["institution"]
+        if "institution" in metadata["global"].keys():
+            r["institution"] = metadata["global"]["institution"]
+        elif "institution_edmo_codi" in metadata["global"].keys():
+            r["institution"] = "EMDO Code " + metadata["global"]["institution_edmo_codi"]
+        else:
+            r["institution"] = "unkdnwon"
         return r
 
     # ------------------------------------------------ TEST METHODS -------------------------------------------------- #
@@ -302,7 +319,7 @@ class EmsoMetadataTester:
 
         uri = value.replace("http", "https")  # make sure to use http
         if uri.endswith("/"):
-            uri = uri[:-1] # remove ending /
+            uri = uri[:-1]  # remove ending /
 
         code = int(uri.split("/")[-1])
 
@@ -321,7 +338,8 @@ class EmsoMetadataTester:
         vocab = args[0]
 
         if vocab not in self.metadata.sdn_vocabs_ids.keys():
-            raise ValueError(f"Vocabulary '{vocab}' not loaded! Loaded vocabs are {self.metadata.sdn_vocabs_ids.keys()}")
+            raise ValueError(
+                f"Vocabulary '{vocab}' not loaded! Loaded vocabs are {self.metadata.sdn_vocabs_ids.keys()}")
 
         if value in self.metadata.sdn_vocabs_ids[vocab]:
             return True, ""
@@ -338,7 +356,8 @@ class EmsoMetadataTester:
         vocab = args[0]
 
         if vocab not in self.metadata.sdn_vocabs_pref_label.keys():
-            raise ValueError(f"Vocabulary '{vocab}' not loaded! Loaded vocabs are {self.metadata.sdn_vocabs_pref_label.keys()}")
+            raise ValueError(
+                f"Vocabulary '{vocab}' not loaded! Loaded vocabs are {self.metadata.sdn_vocabs_pref_label.keys()}")
 
         if value in self.metadata.sdn_vocabs_pref_label[vocab]:
             return True, ""
@@ -352,7 +371,8 @@ class EmsoMetadataTester:
         """
         vocab = "P07"
         if vocab not in self.metadata.sdn_vocabs_pref_label.keys():
-            raise ValueError(f"Vocabulary '{vocab}' not loaded! Loaded vocabs are {self.metadata.sdn_vocabs_pref_label.keys()}")
+            raise ValueError(
+                f"Vocabulary '{vocab}' not loaded! Loaded vocabs are {self.metadata.sdn_vocabs_pref_label.keys()}")
 
         if value in self.metadata.sdn_vocabs_pref_label[vocab]:
             return True, ""
@@ -372,7 +392,8 @@ class EmsoMetadataTester:
             uri += "/"  # make sure that the uri ends with /
 
         if vocab not in self.metadata.sdn_vocabs_uris.keys():
-            raise ValueError(f"Vocabulary '{vocab}' not loaded! Loaded vocabs are {self.metadata.sdn_vocabs_uris.keys()}")
+            raise ValueError(
+                f"Vocabulary '{vocab}' not loaded! Loaded vocabs are {self.metadata.sdn_vocabs_uris.keys()}")
 
         if value in self.metadata.sdn_vocabs_uris[vocab]:
             return True, ""
