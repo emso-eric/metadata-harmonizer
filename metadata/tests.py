@@ -176,6 +176,9 @@ class EmsoMetadataTester:
 
             if type(value) == str and ";" in value:
                 values = value.split(";")  # split multiple values
+                for i in range(len(values)):
+                    if values[i].startswith(" "):
+                        values[i] = values[i][1:]  # Make sure that first space is not kept
             else:
                 values = [value]
 
@@ -250,7 +253,6 @@ class EmsoMetadataTester:
             if "#" in test_name:
                 test_name, args = test_name.split("#")
                 args = args.split(",")  # comma-separated fields are args
-
             self.__run_test(test_name, args, attribute, metadata, required, multiple, variable, results)
 
         if verbose:  # add all parameters not listed in the standard
