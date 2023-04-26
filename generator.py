@@ -113,6 +113,7 @@ class EmsoDataset:
                 wf = md.WaterFrame()
                 wf.data = df
                 wf.metadata = {}  # global attributes
+                wf.metadata["$datafile"] = file
 
             elif file.lower().endswith(".nc"):
                 rich.print("[blue]Loading data from NetCDF file...")
@@ -125,49 +126,17 @@ class EmsoDataset:
                 wf.vocabulary[col] = {}  # initialize empty dicts
             self.data.append(wf)
 
-    def get_variables(self, wf):
-        """
-        returns a list of variables within a waterframe
-        """
-        variables = []
-        df = wf.data
-        for col in df.columns:
-            if col not in self.__dimensions and not col.endswith("_QC") and not col.endswith("_STD"):
-                variables.append(col)
-        return variables
-
     def get_qc_variables(self, wf):
         """
         returns a list of QC variables within a waterframe
         """
-        variables = []
-        df = wf.data
-        for col in df.columns:
-            if col not in self.__dimensions and not col.endswith("_QC") and not col.endswith("_STD"):
-                variables.append(col)
-        return variables
+        return [col for col in wf.data.columns if col.endswith("_QC")]
 
     def get_std_variables(self, wf):
         """
         returns a list of standard deviation variables within a waterframe
         """
-        variables = []
-        df = wf.data
-        for col in df.columns:
-            if col not in self.__dimensions and col.endswith("_STD"):
-                variables.append(col)
-        return variables
-
-    def get_dimensions(self, wf):
-        """
-        returns a list of all the dimensions within a waterframe
-        """
-        variables = []
-        df = wf.data
-        for col in df.columns:
-            if col in self.__dimensions:
-                variables.append(col)
-        return variables
+        return [col for col in wf.data.columns if col.endswith("_STD")]
 
     def load_csv_data(self, filename, sep=",") -> (pd.DataFrame, list):
         """
@@ -246,6 +215,9 @@ class EmsoDataset:
                 rich.print(f"Loading metadata from variable {varname}...", end="")
                 wf.vocabulary[varname] = merge_dicts(varmeta, wf.vocabulary[varname])
                 rich.print("[green]done!")
+
+            wf.metadata["$metadatafile"] = filename
+
             self.data[i] = wf
 
     def propagate_sensor_metadata(self, metadata):
@@ -257,7 +229,6 @@ class EmsoDataset:
 
         sensor_meta = metadata["sensor"]
         for varname, varmeta in metadata["variables"].items():
-
             # Propagate only in variables, not dimensions, QCs or STDs
             if varname not in self.__dimensions and not varname.endswith("_QC") and not varname.endswith("_STD"):
                 varmeta = merge_dicts(sensor_meta, varmeta)
@@ -271,6 +242,7 @@ class EmsoDataset:
         """
         Tries to fill the missing metadata fields with existing and default information
         :param metadata: dict with the metadata
+        :param wf: WaterFrame containing the data and metadata
         :returns: filled metadata
         """
         check_mandatory_fields(metadata["global"])
@@ -289,6 +261,8 @@ class EmsoDataset:
         metadata["variables"] = self.autofill_qc(metadata["variables"])
         metadata["variables"] = self.autofill_std(metadata["variables"], wf)
 
+        metadata["variables"] = self.autofill_ancillary(metadata["variables"], wf)
+
         # Reorder variable metadata
         new_order = ["time", "depth", "depth_QC", "latitude", "latitude_QC", "longitude", "longitude_QC"]
         new = {}
@@ -297,8 +271,6 @@ class EmsoDataset:
             new[o] = metadata["variables"].pop(o)
         new.update(metadata["variables"])
         metadata["variables"] = new
-
-        rich.print("\n============================================================\n")
         rich.print(metadata["variables"])
 
         return metadata
@@ -374,7 +346,6 @@ class EmsoDataset:
         Fills metadata for the dimensions
         """
         for dname in self.__dimensions:
-
             if dname not in variables:
                 dmeta = dimension_metadata(dname)
             elif not variables[dname]:
@@ -435,7 +406,6 @@ class EmsoDataset:
         If not present, generate standard deviation, compliant with oceansites format
         """
         # Get variable list, ignoring quality control (_QC) and standard deviation columns (_STD)
-
         std_variables = [v for v in wf.data.columns if v.endswith("_STD")]
 
         for std_varname in std_variables:
@@ -450,6 +420,25 @@ class EmsoDataset:
                 m[std_varname] = {}
             m[std_varname] = merge_dicts(m[std_varname], d)
         return m
+
+    def autofill_ancillary(self, variables, wf):
+        """
+        Creates anciallary_variables
+        """
+        qc_variables = self.get_qc_variables(wf)
+        std_variables = self.get_std_variables(wf)
+        for varname, varmeta in variables.items():
+            if varname in qc_variables or varname in std_variables:
+               continue
+
+            rich.print(f"Processing [purple]{varname}")
+            ancillary = []
+            [ancillary.append(a) for a in qc_variables if varname + "_QC" == a]   # Append QCs
+            [ancillary.append(a) for a in std_variables if varname + "_STD" == a] # Append STDs
+
+            if ancillary:
+                varmeta["ancillary_variables"] = ancillary
+        return variables
 
     def set_coordinate(self, key, values):
         """
@@ -507,7 +496,6 @@ class EmsoDataset:
         Combine all WaterFrames into a single waterframe. Both data and metadata are consolidated into a single
         structure
         """
-
         self.ensure_coordinates()
         dataframes = []  # list of dataframes
         global_attr = []   # list of dict containing global attributes
@@ -549,13 +537,33 @@ class EmsoDataset:
         wf.vocabulary = variable_meta
         wf.metadata = global_meta
 
+        # Remove internal elements in metadata
+        [wf.metadata.pop(key) for key in wf.metadata.copy().keys() if key.startswith("$")]
+
         dimensions = self.__dimensions
         self.check_multisensor(wf.vocabulary)
         if self.multi_sensor:
             rich.print("[purple]This is a multi-sensor dataset!!!")
             dimensions.append("sensor_id")
 
+        self.update_global_metadata(wf)
+
         return wf, dimensions
+
+    def update_global_metadata(self, wf):
+        """
+        Updates global metadata in a water frame, like time coverage and geospatial max/min
+        """
+        wf.metadata["geospatial_lat_min"] = wf.data["latitude"].min()
+        wf.metadata["geospatial_lat_max"] = wf.data["latitude"].max()
+        wf.metadata["geospatial_lon_min"] = wf.data["longitude"].min()
+        wf.metadata["geospatial_lon_max"] = wf.data["longitude"].min()
+        wf.metadata["geospatial_vertical_min"] = wf.data["depth"].min()
+        wf.metadata["geospatial_vertical_max"] = wf.data["depth"].min()
+        wf.metadata["time_coverage_start"] = wf.data["time"].min().strftime("%Y-%m-%dT%H:%M:%SZ")
+        wf.metadata["time_coverage_end"] = wf.data["time"].max().strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
 
     def check_multisensor(self, variables):
         """
@@ -584,7 +592,6 @@ class EmsoDataset:
             raise ValueError("No serial numbers found???")
         return self.multi_sensor
 
-
     def generate_metadata_templates(self, folder):
         """
         Generate metadata templates based on the data files
@@ -592,10 +599,9 @@ class EmsoDataset:
         rich.print(f"Generating metadata template in folder {folder}...")
         os.makedirs(folder, exist_ok=True)
         mfiles = []  # metadata files
-        for r in self.data:
-            datafile = r["file"]
+        for wf in self.data:
+            datafile = wf.metadata["$datafile"]
             variables = r["variables"]
-
             m = {  # Metadata template
                 "README": {
                     "*attr": "Mandatory attributes, must be set",
@@ -671,12 +677,14 @@ if __name__ == "__main__":
                            nargs="+")
     argparser.add_argument("-m", "--metadata", type=str, help="List of JSON metadata documents", required=False,
                            nargs="+")
+    argparser.add_argument("-g", "--generate", type=str, help="Generates metadata templates in the specified folder",
+                           required=False)
+
+    # Coordinates
     argparser.add_argument("-D", "--depths", type=float, help="List of nominal depths", required=False, nargs="+")
     argparser.add_argument("-l", "--latitudes", type=float, help="List of nominal latitudes", required=False, nargs="+")
     argparser.add_argument("-L", "--longitudes", type=float, help="List of nominal longitudes", required=False,
                            nargs="+")
-    argparser.add_argument("-g", "--generate", type=str, help="Generates metadata templates in the specified folder",
-                           required=False)
 
     args = argparser.parse_args()
 
@@ -688,7 +696,8 @@ if __name__ == "__main__":
 
     # If metadata and generate
     if args.generate:
-        generate_dataset(args.data, args.generate)
+        rich.print("[blue]Generating metadata templates...")
+        generate_metadata(args.data, args.generate)
         exit()
 
     dataset = generate_dataset(args.data, args.metadata, depths=args.depths, latitudes=args.latitudes, longitudes=args.longitudes)
