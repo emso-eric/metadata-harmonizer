@@ -46,10 +46,13 @@ def csv_detect_header(filename, separator=","):
 
 def set_default_value(data, key, value):
     """
-    Sets value key value to a dict if the key is not present
+    Sets value key value to a dict if the key is not present or value is null
     """
-    if key in data.keys() and not data[key]:
+    if key not in data.keys():
         data[key] = value
+    elif not data[key]:
+        data[key] = value
+
     return data
 
 
@@ -260,19 +263,15 @@ class EmsoDataset:
 
         metadata["variables"] = self.autofill_qc(metadata["variables"])
         metadata["variables"] = self.autofill_std(metadata["variables"], wf)
-
         metadata["variables"] = self.autofill_ancillary(metadata["variables"], wf)
 
         # Reorder variable metadata
         new_order = ["time", "depth", "depth_QC", "latitude", "latitude_QC", "longitude", "longitude_QC"]
         new = {}
-        rich.print(metadata["variables"])
         for o in new_order:
             new[o] = metadata["variables"].pop(o)
         new.update(metadata["variables"])
         metadata["variables"] = new
-        rich.print(metadata["variables"])
-
         return metadata
 
     def autofill_variables(self, variables: dict) -> dict:
@@ -317,12 +316,12 @@ class EmsoDataset:
 
         # Getting EDMO URL from the code
         edmo_code = m["institution_edmo_code"]
-        m = set_default_value(m, "insitution_emdo_uri", f"https://edmo.seadatanet.org/report/{edmo_code}")
+        m = set_default_value(m, "institution_edmo_uri", f"https://edmo.seadatanet.org/report/{edmo_code}")
         m = set_default_value(m, "update_interval", f"void")
         m = set_default_value(m, "Conventions", ["EMSO", "OceanSITES"])
-        m = set_default_value(m, "format_version", "0.1")
+        m = set_default_value(m, "format_version", "1.4")
         m = set_default_value(m, "network", "EMSO ERIC")
-        m = set_default_value(m, "data_mode", "EMSO ERIC")
+        m = set_default_value(m, "data_mode", "R")
         m = set_default_value(m, "license", "CC-BY-4.0")
 
         m["license_uri"] = self.emso.spdx_license_uris[m["license"]]
@@ -333,12 +332,23 @@ class EmsoDataset:
         s = process_metadata(s)
         sensor_uri = s["sensor_model_uri"]
         rich.print("Propagating sensor model info...", sensor_uri)
-        s["sensor_model_name"] = self.emso.vocab_get("L22", sensor_uri, "prefLabel")
-        s["sensor_model_urn"] = self.emso.vocab_get("L22", sensor_uri, "id")
+        #s["sensor_model_name"] = self.emso.vocab_get("L22", sensor_uri, "prefLabel")
+        s["sensor_model"] = self.emso.vocab_get("L22", sensor_uri, "prefLabel")
+        s["sensor_SeaVoX_L22_code"] = self.emso.vocab_get("L22", sensor_uri, "id")
         manufacturer_uri = self.emso.get_relation("L22", sensor_uri, "related", "L35")
         s["sensor_manufacturer_uri"] = manufacturer_uri
         s["sensor_manufacturer_urn"] = self.emso.vocab_get("L35", manufacturer_uri, "id")
         s["sensor_manufacturer_name"] = self.emso.vocab_get("L35", manufacturer_uri, "prefLabel")
+
+
+        # sensor_model            ---> sensor_model_name
+        # sensor_manufacturer     ---> sensor_manufacturer_name
+        # sensor_SeaVoX_L22_code  ---> sensor_model_urn
+        # sensor_reference
+        # sensor_serial_number
+        # sensor_mount
+        # sensor_orientation
+
         return s
 
     def autofill_dimensions(self, variables: dict) -> dict:
@@ -554,6 +564,11 @@ class EmsoDataset:
         """
         Updates global metadata in a water frame, like time coverage and geospatial max/min
         """
+        if "date_created" in wf.metadata.keys():
+            wf.metadata["date_updated"] = pd.Timestamp.now(tz="utc").strftime("%Y-%m-%dT%H:%M:%SZ")
+        else:
+            wf.metadata["date_created"] = pd.Timestamp.now(tz="utc").strftime("%Y-%m-%dT%H:%M:%SZ")
+
         wf.metadata["geospatial_lat_min"] = wf.data["latitude"].min()
         wf.metadata["geospatial_lat_max"] = wf.data["latitude"].max()
         wf.metadata["geospatial_lon_min"] = wf.data["longitude"].min()
@@ -563,15 +578,12 @@ class EmsoDataset:
         wf.metadata["time_coverage_start"] = wf.data["time"].min().strftime("%Y-%m-%dT%H:%M:%SZ")
         wf.metadata["time_coverage_end"] = wf.data["time"].max().strftime("%Y-%m-%dT%H:%M:%SZ")
 
-
-
     def check_multisensor(self, variables):
         """
         Looks through all the variables and checks if data comes from two or more sensors. Sets the multisensor flag
         """
         serial_numbers = []
         for varname, varmeta in variables.items():
-
             if "sensor_serial_number" not in varmeta.keys():
                 continue  # avoid QC and STD vars
 
@@ -680,6 +692,8 @@ if __name__ == "__main__":
     argparser.add_argument("-g", "--generate", type=str, help="Generates metadata templates in the specified folder",
                            required=False)
 
+    argparser.add_argument("-o", "--output", type=str, help="Output NetCDF file", required=True)
+
     # Coordinates
     argparser.add_argument("-D", "--depths", type=float, help="List of nominal depths", required=False, nargs="+")
     argparser.add_argument("-l", "--latitudes", type=float, help="List of nominal latitudes", required=False, nargs="+")
@@ -704,4 +718,4 @@ if __name__ == "__main__":
 
     wf, dims = dataset.merge_data()
     # dims = ["latitude", "longitude", "depth", "sensor_id", "time"]
-    to_multidim_nc(wf, "out.nc", dimensions=dims, fill_value=-999, time_key="time")
+    to_multidim_nc(wf, args.output, dimensions=dims, fill_value=-999, time_key="time")

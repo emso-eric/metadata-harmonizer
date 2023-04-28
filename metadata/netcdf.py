@@ -44,7 +44,7 @@ def to_multidim_nc(wf: md.WaterFrame, filename: str, dimensions: list, fill_valu
 
     dimensions = tuple(dimensions)
 
-    with nc.Dataset(filename, "w", format="NETCDF4", ) as ncfile:
+    with nc.Dataset(filename, "w", format="NETCDF4") as ncfile:
         for dimension in dimensions:
             data = index_df[dimension].values
             values = np.unique(data)  # fixed-length dimension
@@ -55,7 +55,7 @@ def to_multidim_nc(wf: md.WaterFrame, filename: str, dimensions: list, fill_valu
                 values = nc.date2num(times, "seconds since 1970-01-01", calendar="standard")
 
             ncfile.createDimension(dimension, len(values))  # create dimension
-            var = ncfile.createVariable(dimension, 'f8', (dimension,), fill_value=fill_value)
+            var = ncfile.createVariable(dimension, 'f8', (dimension,), fill_value=fill_value, zlib=True)
             var[:] = values  # assign dimension values
             # add all dimension metadata
 
@@ -67,7 +67,7 @@ def to_multidim_nc(wf: md.WaterFrame, filename: str, dimensions: list, fill_valu
 
         for varname in data_df.columns:
             values = data_df[varname].to_numpy()  # assign values to the variable
-            var = ncfile.createVariable(varname, 'float', dimensions, fill_value=fill_value)
+            var = ncfile.createVariable(varname, 'float', dimensions, fill_value=fill_value, zlib=True)
             var[:] = values
             # Adding metadata
             for key, value in wf.vocabulary[varname].items():
