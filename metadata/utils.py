@@ -16,6 +16,7 @@ import urllib
 import concurrent.futures as futures
 import os
 from metadata.constants import dimensions
+import numpy as np
 
 
 def get_netcdf_metadata(filename):
@@ -119,3 +120,63 @@ def download_files(tasks, force_download=False):
             args.append((url, file))
 
     threadify(args, urllib.request.urlretrieve)
+
+
+def delete_duplicate_values(df, timestamp="time"):
+    """
+    useful for datasets that have duplicated values with consecutive timestamps (e.g. data is generated minutely, but
+    inserted into a database every 20 secs). So the following dataframe:
+
+                                col1      col2    col3
+        timestamp
+        2020-01-01 00:00:00    13.45    475.45    12.7
+        2020-01-01 00:00:00    13.45    475.45    12.7
+        2020-01-01 00:00:00    13.45    475.45    12.7
+        2020-01-01 00:01:00    12.89    324.12    78.8
+        2020-01-01 00:01:00    12.89    324.12    78.8
+        2020-01-01 00:01:00    12.89    324.12    78.8
+        ...
+
+    will be simplified to:
+
+                                col1      col2    col3
+        timestamp
+        2020-01-01 00:00:00    13.45    475.45    12.7
+        2020-01-01 00:01:00    12.89    324.12    78.8
+
+    :param df: input dataframe
+    :return: simplified dataframe
+    """
+    if df.empty:
+        rich.print("[yellow]WARNING empty dataframe")
+        return df
+    columns = [col for col in df.columns if col != timestamp]
+    del_array = np.zeros(len(df))  # create an empty array
+    duplicates = 0
+    with Progress() as progress:  # Use Progress() to show a nice progress bar
+        task = progress.add_task("Detecting duplicates", total=len(df))
+        init = True
+        for index, row in df.iterrows():
+            progress.update(task, advance=1)
+            if init:
+                init = False
+                last_valid_row = row
+                continue
+
+            diff = False  # flag to indicate if the current column is different from the last valid
+            for column in columns:  # compare value by value
+                if row[column] != last_valid_row[column]:
+                    # column is different
+                    last_valid_row = row
+                    diff = True
+
+                    break
+            if not diff:  # there's no difference between columns, so this one needs to be deleted
+                del_array[duplicates] = index
+                duplicates += 1
+
+    print(f"Duplicated lines {duplicates} from {len(df)}, ({100*duplicates/len(df):.02f} %)")
+    del_array = del_array[:duplicates]  # keep only the part of the array that has been filled
+    rich.print("dropping rows...")
+    df.drop(del_array, inplace=True)
+    return df

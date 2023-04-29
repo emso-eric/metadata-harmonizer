@@ -15,6 +15,7 @@ import rich
 from metadata.netcdf import to_multidim_nc
 from metadata import EmsoMetadata, qc_flags, process_metadata, variable_metadata, sensor_metadata, global_metadata, \
     check_mandatory_fields
+from metadata.constants import dimensions as dimension_names
 import datetime
 import pandas as pd
 import time
@@ -22,7 +23,8 @@ import os
 import mooda as md
 import netCDF4 as nc
 import numpy as np
-from metadata.metadata_templates import dimension_metadata, quality_control_metadata
+from metadata.metadata_templates import dimension_metadata, quality_control_metadata, choose_interactively
+from metadata.utils import delete_duplicate_values
 
 
 def csv_detect_header(filename, separator=","):
@@ -129,6 +131,16 @@ class EmsoDataset:
                 wf.vocabulary[col] = {}  # initialize empty dicts
             self.data.append(wf)
 
+    def get_variables(self, wf):
+        """
+        returns a list of QC variables within a waterframe
+        """
+        vars = []
+        for c in wf.data.columns:
+            if not c.endswith("_QC") and not c.endswith("_STD") and c.lower() not in dimension_names:
+                vars.append(c)
+        return vars
+
     def get_qc_variables(self, wf):
         """
         returns a list of QC variables within a waterframe
@@ -148,6 +160,12 @@ class EmsoDataset:
         header_lines = csv_detect_header(filename)
         df = pd.read_csv(filename, skiprows=header_lines, sep=sep)
         df = self.harmonize_dataframe(df)
+        print(df)
+        dups = df[df["time"].duplicated()]
+        if len(dups) > 0:
+            rich.print(f"[yellow]WARNING! detected {len(dups)} duplicated times!, deleting")
+            df = delete_duplicate_values(df)
+
         return df
 
     def harmonize_dataframe(self, df):
@@ -159,7 +177,7 @@ class EmsoDataset:
         for time_key in ["time", "timestamp", "datetime", "date time"]:
             for key in df.columns:
                 if key.lower() == time_key:
-                   df = df.rename(columns={key: "time"})
+                    df = df.rename(columns={key: "time"})
 
         for var in df.columns:
             skip = False
@@ -291,7 +309,7 @@ class EmsoDataset:
             if v["sdn_uom_uri"]:
                 sdn_uom_uri = v["sdn_uom_uri"]
             else:
-                rich.print(f"[yellow]WARNING: units not set, using P01 default units...")
+                rich.print(f"[yellow]WARNING: units for {sdn_parameter_uri} not set, using P01 default units...")
                 sdn_uom_uri = self.emso.get_relation("P01", sdn_parameter_uri, "related", "P06")
 
             label = self.emso.vocab_get("P06", sdn_uom_uri, "prefLabel")
@@ -301,11 +319,22 @@ class EmsoDataset:
             v["sdn_uom_name"] = label.strip()
             v["units"] = label
             try:
+                rich.print(f"Getting standard_name from P01 ({sdn_uom_uri})")
                 standard_name_uri = self.emso.get_relation("P01", sdn_parameter_uri, "broader", "P07")
             except LookupError:
                 p02_uri = self.emso.get_relation("P01", sdn_parameter_uri, "broader", "P02")
-                standard_name_uri = self.emso.get_relation("P02", p02_uri, "narrower", "P07")
-            v["standard_name"] = self.emso.vocab_get("P07", standard_name_uri, "prefLabel")
+                standard_names_uris = self.emso.get_relations("P02", p02_uri, "narrower", "P07")
+                if len(standard_names_uris) == 1:
+                    standard_name_uri = standard_names_uris[0]  # Match!
+                    standard_name = self.emso.vocab_get("P07", standard_name_uri, "prefLabel")
+                else:
+                    rich.print(f"[red]Could not determine standard_name for \"{v['long_name']}\"")
+                    standard_names = [self.emso.vocab_get("P07", s, "prefLabel") for s in standard_names_uris]
+                    # Let the user choose interactively wich one
+                    standard_name = choose_interactively("standard_name", "", standard_names)
+
+            v["standard_name"] = standard_name
+            rich.print(f"standard_name {v['standard_name']}")
             data[varname] = v
         return data
 
@@ -332,13 +361,19 @@ class EmsoDataset:
         s = process_metadata(s)
         sensor_uri = s["sensor_model_uri"]
         rich.print("Propagating sensor model info...", sensor_uri)
-        #s["sensor_model_name"] = self.emso.vocab_get("L22", sensor_uri, "prefLabel")
+        # s["sensor_model_name"] = self.emso.vocab_get("L22", sensor_uri, "prefLabel")
         s["sensor_model"] = self.emso.vocab_get("L22", sensor_uri, "prefLabel")
         s["sensor_SeaVoX_L22_code"] = self.emso.vocab_get("L22", sensor_uri, "id")
-        manufacturer_uri = self.emso.get_relation("L22", sensor_uri, "related", "L35")
-        s["sensor_manufacturer_uri"] = manufacturer_uri
-        s["sensor_manufacturer_urn"] = self.emso.vocab_get("L35", manufacturer_uri, "id")
-        s["sensor_manufacturer_name"] = self.emso.vocab_get("L35", manufacturer_uri, "prefLabel")
+        try:
+            manufacturer_uri = self.emso.get_relation("L22", sensor_uri, "related", "L35")
+            s["sensor_manufacturer_uri"] = manufacturer_uri
+            s["sensor_manufacturer_urn"] = self.emso.vocab_get("L35", manufacturer_uri, "id")
+            s["sensor_manufacturer_name"] = self.emso.vocab_get("L35", manufacturer_uri, "prefLabel")
+        except LookupError:
+            rich.print("[red]No manufacturer found on SeaDataNet L35 vocab!!")
+            s["sensor_manufacturer_uri"] = ""
+            s["sensor_manufacturer_urn"] = ""
+            s["sensor_manufacturer_name"] = ""
 
 
         # sensor_model            ---> sensor_model_name
@@ -439,12 +474,12 @@ class EmsoDataset:
         std_variables = self.get_std_variables(wf)
         for varname, varmeta in variables.items():
             if varname in qc_variables or varname in std_variables:
-               continue
+                continue
 
             rich.print(f"Processing [purple]{varname}")
             ancillary = []
-            [ancillary.append(a) for a in qc_variables if varname + "_QC" == a]   # Append QCs
-            [ancillary.append(a) for a in std_variables if varname + "_STD" == a] # Append STDs
+            [ancillary.append(a) for a in qc_variables if varname + "_QC" == a]  # Append QCs
+            [ancillary.append(a) for a in std_variables if varname + "_STD" == a]  # Append STDs
 
             if ancillary:
                 varmeta["ancillary_variables"] = ancillary
@@ -459,8 +494,9 @@ class EmsoDataset:
             return None
 
         if len(values) != 1 and len(values) != len(self.data):
-            raise ValueError(f"Got {len(self.data)} data files, but got {len(values)} {key} values, expected one value for "
-                             f"all or a value for every data file")
+            raise ValueError(
+                f"Got {len(self.data)} data files, but got {len(values)} {key} values, expected one value for "
+                f"all or a value for every data file")
 
         qc_value = qc_flags["nominal_value"]
         if len(values) == 1:
@@ -508,8 +544,8 @@ class EmsoDataset:
         """
         self.ensure_coordinates()
         dataframes = []  # list of dataframes
-        global_attr = []   # list of dict containing global attributes
-        variables_attr = {}   # dict all the variables metadata
+        global_attr = []  # list of dict containing global attributes
+        variables_attr = {}  # dict all the variables metadata
         i = 0
         for wf in self.data:
             df = wf.data
@@ -613,25 +649,22 @@ class EmsoDataset:
         mfiles = []  # metadata files
         for wf in self.data:
             datafile = wf.metadata["$datafile"]
-            variables = r["variables"]
-            m = {  # Metadata template
+            variables = self.get_variables(wf)
+            m = {
                 "README": {
                     "*attr": "Mandatory attributes, must be set",
                     "~attr": "Optional attributes, if not set will be guessed by the script",
                     "$attr": "If not provided, will be requested interactively"
-                }
+                },
+                "global": global_metadata(),
+                "variables": {},
+                "sensor": sensor_metadata()
             }
-            if not self.glob_attr_processed:  # just add globals in the metadata file generated
-                m["global"] = global_metadata()
-                self.glob_attr_processed = True
-
-            m["variables"] = {}
-            m["sensor"] = sensor_metadata()
 
             for var in variables:
                 m["variables"][var] = variable_metadata()
 
-        # create a filename
+            # create a filename
             a = os.path.basename(datafile).split(".")
             filename = ".".join(a[:-1]) + ".json"
             filename = os.path.join(folder, filename)
@@ -692,7 +725,7 @@ if __name__ == "__main__":
     argparser.add_argument("-g", "--generate", type=str, help="Generates metadata templates in the specified folder",
                            required=False)
 
-    argparser.add_argument("-o", "--output", type=str, help="Output NetCDF file", required=True)
+    argparser.add_argument("-o", "--output", type=str, help="Output NetCDF file", required=False, default="out.nc")
 
     # Coordinates
     argparser.add_argument("-D", "--depths", type=float, help="List of nominal depths", required=False, nargs="+")
@@ -714,7 +747,8 @@ if __name__ == "__main__":
         generate_metadata(args.data, args.generate)
         exit()
 
-    dataset = generate_dataset(args.data, args.metadata, depths=args.depths, latitudes=args.latitudes, longitudes=args.longitudes)
+    dataset = generate_dataset(args.data, args.metadata, depths=args.depths, latitudes=args.latitudes,
+                               longitudes=args.longitudes)
 
     wf, dims = dataset.merge_data()
     # dims = ["latitude", "longitude", "depth", "sensor_id", "time"]

@@ -31,7 +31,7 @@ class EmsoMetadataTester:
         tables with the tests defined, one for the global attributes and another one for tests to be carreid
         """
         # Dict to store all erddap. KEY is the test identifier while value is the method
-        rich.print("[blue]Setting up ERDDAP tests...")
+        rich.print("[blue]Setting up EMSO Metadata Tests...")
 
         self.metadata = EmsoMetadata(True)
 
@@ -390,6 +390,7 @@ class EmsoMetadataTester:
         vocab = args[0]
 
         uri = value.replace("https", "http")  # make sure to use http
+
         if not uri.endswith("/"):
             uri += "/"  # make sure that the uri ends with /
 
@@ -397,10 +398,10 @@ class EmsoMetadataTester:
             raise ValueError(
                 f"Vocabulary '{vocab}' not loaded! Loaded vocabs are {self.metadata.sdn_vocabs_uris.keys()}")
 
-        if value in self.metadata.sdn_vocabs_uris[vocab]:
+        if uri in self.metadata.sdn_vocabs_uris[vocab]:
             return True, ""
 
-        return False, f"Not a valid '{vocab}' URN"
+        return False, f"Not a valid '{vocab}' URI"
 
     # --------- OceanSITES -------- #
     def oceansites_sensor_mount(self, value, args):

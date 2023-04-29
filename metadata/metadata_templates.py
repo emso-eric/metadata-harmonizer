@@ -105,6 +105,7 @@ def variable_metadata():
         "*long_name": "",
         "*sdn_parameter_uri": "",
         "~sdn_uom_uri": "",
+        "~standard_name": "",
     }
 
 
@@ -187,7 +188,7 @@ def global_metadata():
         "~update_interval": "",
         "$site_code": "",
         "$emso_facility": "",
-        "$source": "",
+        "*source": "",
         "$data_type": "",
         "~format_version": "",
         "~network": "",
