@@ -148,23 +148,24 @@ def get_edmo_codes(file):
 class EmsoMetadata:
     def __init__(self, force_update=False):
 
-        self.__folder = ".emso"
         os.makedirs(".emso", exist_ok=True)  # create a conf dir to store Markdown and other stuff
+        os.makedirs(os.path.join(".emso", "jsonld"), exist_ok=True)
+        os.makedirs(os.path.join(".emso", "relations"), exist_ok=True)
         ssl._create_default_https_context = ssl._create_unverified_context
 
-        emso_metadata_file = os.path.join(self.__folder, "EMSO_metadata.md")
-        oceansites_file = os.path.join(self.__folder, "OceanSites_codes.md")
-        emso_sites_file = os.path.join(self.__folder, "EMSO_codes.md")
-        sdn_vocab_p01_file = os.path.join(self.__folder, "sdn_vocab_p01.json")
-        sdn_vocab_p02_file = os.path.join(self.__folder, "sdn_vocab_p02.json")
-        sdn_vocab_p06_file = os.path.join(self.__folder, "sdn_vocab_p06.json")
-        sdn_vocab_p07_file = os.path.join(self.__folder, "sdn_vocab_p07.json")
-        sdn_vocab_l05_file = os.path.join(self.__folder, "sdn_vocab_l05.json")
-        sdn_vocab_l06_file = os.path.join(self.__folder, "sdn_vocab_l06.json")
-        sdn_vocab_l22_file = os.path.join(self.__folder, "sdn_vocab_l22.json")
-        sdn_vocab_l35_file = os.path.join(self.__folder, "sdn_vocab_l35.json")
-        edmo_codes_file = os.path.join(self.__folder, "edmo_codes.json")
-        spdx_licenses_file = os.path.join(self.__folder, "spdx_licenses.md")
+        emso_metadata_file = os.path.join(".emso", "EMSO_metadata.md")
+        oceansites_file = os.path.join(".emso", "OceanSites_codes.md")
+        emso_sites_file = os.path.join(".emso", "EMSO_codes.md")
+        sdn_vocab_p01_file = os.path.join(".emso", "jsonld", "sdn_vocab_p01.json")
+        sdn_vocab_p02_file = os.path.join(".emso", "jsonld", "sdn_vocab_p02.json")
+        sdn_vocab_p06_file = os.path.join(".emso", "jsonld", "sdn_vocab_p06.json")
+        sdn_vocab_p07_file = os.path.join(".emso", "jsonld", "sdn_vocab_p07.json")
+        sdn_vocab_l05_file = os.path.join(".emso", "jsonld", "sdn_vocab_l05.json")
+        sdn_vocab_l06_file = os.path.join(".emso", "jsonld", "sdn_vocab_l06.json")
+        sdn_vocab_l22_file = os.path.join(".emso", "jsonld", "sdn_vocab_l22.json")
+        sdn_vocab_l35_file = os.path.join(".emso", "jsonld", "sdn_vocab_l35.json")
+        edmo_codes_file = os.path.join(".emso", "edmo_codes.json")
+        spdx_licenses_file = os.path.join(".emso", "spdx_licenses.md")
 
         tasks = [
             [emso_metadata_url, emso_metadata_file, "EMSO metadata"],
@@ -229,23 +230,45 @@ class EmsoMetadata:
 
         t = time.time()
         # Process raw SeaDataNet JSON-ld files and store them sliced in short JSON files
-        for vocab, filename in sdn_vocabs.items():
-            rich.print(f"Loading SDN {vocab}...", end="")
-            df, narrower, broader, related = self.load_sdn_vocab(filename)
+        for vocab, jsonld_file in sdn_vocabs.items():
+            csv_filename = os.path.join(".emso", f"{vocab}.csv")
+            frelated = os.path.join(".emso", "relations",  f"{vocab}.related")
+            fnarrower = os.path.join(".emso", "relations",  f"{vocab}.narrower")
+            fbroader = os.path.join (".emso", "relations",  f"{vocab}.broader")
+            if os.path.exists(csv_filename):
+                df = pd.read_csv(csv_filename)
+                with open(frelated) as f:
+                    related = json.load(f)
+                with open(fnarrower) as f:
+                    narrower = json.load(f)
+                with open(fbroader) as f:
+                    broader = json.load(f)
+            else:
+                rich.print(f"Loading SDN {vocab}...", end="")
+                df, narrower, broader, related = self.load_sdn_vocab(jsonld_file)
+                rich.print("[green]done!")
+                for filename, values in {fnarrower: narrower, fbroader: broader, frelated: related}.items():
+                    with open(filename, "w") as f:
+                        json.dump(values, f)
+            # for vocab, df in self.sdn_vocabs.items():
+                # Storing to CSV to make it easier to search
+                df = df[["id", "uri", "prefLabel", "definition"]]
+                filename = os.path.join(".emso", f"{vocab}.csv")
+                df.to_csv(filename, index=False)
+
             self.sdn_vocabs[vocab] = df
             self.sdn_vocabs_narrower[vocab] = narrower
             self.sdn_vocabs_broader[vocab] = broader
             self.sdn_vocabs_related[vocab] = related
-            rich.print("[green]done!")
-
-        for vocab, df in self.sdn_vocabs.items():
             self.sdn_vocabs_pref_label[vocab] = df["prefLabel"].values
             self.sdn_vocabs_ids[vocab] = df["id"].values
             self.sdn_vocabs_uris[vocab] = df["uri"].values
 
+        rich.print(f"[purple]Processing JSON-ld files took {time.time() - t}")
+
         rich.print(f"[purple]Load SDN prefered labels, URIs and Identifiers took {time.time() - t:.02f} seconds")
 
-        edmo_file = os.path.join(self.__folder, f"edmo_codes_sliced.json")
+        edmo_file = os.path.join(".emso", f"edmo_codes_sliced.json")
         if not os.path.exists(edmo_file):
             self.edmo_codes = get_edmo_codes(edmo_codes_file)
             with open(edmo_file, "w") as f:
