@@ -122,7 +122,7 @@ def download_files(tasks, force_download=False):
     threadify(args, urllib.request.urlretrieve)
 
 
-def delete_duplicate_values(df, timestamp="time"):
+def drop_duplicates(df, timestamp="time"):
     """
     useful for datasets that have duplicated values with consecutive timestamps (e.g. data is generated minutely, but
     inserted into a database every 20 secs). So the following dataframe:
@@ -180,3 +180,26 @@ def delete_duplicate_values(df, timestamp="time"):
     rich.print("dropping rows...")
     df.drop(del_array, inplace=True)
     return df
+
+
+def avoid_filename_collision(filename):
+    """
+    Takes a filename (e.g. data.txt) and converts it to an available filename (e.g. data(1).txt).
+    """
+    i = 1
+    a = filename.split(".")
+    a[0] = a[0] + f"({i})"
+    filename = ".".join(a)
+    while os.path.isfile(filename):
+        i += 1
+        filename = filename.split("(")[0] + f"({i})" + filename.split(")")[1]
+    return filename
+
+
+def merge_dicts(strong: dict, weak: dict):
+    """
+    Merges two dictionaries. If a duplicated field is detected the 'strong' value will prevail
+    """
+    out = weak.copy()
+    out.update(strong)
+    return out

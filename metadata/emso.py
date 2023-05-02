@@ -264,10 +264,6 @@ class EmsoMetadata:
             self.sdn_vocabs_ids[vocab] = df["id"].values
             self.sdn_vocabs_uris[vocab] = df["uri"].values
 
-        rich.print(f"[purple]Processing JSON-ld files took {time.time() - t}")
-
-        rich.print(f"[purple]Load SDN prefered labels, URIs and Identifiers took {time.time() - t:.02f} seconds")
-
         edmo_file = os.path.join(".emso", f"edmo_codes_sliced.json")
         if not os.path.exists(edmo_file):
             self.edmo_codes = get_edmo_codes(edmo_codes_file)
@@ -276,7 +272,6 @@ class EmsoMetadata:
         else:
             with open(edmo_file) as f:
                 self.edmo_codes = json.load(f)
-        rich.print(f"[purple]Load EDMO codes took {time.time() - t:.02f} seconds")
 
     @staticmethod
     def clear_downloads():
@@ -357,6 +352,8 @@ class EmsoMetadata:
 
         df = self.sdn_vocabs[vocab_id]
         row = df.loc[df["uri"] == uri]
+        if row.empty:
+            raise LookupError(f"Could not get {key} for '{uri}' in vocab {vocab_id}")
         return row[key].values[0]
 
     def get_relations(self, vocab_id, uri, relation, target_vocab):

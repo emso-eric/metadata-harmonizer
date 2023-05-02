@@ -11,13 +11,12 @@ created: 18/4/23
 """
 import netCDF4 as nc
 import pandas as pd
-import rich
 import numpy as np
 import mooda as md
 
 
-def to_multidim_nc(wf: md.WaterFrame, filename: str, dimensions: list, fill_value=-999, time_key="TIME",
-                   join_attr="; "):
+def wf_to_multidim_nc(wf: md.WaterFrame, filename: str, dimensions: list, fill_value=-999, time_key="TIME",
+                      join_attr="; "):
     """
     Creates a multidimensinoal NetCDF-4 file
     :param filename: name of the output file
@@ -55,7 +54,11 @@ def to_multidim_nc(wf: md.WaterFrame, filename: str, dimensions: list, fill_valu
                 values = nc.date2num(times, "seconds since 1970-01-01", calendar="standard")
 
             ncfile.createDimension(dimension, len(values))  # create dimension
-            var = ncfile.createVariable(dimension, 'f8', (dimension,), fill_value=fill_value, zlib=True)
+            if type(values[0]) == str:  # Some dimension may be a string (e.g. sesnor_id)
+                var = ncfile.createVariable(dimension, str, (dimension,), fill_value=fill_value, zlib=True)
+            else:
+                var = ncfile.createVariable(dimension, 'f8', (dimension,), fill_value=fill_value, zlib=True)
+
             var[:] = values  # assign dimension values
             # add all dimension metadata
 
@@ -67,8 +70,14 @@ def to_multidim_nc(wf: md.WaterFrame, filename: str, dimensions: list, fill_valu
 
         for varname in data_df.columns:
             values = data_df[varname].to_numpy()  # assign values to the variable
-            var = ncfile.createVariable(varname, 'float', dimensions, fill_value=fill_value, zlib=True)
-            var[:] = values
+            if varname.endswith("_QC"):
+                # Store Quality Control as unsigned bytes
+                var = ncfile.createVariable(varname, "u1", dimensions, fill_value=fill_value, zlib=True)
+                var[:] = values.astype(np.int8)
+            else:
+                var = ncfile.createVariable(varname, 'float', dimensions, fill_value=fill_value, zlib=True)
+                var[:] = values
+
             # Adding metadata
             for key, value in wf.vocabulary[varname].items():
                 if type(value) == list:
@@ -82,9 +91,6 @@ def to_multidim_nc(wf: md.WaterFrame, filename: str, dimensions: list, fill_valu
                 values = [str(v) for v in value]
                 value = join_attr.join(values)
             ncfile.setncattr(key, value)
-
-
-
 
 
 
