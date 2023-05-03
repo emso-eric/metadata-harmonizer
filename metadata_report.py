@@ -14,19 +14,18 @@ import os
 from argparse import ArgumentParser
 import rich
 import time
-from erddap import ErddapTester, ERDDAP
+from erddap import ERDDAP
 import pandas as pd
-from metadata import EmsoMetadata
-from metadata.emso import threadify
+from metadata import EmsoMetadata, EmsoMetadataTester, get_netcdf_metadata
+from metadata.utils import threadify, download_files
 
 if __name__ == "__main__":
     argparser = ArgumentParser()
-    argparser.add_argument("url", type=str, help="ERDDAP URL", default="", nargs='?')
+    argparser.add_argument("target", type=str, help="ERDDAP service URL, NetCDF file or JSON metadata file", default="", nargs='?')
     argparser.add_argument("-d", "--datasets", type=str, help="List of datasets to check", nargs="+", default=[])
     argparser.add_argument("-l", "--list", action="store_true", help="List dataset in ERDDAP and exit")
     argparser.add_argument("-p", "--print", action="store_true", help="Just pretty-print the metadata")
     argparser.add_argument("-v", "--verbose", action="store_true", help="Shows more info")
-    argparser.add_argument("-f", "--from-file", type=str, help="Load metadata from a file")
     argparser.add_argument("-s", "--save-metadata", type=str, help="Save dataset's metadata into the specified folder",
                            default="")
     argparser.add_argument("-o", "--output", type=str, help="File to store the results as CSV", default="")
@@ -41,25 +40,50 @@ if __name__ == "__main__":
         rich.print("[green]done")
         exit()
 
-    if not args.url:
-        rich.print("[red]ERDDAP URL required!")
+    if not args.target:
+        rich.print("[red]ERDDAP URL, NetCDF file or JSON file required!")
         exit()
 
-    erddap = ERDDAP(args.url)
+    if args.target.startswith("http"):
+        # Assuming ERDDAP service
+        erddap = ERDDAP(args.target)
+        datasets = args.datasets
+        if not datasets:  # If a list of datasets is not provided, use all datasets in the service
+            datasets = erddap.dataset_list()
 
-    rich.print("Getting full list of datasets")
+        if args.list:  # If set, just list datasets and exit
+            datasets = erddap.dataset_list()
+            rich.print("[green]Listing datasets in ERDDAP:")
+            for i in range(len(datasets)):
+                rich.print(f"    {i:02d} - {datasets[i]}")
+            exit()
 
-    if args.list:
-        datasets = erddap.dataset_list()
-        rich.print("[green]Listing datasets in ERDDAP:")
-        for i in range(len(datasets)):
-            rich.print(f"    {i:02d} - {datasets[i]}")
-        exit()
+        # Get all Metadata from all datasets
+        t = time.time()
+        tasks = [(dataset_id,) for dataset_id in datasets]
+        datasets_metadata = threadify(tasks, erddap.dataset_metadata, text="Getting metadata from ERDDAP...", max_threads=5)
+        rich.print(f"Getting metadata from ERDDDAP took {time.time() - t:.02f} seconds")
 
-    datasets = args.datasets
+    # Processing NetCDF file
+    elif args.target.endswith(".nc"):
+        rich.print(f"Loading metadata from file {args.target}")
+        metadata = get_netcdf_metadata(args.target)
+        datasets_metadata = [metadata]
 
-    if not datasets and not args.from_file:  # if list is empty use them all
-        datasets = erddap.dataset_list()
+    # Processing JSON file
+    elif args.target.endswith(".json"):
+        rich.print(f"Loading metadata from file {args.target}")
+        with open(args.from_file) as f:
+            metadata = json.load(f)
+        datasets_metadata = [metadata]  # an array with only one value
+    else:
+        rich.print("[red]Invalid arguments! Expected an ERDDAP url, a NetCDF file or a JSON file")
+
+    if args.print:
+        for d in datasets_metadata:
+            rich.print(d)
+            exit()
+
     if args.save_metadata:
         os.makedirs(args.save_metadata, exist_ok=True)
         rich.print(f"Saving datasets metadata in '{args.save_metadata}' folder")
@@ -70,25 +94,7 @@ if __name__ == "__main__":
                 f.write(json.dumps(metadata, indent=2))
         exit()
 
-    if args.from_file:
-        # Load metadata from a file
-        rich.print(f"Loading metadata from file {args.from_file}")
-        with open(args.from_file) as f:
-            metadata = json.load(f)
-        datasets_metadata = [metadata]  # an array with only one value
-    else:
-        # Get all Metadata from all datasets
-        t = time.time()
-        tasks = [(dataset_id,) for dataset_id in datasets]
-        datasets_metadata = threadify(tasks, erddap.dataset_metadata, text="Getting metadata from ERDDAP...", max_threads=3)
-        rich.print(f"Getting metadata took {time.time() - t:.02f} seconds")
-
-    if args.print:
-        for d in datasets:
-            rich.print(erddap.dataset_metadata(d))
-            exit()
-
-    tests = ErddapTester()
+    tests = EmsoMetadataTester()
 
     total = []
     required = []

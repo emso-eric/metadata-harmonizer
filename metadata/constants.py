@@ -1,14 +1,7 @@
 #!/usr/bin/env python3
-"""
-File containing Quality Control tools and info following the SeaDataNet recommendations
 
-author: Enoc Martínez
-institution: Universitat Politècnica de Catalunya (UPC)
-email: enoc.martinez@upc.edu
-license: MIT
-created: 18/4/23
-"""
-
+dimensions = ["time", "latitude", "longitude", "depth", "sensor_id"]
+iso_time_format = "%Y-%m-%dT%H:%M:%SZ"
 qc_flags = {
     "unknown": 0,
     "good_data": 1,
@@ -19,3 +12,5 @@ qc_flags = {
     "interpolated_value": 8,
     "missing_value": 9
 }
+
+fill_value = -999999

@@ -9,18 +9,18 @@ license: MIT
 created: 3/3/23
 """
 import os
-import urllib
 import ssl
 import rich
-from rich.progress import Progress
 import pandas as pd
 import json
-import concurrent.futures as futures
 import time
+from .utils import download_files
 
 emso_version = "develop"
 #emso_version = "v0.1"
 
+
+# List of URLs
 emso_metadata_url = f"https://gitlab.emso.eu/Martinez/emso-metadata-specification/-/raw/{emso_version}/EMSO_metadata.md"
 oceansites_codes_url = f"https://gitlab.emso.eu/Martinez/emso-metadata-specification/-/raw/{emso_version}/OceanSites_codes.md"
 emso_codes_url = f"https://gitlab.emso.eu/Martinez/emso-metadata-specification/-/raw/{emso_version}/EMSO_codes.md"
@@ -39,7 +39,6 @@ edmo_codes = "https://edmo.seadatanet.org/sparql/sparql?query=SELECT%20%3Fs%20%3
              "9%3Fs%20%3Fp%20%3Fo%20%0D%0A%7D%20LIMIT%201000000&accept=application%2Fjson"
 
 spdx_licenses_github = "https://raw.githubusercontent.com/spdx/license-list-data/main/licenses.md"
-
 
 
 def process_markdown_file(file) -> (dict, dict):
@@ -96,68 +95,6 @@ def process_markdown_file(file) -> (dict, dict):
     return tables
 
 
-def __threadify_index_handler(index, handler, args):
-    """
-    This function adds the index to the return of the handler function. Useful to sort the results of a
-    multi-threaded operation
-    :param index: index to be returned
-    :param handler: function handler to be called
-    :param args: list with arguments of the function handler
-    :return: tuple with (index, xxx) where xxx is whatever the handler function returned
-    """
-    result = handler(*args)  # call the handler
-    return index, result  # add index to the result
-
-
-def threadify(arg_list, handler, max_threads=10, text: str = "progress..."):
-    """
-    Splits a repetitive task into several threads
-    :param arg_list: each element in the list will crate a thread and its contents passed to the handler
-    :param handler: function to be invoked by every thread
-    :param max_threads: Max threads to be launched at once
-    :return: a list with the results (ordered as arg_list)
-    """
-    index = 0  # thread index
-    with futures.ThreadPoolExecutor(max_workers=max_threads) as executor:
-        threads = []  # empty thread list
-        results = []  # empty list of thread results
-        for args in arg_list:
-            # submit tasks to the executor and append the tasks to the thread list
-            threads.append(executor.submit(__threadify_index_handler, index, handler, args))
-            index += 1
-
-        # wait for all threads to end
-        with Progress() as progress:  # Use Progress() to show a nice progress bar
-            task = progress.add_task(text, total=index)
-            for future in futures.as_completed(threads):
-                future_result = future.result()  # result of the handler
-                results.append(future_result)
-                progress.update(task, advance=1)
-
-        # sort the results by the index added by __threadify_index_handler
-        sorted_results = sorted(results, key=lambda a: a[0])
-
-        final_results = []  # create a new array without indexes
-        for result in sorted_results:
-            final_results.append(result[1])
-        return final_results
-
-
-def download_files(tasks, force_download=False):
-    if len(tasks) == 1:
-        return None
-    rich.print("Downloading files...")
-    args = []
-    for url, file, name in tasks:
-        if os.path.isfile(file) and not force_download:
-            rich.print(f"    [dark_grey]{name} already downloaded")
-        else:
-            rich.print(f"    downloading [cyan]'{name}'[/cyan]...")
-            args.append((url, file))
-
-    threadify(args, urllib.request.urlretrieve)
-
-
 def get_sdn_jsonld_ids(file):
     with open(file, encoding="utf-8") as f:
         data = json.load(f)
@@ -195,39 +132,45 @@ def get_edmo_codes(file):
         data = json.load(f)
 
     codes = []
+    uris = []
+    names = []
     for element in data["results"]["bindings"]:
-        try:
-            code = element["s"]["value"]
-            code = int(code.split("/")[-1])
-            if code not in codes:
-                codes.append(code)
-        except KeyError:
-            continue
+        if element["p"]["value"] == "http://www.w3.org/ns/org#name":
 
-    codes = sorted(codes)
-    return codes
+            code = int(element["s"]["value"].split("/")[-1])
+            uris.append(element["s"]["value"])
+            codes.append(code)
+            names.append(element["o"]["value"])
+
+    df = pd.DataFrame({
+        "uri": uris,
+        "code": codes,
+        "name": names,
+    })
+    return df
 
 
 class EmsoMetadata:
     def __init__(self, force_update=False):
 
-        self.__folder = ".emso"
         os.makedirs(".emso", exist_ok=True)  # create a conf dir to store Markdown and other stuff
+        os.makedirs(os.path.join(".emso", "jsonld"), exist_ok=True)
+        os.makedirs(os.path.join(".emso", "relations"), exist_ok=True)
         ssl._create_default_https_context = ssl._create_unverified_context
 
-        emso_metadata_file = os.path.join(self.__folder, "EMSO_metadata.md")
-        oceansites_file = os.path.join(self.__folder, "OceanSites_codes.md")
-        emso_sites_file = os.path.join(self.__folder, "EMSO_codes.md")
-        sdn_vocab_p01_file = os.path.join(self.__folder, "sdn_vocab_p01.json")
-        sdn_vocab_p02_file = os.path.join(self.__folder, "sdn_vocab_p02.json")
-        sdn_vocab_p06_file = os.path.join(self.__folder, "sdn_vocab_p06.json")
-        sdn_vocab_p07_file = os.path.join(self.__folder, "sdn_vocab_p07.json")
-        sdn_vocab_l05_file = os.path.join(self.__folder, "sdn_vocab_l05.json")
-        sdn_vocab_l06_file = os.path.join(self.__folder, "sdn_vocab_l06.json")
-        sdn_vocab_l22_file = os.path.join(self.__folder, "sdn_vocab_l22.json")
-        sdn_vocab_l35_file = os.path.join(self.__folder, "sdn_vocab_l35.json")
-        edmo_codes_file = os.path.join(self.__folder, "edmo_codes.json")
-        spdx_licenses_file = os.path.join(self.__folder, "spdx_licenses.md")
+        emso_metadata_file = os.path.join(".emso", "EMSO_metadata.md")
+        oceansites_file = os.path.join(".emso", "OceanSites_codes.md")
+        emso_sites_file = os.path.join(".emso", "EMSO_codes.md")
+        sdn_vocab_p01_file = os.path.join(".emso", "jsonld", "sdn_vocab_p01.json")
+        sdn_vocab_p02_file = os.path.join(".emso", "jsonld", "sdn_vocab_p02.json")
+        sdn_vocab_p06_file = os.path.join(".emso", "jsonld", "sdn_vocab_p06.json")
+        sdn_vocab_p07_file = os.path.join(".emso", "jsonld", "sdn_vocab_p07.json")
+        sdn_vocab_l05_file = os.path.join(".emso", "jsonld", "sdn_vocab_l05.json")
+        sdn_vocab_l06_file = os.path.join(".emso", "jsonld", "sdn_vocab_l06.json")
+        sdn_vocab_l22_file = os.path.join(".emso", "jsonld", "sdn_vocab_l22.json")
+        sdn_vocab_l35_file = os.path.join(".emso", "jsonld", "sdn_vocab_l35.json")
+        edmo_codes_jsonld = os.path.join(".emso", "edmo_codes.json")
+        spdx_licenses_file = os.path.join(".emso", "spdx_licenses.md")
 
         tasks = [
             [emso_metadata_url, emso_metadata_file, "EMSO metadata"],
@@ -241,7 +184,7 @@ class EmsoMetadata:
             [sdn_vocab_l06, sdn_vocab_l06_file, "SDN Vocab L06"],
             [sdn_vocab_l22, sdn_vocab_l22_file, "SDN Vocab L22"],
             [sdn_vocab_l35, sdn_vocab_l35_file, "SDN Vocab L35"],
-            [edmo_codes, edmo_codes_file, "EDMO codes"],
+            [edmo_codes, edmo_codes_jsonld, "EDMO codes"],
             [spdx_licenses_github, spdx_licenses_file, "spdx licenses"]
         ]
 
@@ -292,31 +235,47 @@ class EmsoMetadata:
 
         t = time.time()
         # Process raw SeaDataNet JSON-ld files and store them sliced in short JSON files
-        for vocab, filename in sdn_vocabs.items():
-            rich.print(f"Loading SDN {vocab}...", end="")
-            df, narrower, broader, related = self.load_sdn_vocab(filename)
+        for vocab, jsonld_file in sdn_vocabs.items():
+            csv_filename = os.path.join(".emso", f"{vocab}.csv")
+            frelated = os.path.join(".emso", "relations",  f"{vocab}.related")
+            fnarrower = os.path.join(".emso", "relations",  f"{vocab}.narrower")
+            fbroader = os.path.join (".emso", "relations",  f"{vocab}.broader")
+            if os.path.exists(csv_filename):
+                df = pd.read_csv(csv_filename)
+                with open(frelated) as f:
+                    related = json.load(f)
+                with open(fnarrower) as f:
+                    narrower = json.load(f)
+                with open(fbroader) as f:
+                    broader = json.load(f)
+            else:
+                rich.print(f"Loading SDN {vocab}...", end="")
+                df, narrower, broader, related = self.load_sdn_vocab(jsonld_file)
+                rich.print("[green]done!")
+                for filename, values in {fnarrower: narrower, fbroader: broader, frelated: related}.items():
+                    with open(filename, "w") as f:
+                        json.dump(values, f)
+            # for vocab, df in self.sdn_vocabs.items():
+                # Storing to CSV to make it easier to search
+                df = df[["id", "uri", "prefLabel", "definition"]]
+                filename = os.path.join(".emso", f"{vocab}.csv")
+                df.to_csv(filename, index=False)
+
             self.sdn_vocabs[vocab] = df
             self.sdn_vocabs_narrower[vocab] = narrower
             self.sdn_vocabs_broader[vocab] = broader
             self.sdn_vocabs_related[vocab] = related
-            rich.print("[green]done!")
-
-        for vocab, df in self.sdn_vocabs.items():
             self.sdn_vocabs_pref_label[vocab] = df["prefLabel"].values
             self.sdn_vocabs_ids[vocab] = df["id"].values
             self.sdn_vocabs_uris[vocab] = df["uri"].values
 
-        rich.print(f"[purple]Load SDN prefered labels, URIs and Identifiers took {time.time() - t:.02f} seconds")
-
-        edmo_file = os.path.join(self.__folder, f"edmo_codes_sliced.json")
-        if not os.path.exists(edmo_file):
-            self.edmo_codes = get_edmo_codes(edmo_codes_file)
-            with open(edmo_file, "w") as f:
-                f.write(json.dumps(self.edmo_codes))
+        edmo_csv = os.path.join(".emso", f"edmo_codes.csv")
+        if not os.path.exists(edmo_csv):
+            self.edmo_codes = get_edmo_codes(edmo_codes_jsonld)
+            self.edmo_codes.to_csv(edmo_csv, index=False)
         else:
-            with open(edmo_file) as f:
-                self.edmo_codes = json.load(f)
-        rich.print(f"[purple]Load EDMO codes took {time.time() - t:.02f} seconds")
+            self.edmo_codes = pd.read_csv(edmo_csv)
+
 
     @staticmethod
     def clear_downloads():
@@ -397,6 +356,8 @@ class EmsoMetadata:
 
         df = self.sdn_vocabs[vocab_id]
         row = df.loc[df["uri"] == uri]
+        if row.empty:
+            raise LookupError(f"Could not get {key} for '{uri}' in vocab {vocab_id}")
         return row[key].values[0]
 
     def get_relations(self, vocab_id, uri, relation, target_vocab):
@@ -449,10 +410,3 @@ class EmsoMetadata:
             raise LookupError(f"Expected 1 value, got {len(results)}")
 
         return results[0]
-
-
-
-
-
-
-
