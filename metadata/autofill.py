@@ -99,7 +99,7 @@ def expand_minmeta(wf: md.WaterFrame, minmeta: dict, emso: EmsoMetadata) -> dict
 
     # Now, add dimensions info
     for dimname in dimensions:
-        rich.print(f"    adding metadata for dimension  [purple]{dimname}[/purple]...", end="")
+        rich.print(f"    adding metadata for dimension [purple]{dimname}[/purple]...", end="")
         metadata["variables"][dimname] = dimension_metadata(dimname)
         rich.print("[green]done")
 
@@ -110,7 +110,7 @@ def expand_minmeta(wf: md.WaterFrame, minmeta: dict, emso: EmsoMetadata) -> dict
     for varname, varmeta in metadata["variables"].copy().items():
         if varname == "sensor_id":
             continue
-        rich.print(f"    adding metadata for variable [cyan]{varname + '_QC'}[/cyan]...", end="")
+        rich.print(f"    adding metadata for variable  [cyan]{varname + '_QC'}[/cyan]...", end="")
         qcmeta = quality_control_metadata(varmeta["long_name"])
         metadata["variables"][varname + "_QC"] = qcmeta
         rich.print("[green]done")
@@ -157,7 +157,12 @@ def autofill_global(m: dict, emso: EmsoMetadata) -> dict:
 
     # Getting EDMO URL from the code
     edmo_code = m["institution_edmo_code"]
+    edmo_uri = f"https://edmo.seadatanet.org/report/{edmo_code}"
+    m = set_default(m, "institution_edmo_code", edmo_code)
+    df = emso.edmo_codes
+    institution_name = df.loc[df["uri"] == edmo_uri]["name"].values[0]
     m = set_default(m, "institution_edmo_uri", f"https://edmo.seadatanet.org/report/{edmo_code}")
+    m = set_default(m, "institution", institution_name)
     m["license_uri"] = emso.spdx_license_uris[m["license"]]
     return m
 

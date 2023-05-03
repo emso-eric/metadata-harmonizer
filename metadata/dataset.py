@@ -11,7 +11,7 @@ created: 29/4/23
 import mooda as md
 import pandas as pd
 from metadata.autofill import autofill_waterframe_coverage
-from metadata.constants import dimensions, qc_flags, iso_time_format
+from metadata.constants import dimensions, qc_flags, iso_time_format, fill_value
 import numpy as np
 import rich
 import netCDF4 as nc
@@ -54,7 +54,7 @@ def get_std_variables(wf):
     return [col for col in wf.data.columns if col.endswith("_STD")]
 
 
-def harmonize_dataframe(df, fill_value=-999999):
+def harmonize_dataframe(df, fill_value=fill_value):
     """
     Takes a dataframe and harmonizes all variable names. All vars are converter to upper case except for lat, lon
     and depth.All QC and STD vars are put to uppercase.
@@ -190,6 +190,8 @@ def ensure_coordinates(wf, required=["depth", "latitude", "longitude"]):
         if r not in df.columns:
             error = True
             rich.print(f"[red]Coordinate {r} is missing!")
+        if df[r].dtype != np.float:
+            df[r] = df[r].astype(np.float)
 
     if error:
         raise ValueError("Coordinates not properly set")
@@ -201,6 +203,10 @@ def update_waterframe_metadata(wf: md.WaterFrame, meta: dict):
     """
     wf.metadata = merge_dicts(meta["global"], wf.metadata)
     wf.vocabulary = merge_dicts(meta["variables"], wf.vocabulary)
+
+    keywords = get_variables(wf)
+    wf.metadata["keywords"] = keywords
+    wf.metadata["keywords_vocabulary"] = "SeaDataNet Parameter Discovery Vocabulary"
     return wf
 
 

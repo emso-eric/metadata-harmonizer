@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """
 
+Generates NetCDF files based on CSV files and input from the user
+
 author: Enoc Martínez
 institution: Universitat Politècnica de Catalunya (UPC)
 email: enoc.martinez@upc.edu
@@ -62,6 +64,8 @@ def generate_datasets(data_files, metadata_files: list):
         elif metafile.endswith(".full.json"):
             rich.print(f"Loading a full metadata file {metafile}...")
             metadata = load_full_meta(wf, metafile)
+        else:
+            raise ValueError("Expected metadata file with extension .full.json or .min.json!")
 
         wf = update_waterframe_metadata(wf, metadata)
         waterframes.append(wf)
@@ -79,7 +83,7 @@ if __name__ == "__main__":
                            required=False)
 
     argparser.add_argument("-o", "--output", type=str, help="Output NetCDF file", required=False, default="out.nc")
-    argparser.add_argument("-x", "--xml", action="store_true", help="Generate datasets.xml chunkd", required=False)
+    argparser.add_argument("-x", "--xml", type=str, help="Filename to store datasets.xml chunk", required=False)
 
     args = argparser.parse_args()
 
@@ -102,5 +106,5 @@ if __name__ == "__main__":
         export_to_netcdf(wf, args.output)
 
     if args.xml:
-        generate_datsets_xml(wf)
+        generate_datsets_xml(wf, args.xml)
 

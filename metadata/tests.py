@@ -311,7 +311,7 @@ class EmsoMetadataTester:
         if type(value) == str:
             rich.print("[yellow]WARNING: EDMO code should be integer! converting from string to int")
             value = int(value)
-        if value in self.metadata.edmo_codes:
+        if value in self.metadata.edmo_codes["code"].values:
             return True, ""
         return False, f"'{value}' is not a valid EDMO code"
 
@@ -323,9 +323,8 @@ class EmsoMetadataTester:
         if uri.endswith("/"):
             uri = uri[:-1]  # remove ending /
 
-        code = int(uri.split("/")[-1])
 
-        if not uri.startswith("https://edmo.seadatanet.org/report") and code in self.metadata.edmo_codes:
+        if value in self.metadata.edmo_codes["uri"].values:
             return True, ""
 
         return False, f"'{value}' is not a valid EDMO code"

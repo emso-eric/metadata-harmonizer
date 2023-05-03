@@ -132,17 +132,22 @@ def get_edmo_codes(file):
         data = json.load(f)
 
     codes = []
+    uris = []
+    names = []
     for element in data["results"]["bindings"]:
-        try:
-            code = element["s"]["value"]
-            code = int(code.split("/")[-1])
-            if code not in codes:
-                codes.append(code)
-        except KeyError:
-            continue
+        if element["p"]["value"] == "http://www.w3.org/ns/org#name":
 
-    codes = sorted(codes)
-    return codes
+            code = int(element["s"]["value"].split("/")[-1])
+            uris.append(element["s"]["value"])
+            codes.append(code)
+            names.append(element["o"]["value"])
+
+    df = pd.DataFrame({
+        "uri": uris,
+        "code": codes,
+        "name": names,
+    })
+    return df
 
 
 class EmsoMetadata:
@@ -164,7 +169,7 @@ class EmsoMetadata:
         sdn_vocab_l06_file = os.path.join(".emso", "jsonld", "sdn_vocab_l06.json")
         sdn_vocab_l22_file = os.path.join(".emso", "jsonld", "sdn_vocab_l22.json")
         sdn_vocab_l35_file = os.path.join(".emso", "jsonld", "sdn_vocab_l35.json")
-        edmo_codes_file = os.path.join(".emso", "edmo_codes.json")
+        edmo_codes_jsonld = os.path.join(".emso", "edmo_codes.json")
         spdx_licenses_file = os.path.join(".emso", "spdx_licenses.md")
 
         tasks = [
@@ -179,7 +184,7 @@ class EmsoMetadata:
             [sdn_vocab_l06, sdn_vocab_l06_file, "SDN Vocab L06"],
             [sdn_vocab_l22, sdn_vocab_l22_file, "SDN Vocab L22"],
             [sdn_vocab_l35, sdn_vocab_l35_file, "SDN Vocab L35"],
-            [edmo_codes, edmo_codes_file, "EDMO codes"],
+            [edmo_codes, edmo_codes_jsonld, "EDMO codes"],
             [spdx_licenses_github, spdx_licenses_file, "spdx licenses"]
         ]
 
@@ -264,14 +269,13 @@ class EmsoMetadata:
             self.sdn_vocabs_ids[vocab] = df["id"].values
             self.sdn_vocabs_uris[vocab] = df["uri"].values
 
-        edmo_file = os.path.join(".emso", f"edmo_codes_sliced.json")
-        if not os.path.exists(edmo_file):
-            self.edmo_codes = get_edmo_codes(edmo_codes_file)
-            with open(edmo_file, "w") as f:
-                f.write(json.dumps(self.edmo_codes))
+        edmo_csv = os.path.join(".emso", f"edmo_codes.csv")
+        if not os.path.exists(edmo_csv):
+            self.edmo_codes = get_edmo_codes(edmo_codes_jsonld)
+            self.edmo_codes.to_csv(edmo_csv, index=False)
         else:
-            with open(edmo_file) as f:
-                self.edmo_codes = json.load(f)
+            self.edmo_codes = pd.read_csv(edmo_csv)
+
 
     @staticmethod
     def clear_downloads():
@@ -406,10 +410,3 @@ class EmsoMetadata:
             raise LookupError(f"Expected 1 value, got {len(results)}")
 
         return results[0]
-
-
-
-
-
-
-
