@@ -13,6 +13,8 @@ import requests
 import rich
 import json
 
+from metadata.utils import group_metadata_variables
+
 
 class ERDDAP:
     """
@@ -97,7 +99,4 @@ class ERDDAP:
             else:
                 rich.print(f"WARNING could not process row {row}")
 
-        for key, var_metadata in metadata["variables"].copy().items():
-            if key.endswith("_QC") or key.endswith("_qc"):
-                metadata["qc"][key] = metadata["variables"].pop(key)
         return metadata

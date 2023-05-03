@@ -22,6 +22,8 @@ from metadata import EmsoMetadata
 import inspect
 import numpy as np
 
+from metadata.utils import group_metadata_variables
+
 
 class EmsoMetadataTester:
     def __init__(self):
@@ -276,6 +278,9 @@ class EmsoMetadataTester:
         :param metadata: well-formatted JSON metadta for an ERDDAP dataset
         :return: a DataFrame with the following columns: [attribute, variable, required, passed, message, value]
         """
+
+        metadata = group_metadata_variables(metadata)
+
         rich.print(f"#### Validating dataset [cyan]{metadata['global']['title']}[/cyan] ####")
 
         # Test global attributes

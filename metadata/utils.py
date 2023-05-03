@@ -30,7 +30,7 @@ def get_netcdf_metadata(filename):
         "global": wf.metadata,
         "variables": wf.vocabulary
     }
-    return group_metadata_variables(metadata)
+    return metadata
 
 
 def group_metadata_variables(metadata):
@@ -47,7 +47,7 @@ def group_metadata_variables(metadata):
 
     qcs = {key: m["variables"].pop(key) for key in vars if key.upper().endswith("_QC")}
     stds = {key: m["variables"].pop(key) for key in vars if key.upper().endswith("_STD")}
-    dims = {key: m["variables"].pop(key) for key in vars if key in dimensions}
+    dims = {key: m["variables"].pop(key) for key in vars if key.lower() in dimensions}
 
     m = {
         "global": m["global"],
@@ -56,7 +56,6 @@ def group_metadata_variables(metadata):
         "dimensions": dims,
         "std": stds
     }
-    rich.print(m)
     return m
 
 
