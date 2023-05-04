@@ -178,19 +178,21 @@ def autofill_sensor(s: dict, emso: EmsoMetadata) -> dict:
         s["sensor_SeaVoX_L22_code"] = ""
         s["sensor_manufacturer_uri"] = ""
         s["sensor_manufacturer_urn"] = ""
-        s["sensor_manufacturer_name"] = ""
+        s["sensor_manufacturer"] = ""
         return s
 
     try:
         manufacturer_uri = emso.get_relation("L22", sensor_uri, "related", "L35")
         s["sensor_manufacturer_uri"] = manufacturer_uri
         s["sensor_manufacturer_urn"] = emso.vocab_get("L35", manufacturer_uri, "id")
-        s["sensor_manufacturer_name"] = emso.vocab_get("L35", manufacturer_uri, "prefLabel")
+        s["sensor_manufacturer"] = emso.vocab_get("L35", manufacturer_uri, "prefLabel")
     except LookupError:
         rich.print("[red]No manufacturer found on SeaDataNet L35 vocab!!")
         s["sensor_manufacturer_uri"] = ""
         s["sensor_manufacturer_urn"] = ""
-        s["sensor_manufacturer_name"] = ""
+        s["sensor_manufacturer"] = ""
+
+    s["sensor_reference"] = s.pop("sensor_model_uri")
     return s
 
 

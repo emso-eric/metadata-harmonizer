@@ -207,6 +207,39 @@ def update_waterframe_metadata(wf: md.WaterFrame, meta: dict):
     keywords = get_variables(wf)
     wf.metadata["keywords"] = keywords
     wf.metadata["keywords_vocabulary"] = "SeaDataNet Parameter Discovery Vocabulary"
+
+    # Updating ancillary variables with QC and STD data
+    for qc in get_qc_variables(wf):
+        varname = qc.replace("_QC", "")
+        varmeta = wf.vocabulary[varname]
+        if "ancillary_variables" not in varmeta.keys():
+            varmeta["ancillary_variables"] = []
+        varmeta["ancillary_variables"].append(qc)
+
+    for std in get_std_variables(wf):
+        varname = std.replace("_STD", "")
+        varmeta = wf.vocabulary[varname]
+        if "ancillary_variables" not in varmeta.keys():
+            varmeta["ancillary_variables"] = []
+        varmeta["ancillary_variables"].append(std)
+
+    # Update variable coorindates with the dataframe dimensions
+    for var in get_variables(wf):
+        wf.vocabulary[var]["coordinates"] = dimensions
+
+    # check if all fields are filled, otherwise set a blank string
+    __global_attr = ["doi", "platform_code", "wmo_platform_code"]
+    for attr in __global_attr:
+        if attr not in wf.metadata.keys():
+            wf.metadata[attr] = ""
+
+    __variable_fields = ["reference_scale", "comment"]
+    for attr in __variable_fields:
+        for varname in get_variables(wf):
+            if attr not in wf.vocabulary[varname].keys():
+                wf.vocabulary[varname][attr] = ""
+        rich.print(wf.vocabulary[varname])
+
     return wf
 
 
