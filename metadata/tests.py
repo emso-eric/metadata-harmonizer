@@ -280,13 +280,12 @@ class EmsoMetadataTester:
         """
 
         metadata = group_metadata_variables(metadata)
-        rich.print(metadata)
 
         # Try to get a dataset id
         if "dataset_id" in metadata["global"].keys():
             dataset_id = metadata["global"]["dataset_id"]
         elif "id" in metadata["global"].keys():
-            dataset_id = metadata["dataset_id"]
+            dataset_id = metadata["global"]["id"]
         else:
             dataset_id = metadata["global"]["title"]
 
