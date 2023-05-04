@@ -28,8 +28,8 @@ if __name__ == "__main__":
     argparser.add_argument("-v", "--verbose", action="store_true", help="Shows more info")
     argparser.add_argument("-s", "--save-metadata", type=str, help="Save dataset's metadata into the specified folder",
                            default="")
-    argparser.add_argument("-o", "--output", type=str, help="File to store the results as CSV", default="")
-
+    argparser.add_argument("-o", "--output", type=str, help="file to store the report of all the datasets", default="")
+    argparser.add_argument("-r", "--report", action="store_true", help="Generate a CSV file for every test")
     argparser.add_argument("-c", "--clear", action="store_true", help="Clears downloaded files")
 
     args = argparser.parse_args()
@@ -102,7 +102,7 @@ if __name__ == "__main__":
     institution = []
     for i in range(len(datasets_metadata)):
         metadata = datasets_metadata[i]
-        r = tests.validate_dataset(metadata, verbose=args.verbose)
+        r = tests.validate_dataset(metadata, verbose=args.verbose, store_results=args.report)
         total.append(100*r["total"])
         required.append(100*r["required"])
         optional.append(100*r["optional"])

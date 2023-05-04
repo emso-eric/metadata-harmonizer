@@ -272,7 +272,7 @@ class EmsoMetadataTester:
                     results["value"].append(value)
         return results
 
-    def validate_dataset(self, metadata, verbose=True):
+    def validate_dataset(self, metadata, verbose=True, store_results=False):
         """
         Takes the well-formatted JSON metadata from an ERDDAP dataset and processes it
         :param metadata: well-formatted JSON metadta for an ERDDAP dataset
@@ -280,6 +280,15 @@ class EmsoMetadataTester:
         """
 
         metadata = group_metadata_variables(metadata)
+        rich.print(metadata)
+
+        # Try to get a dataset id
+        if "dataset_id" in metadata["global"].keys():
+            dataset_id = metadata["global"]["dataset_id"]
+        elif "id" in metadata["global"].keys():
+            dataset_id = metadata["dataset_id"]
+        else:
+            dataset_id = metadata["global"]["title"]
 
         rich.print(f"#### Validating dataset [cyan]{metadata['global']['title']}[/cyan] ####")
 
@@ -294,7 +303,9 @@ class EmsoMetadataTester:
         for varname, var_metadata in metadata["qc"].items():
             results = self.__test_group_handler(self.metadata.qc_attr, metadata["qc"][varname], varname,
                                                 verbose, results)
+
         df = pd.DataFrame(results)
+
         r = self.__process_results(df, verbose=verbose)
         if "institution" in metadata["global"].keys():
             r["institution"] = metadata["global"]["institution"]
@@ -302,6 +313,13 @@ class EmsoMetadataTester:
             r["institution"] = "EMDO Code " + metadata["global"]["institution_edmo_codi"]
         else:
             r["institution"] = "unkdnwon"
+
+
+        if store_results:
+            results_csv = f"report_{dataset_id}.csv".replace(" ", "_").replace(",", "")
+            rich.print(f"[green]Storing results into file {results_csv}...")
+            df.to_csv(results_csv, index=False)
+
         return r
 
     # ------------------------------------------------ TEST METHODS -------------------------------------------------- #
