@@ -532,6 +532,6 @@ class EmsoMetadataTester:
         return False, f"email '{value}' not valid"
 
     def valid_doi(self, value, args) -> (bool, str):
-        if re.match("^(10\.\d{4,5}\/[\S]+[^;,.\s])$ ", value):
+        if re.match(r"^10.\d{4,9}/[-._;()/:A-Za-z0-9]+$", value):
             return True, ""
         return False, f"DOI '{value}' not valid"
