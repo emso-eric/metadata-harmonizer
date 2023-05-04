@@ -223,7 +223,7 @@ def update_waterframe_metadata(wf: md.WaterFrame, meta: dict):
             varmeta["ancillary_variables"] = []
         varmeta["ancillary_variables"].append(std)
 
-    # Update variable coorindates with the dataframe dimensions
+    # Update variable coordinates with the dataframe dimensions
     for var in get_variables(wf):
         wf.vocabulary[var]["coordinates"] = dimensions
 

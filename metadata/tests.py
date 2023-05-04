@@ -294,6 +294,13 @@ class EmsoMetadataTester:
         # Test global attributes
         results = self.__test_group_handler(self.metadata.global_attr, metadata["global"], "global", verbose)
 
+        # Test every dimension
+        for varname, var_metadata in metadata["dimensions"].items():
+            if varname.lower() == "sensor_id":
+                # Deliberately skip sensor_id
+                continue
+            results = self.__test_group_handler(self.metadata.dimension_attr, metadata["dimensions"][varname], varname,
+                                                verbose, results)
         # Test every variable
         for varname, var_metadata in metadata["variables"].items():
             results = self.__test_group_handler(self.metadata.variable_attr, metadata["variables"][varname], varname,
@@ -312,7 +319,6 @@ class EmsoMetadataTester:
             r["institution"] = "EMDO Code " + metadata["global"]["institution_edmo_codi"]
         else:
             r["institution"] = "unkdnwon"
-
 
         if store_results:
             results_csv = f"report_{dataset_id}.csv".replace(" ", "_").replace(",", "")
@@ -377,7 +383,6 @@ class EmsoMetadataTester:
         if len(args) != 1:
             raise SyntaxError("Vocabulary identifier should be passed in args, e.g. 'P01'")
         vocab = args[0]
-
         if vocab not in self.metadata.sdn_vocabs_pref_label.keys():
             raise ValueError(
                 f"Vocabulary '{vocab}' not loaded! Loaded vocabs are {self.metadata.sdn_vocabs_pref_label.keys()}")
