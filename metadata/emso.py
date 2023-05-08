@@ -361,6 +361,20 @@ class EmsoMetadata:
             raise LookupError(f"Could not get {key} for '{uri}' in vocab {vocab_id}")
         return row[key].values[0]
 
+    def vocab_get_by_urn(self, vocab_id, urn, key):
+        """
+        Search in vocab <vocab_id> for the element with matching uri and return element identified by key
+        """
+        __allowed_keys = ["prefLabel", "uri", "definition"]
+        if key not in __allowed_keys:
+            raise ValueError(f"Key '{key}' not valid, allowed keys: {__allowed_keys}")
+
+        df = self.sdn_vocabs[vocab_id]
+        row = df.loc[df["id"] == urn]
+        if row.empty:
+            raise LookupError(f"Could not get {key} for '{urn}' in vocab {vocab_id}")
+        return row[key].values[0]
+
     def get_relations(self, vocab_id, uri, relation, target_vocab):
         """
         Takes a relation list from a vocabulary (narrower, broader or related), looks for a term identified by URI and

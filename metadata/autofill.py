@@ -15,12 +15,9 @@ import mooda as md
 import rich
 from metadata import EmsoMetadata
 from metadata.constants import dimensions, iso_time_format
+from metadata.dataset import get_variables, set_multisensor
 from metadata.metadata_templates import choose_interactively, dimension_metadata, quality_control_metadata
 from metadata.utils import merge_dicts
-
-
-def autofill(wf: md.WaterFrame, minmeta: dict):
-    pass
 
 
 def set_default(m: dict, key: str, value: any):
@@ -130,13 +127,23 @@ def autofill_variable(varmeta: dict, emso: EmsoMetadata) -> dict:
     """
     Expands the variable metadata adding uris, uoms and names for variables and units
     """
-    sdn_parameter_uri = emso.harmonize_uri(varmeta["sdn_parameter_uri"])
+
+    if "sdn_parameter_uri" in varmeta.keys():
+        sdn_parameter_uri = varmeta["sdn_parameter_uri"]
+    elif "sdn_parameter_urn" in varmeta.keys():  # find the URI based on the URN
+        urn = varmeta["sdn_parameter_urn"]
+        sdn_parameter_uri = emso.vocab_get_by_urn("P01", urn, "uri")
+    else:
+
+        raise LookupError("URN nor URI present in variable!")
+
+    sdn_parameter_uri = emso.harmonize_uri(sdn_parameter_uri)
     label = emso.vocab_get("P01", sdn_parameter_uri, "prefLabel")
     sdn_id = emso.vocab_get("P01", sdn_parameter_uri, "id")
     varmeta["sdn_parameter_urn"] = sdn_id
     varmeta["sdn_parameter_name"] = label.strip()
 
-    if varmeta["sdn_uom_uri"]:
+    if "sdn_uom_uri" in varmeta.keys():
         sdn_uom_uri = varmeta["sdn_uom_uri"]
     else:
         rich.print(f"[yellow]WARNING: units for {sdn_parameter_uri} not set, using P01 default units...")
@@ -228,3 +235,28 @@ def propagate_sensor_metadata(metadata: dict) -> (dict, str):
     sensor_id = metadata["sensor"]["sensor_serial_number"]
     del metadata["sensor"]
     return metadata, sensor_id
+
+
+def autofill_waterframe(wf):
+    """
+    Takes a waterframe and tries to autofill it
+    """
+    emso = EmsoMetadata()
+    variables = get_variables(wf)
+    rich.print(f"variables: {variables}")
+    rich.print(f"Dataframe: {list(wf.data.columns)}")
+    rich.print("Autofilling variables")
+    for varname in variables:
+        varmeta = wf.vocabulary[varname]
+        try:
+            wf.vocabulary[varname] = autofill_variable(varmeta, emso)
+        except LookupError as e:
+            rich.print(f"[red]couldn't autofill {varname} metadata: {e}")
+
+    try:
+        wf = set_multisensor(wf)
+    except LookupError as e:
+        rich.print(f"[red]ERROR {e}")
+
+    return wf
+

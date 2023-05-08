@@ -10,12 +10,10 @@ created: 29/4/23
 
 import mooda as md
 import pandas as pd
-from metadata.autofill import autofill_waterframe_coverage
-from metadata.constants import dimensions, qc_flags, iso_time_format, fill_value
+from metadata.constants import dimensions, qc_flags, fill_value
 import numpy as np
 import rich
 import netCDF4 as nc
-import cftime
 
 from metadata.metadata_templates import dimension_metadata, quality_control_metadata
 from metadata.netcdf import wf_to_multidim_nc
@@ -142,23 +140,44 @@ def csv_detect_header(filename, separator=","):
     return i
 
 
+def wf_force_upper_case(wf: md.WaterFrame) -> md.WaterFrame:
+    # Force upper case in dimensions
+    for key in wf.data.columns:
+        if key.upper() in dimensions and key.upper() != key:
+            rich.print(f"[purple]Forcing upper case for {key}")
+            wf.data = wf.data.rename(columns={key: key.upper()})
+            wf.vocabulary[key.upper()] = wf.vocabulary.pop(key)
+    return wf
+
+
 # -------- Load NetCDF data -------- #
 def load_nc_data(filename) -> (pd.DataFrame, list):
     """
     Loads NetCDF data into a waterframe
     """
-    wf = md.read_nc(filename)
+
+    wf = md.read_nc(filename, decode_times=False)
+    wf.data = wf.data.reset_index()
+    wf = wf_force_upper_case(wf)
     df = wf.data
-    df = df.reset_index()
-    df["time"] = cftime.num2pydate(df["time"].values, "seconds since 1970-01-01", calendar="standard")
-    df["time"] = pd.to_datetime(df["time"])
-    dups = df[df["time"].duplicated()]
+    df["TIME"] = nc.num2date(df["TIME"].values, wf.vocabulary["TIME"]["units"], only_use_python_datetimes=True,
+                           only_use_cftime_datetimes=False)
+    df["TIME"] = pd.to_datetime((df["TIME"]), utc=True)
+
+    dups = df[df["TIME"].duplicated()]
     if len(dups) > 0:
         rich.print(f"[yellow]WARNING! detected {len(dups)} duplicated times!, deleting")
         df = drop_duplicates(df)
 
     wf.data = df  # assign data
     wf.metadata["$datafile"] = filename  # Add the filename as a special param
+
+    # make sure that every column in the dataframe has an associated vocabulary
+    for varname in wf.data.columns:
+        if varname not in wf.vocabulary.keys():
+            rich.print(f"[red]ERROR: Variable {varname} not listed in metadata!")
+            wf.vocabulary[varname] = {}  # generate empty metadata vocab
+
     return wf
 
 
@@ -243,67 +262,6 @@ def update_waterframe_metadata(wf: md.WaterFrame, meta: dict):
     return wf
 
 
-def merge_waterframes(waterframes):
-    """
-    Combine all WaterFrames into a single waterframe. Both data and metadata are consolidated into a single
-    structure
-    """
-    dataframes = []  # list of dataframes
-    global_attr = []  # list of dict containing global attributes
-    variables_attr = {}  # dict all the variables metadata
-    i = 0
-    for wf in waterframes:
-        df = wf.data
-        # setting time as the index
-
-        df = df.set_index("time")
-        df = df.sort_index(ascending=True)
-        df["sensor_id"] = wf.metadata["$sensor_id"]
-
-        dataframes.append(df)
-        global_attr.append(wf.metadata)
-        for varname, varmeta in wf.vocabulary.items():
-            if varname not in variables_attr.keys():
-                variables_attr[varname] = [varmeta]  # list of dicts with metadata
-            else:
-                variables_attr[varname].append(varmeta)
-
-    df = pd.concat(dataframes)  # Consolidate data in a single dataframe
-    df = df.sort_index(ascending=True)  # sort by date
-    df = df.reset_index()  # get back to numerical index
-
-    # Consolidating Global metadata, the position in the array is the priority
-    global_meta = {}
-    for g in reversed(global_attr):  # loop backwards, last element has lower priority
-        global_meta = merge_dicts(g, global_meta)
-
-    variable_meta = {}
-    for varname, varmeta in variables_attr.items():
-        variable_meta[varname] = consolidate_metadata(varmeta)
-
-    wf = md.WaterFrame()
-    wf.data = df
-    wf.vocabulary = variable_meta
-    wf.metadata = global_meta
-
-    multi_sensor = check_multisensor(wf)
-    wf.metadata["$multisensor"] = multi_sensor  # True or false
-
-    wf = autofill_waterframe_coverage(wf)  # update the coordinates max/min in metadata
-
-    # Add versioning info
-    now = pd.Timestamp.now(tz="utc").strftime(iso_time_format)
-    if len(waterframes) > 1:
-        # New waterframe
-        wf.metadata["date_created"] = now
-        wf.metadata["date_modified"] = now
-    else:  # just update the date_modified
-        if "date_created" not in wf.metadata.keys():
-            wf.metadata["date_created"] = now
-        wf.metadata["date_modified"] = wf.metadata["date_created"]
-    return wf
-
-
 def all_equal(values: list):
     """
     checks if all elements in a list are equal
@@ -336,7 +294,7 @@ def consolidate_metadata(dicts: list) -> dict:
     return final
 
 
-def check_multisensor(wf: md.waterframe):
+def set_multisensor(wf: md.waterframe):
     """
     Looks through all the variables and checks if data comes from two or more sensors. Sets the multisensor flag
     """
@@ -358,8 +316,10 @@ def check_multisensor(wf: md.waterframe):
     elif len(serial_numbers) == 1:
         multi_sensor = False
     else:
-        raise ValueError("No serial numbers found???")
-    return multi_sensor
+        wf.metadata["$multisensor"] = False
+        raise LookupError("No sensor serial numbers found!!")
+    wf.metadata["$multisensor"] = multi_sensor
+    return wf
 
 
 def export_to_netcdf(wf, filename):
@@ -370,13 +330,30 @@ def export_to_netcdf(wf, filename):
 
     # If only one sensor remove all sensor_id fields
     if not wf.metadata['$multisensor']:
-        del wf.data["sensor_id"]
-        del wf.vocabulary["sensor_id"]
-        dimensions.remove("sensor_id")
+        if "SENSOR_ID" in wf.data.columns:
+            del wf.data["SENSOR_ID"]
+        if "SENSOR_ID" in wf.vocabulary.keys():
+            del wf.vocabulary["SENSOR_ID"]
+        dimensions.remove("SENSOR_ID")
 
     [wf.metadata.pop(key) for key in wf.metadata.copy().keys() if key.startswith("$")]
 
     rich.print(f"Writing WaterFrame into multidemsncional NetCDF {filename}...", end="")
+
     wf_to_multidim_nc(wf, filename, dimensions, fill_value=-999, time_key="time")
     rich.print("[green]ok!")
 
+
+def extract_netcdf_metadata(wf):
+    """
+    Extracts data from a waterframe into .full.json data
+    """
+    metadata = {
+        "global": wf.metadata,
+        "variable": wf.vocabulary
+    }
+    for key in list(metadata["global"].keys()):
+        if key.startswith("$"):
+            del metadata["global"][key]  # remove special fields
+
+    return metadata

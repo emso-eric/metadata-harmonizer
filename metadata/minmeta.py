@@ -16,7 +16,7 @@ from metadata.metadata_templates import global_metadata, sensor_metadata, variab
 import rich
 import mooda as md
 import os
-from metadata.dataset import get_qc_variables, get_variables
+from metadata.dataset import get_qc_variables, get_variables, extract_netcdf_metadata
 import json
 import numpy as np
 
@@ -176,4 +176,26 @@ def check_mandatory_fields(m):
         if error:
             raise SyntaxError("Missing fields detected! Please fill all fields starting with '*'")
 
+def np_encoder(object):
+    """
+    Encodes Numpy data for JSON lib
+    """
+    if isinstance(object, np.generic):
+        return object.item()
+
+def generate_full_metadata(wf: md.WaterFrame, folder):
+    """
+    Takes a waterframe and stores its full metadtaa in to a JSON file
+    """
+
+    os.makedirs(folder, exist_ok=True)
+    # metadata file will be the datafile with full.json extension
+    metafile = ".".join(wf.metadata["$datafile"].split(".")[:-1]) + ".full.json"
+    metafile = os.path.join(folder, metafile)
+    wf.metadata["$fullmeta"] = metafile
+    rich.print(f"Storing full metadata into {metafile}...", end="")
+    metadata = extract_netcdf_metadata(wf)
+    with open(metafile, "w") as f:
+        f.write(json.dumps(metadata, indent=2, default=np_encoder))
+    rich.print("[green]done!")
 
