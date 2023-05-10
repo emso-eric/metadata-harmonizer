@@ -326,7 +326,6 @@ def export_to_netcdf(wf, filename):
     """
     Stores the waterframe to a NetCDF file
     """
-    # Remove internal elements in metadata
 
     # If only one sensor remove all sensor_id fields
     if not wf.metadata['$multisensor']:
@@ -336,6 +335,7 @@ def export_to_netcdf(wf, filename):
             del wf.vocabulary["SENSOR_ID"]
         dimensions.remove("SENSOR_ID")
 
+    # Remove internal elements in metadata
     [wf.metadata.pop(key) for key in wf.metadata.copy().keys() if key.startswith("$")]
 
     rich.print(f"Writing WaterFrame into multidemsncional NetCDF {filename}...", end="")

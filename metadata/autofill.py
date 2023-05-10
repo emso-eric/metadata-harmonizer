@@ -175,7 +175,14 @@ def autofill_global(m: dict, emso: EmsoMetadata) -> dict:
 
 
 def autofill_sensor(s: dict, emso: EmsoMetadata) -> dict:
-    sensor_uri = s["sensor_model_uri"]
+
+    if "sensor_model_uri" in s.keys():
+        sensor_uri = s["sensor_model_uri"]
+    elif "sensor_reference" in s.keys():
+        sensor_uri = s["sensor_reference"]
+    else:
+        raise LookupError("Could not find sensor reference!")
+
     rich.print("    propagating sensor model info...", end="")
     try:
         s["sensor_model"] = emso.vocab_get("L22", sensor_uri, "prefLabel")
@@ -199,7 +206,8 @@ def autofill_sensor(s: dict, emso: EmsoMetadata) -> dict:
         s["sensor_manufacturer_urn"] = ""
         s["sensor_manufacturer"] = ""
 
-    s["sensor_reference"] = s.pop("sensor_model_uri")
+    if "sensor_model_uri" in s.keys():
+        s["sensor_reference"] = s.pop("sensor_model_uri")
     return s
 
 
@@ -215,6 +223,17 @@ def autofill_waterframe_coverage(wf: md.WaterFrame) -> md.WaterFrame:
     wf.metadata["geospatial_vertical_max"] = int(wf.data["depth"].min())
     wf.metadata["time_coverage_start"] = wf.data["time"].min().strftime(iso_time_format)
     wf.metadata["time_coverage_end"] = wf.data["time"].max().strftime(iso_time_format)
+    return wf
+
+
+def autofill_coordinates(wf: md.WaterFrame) -> md.WaterFrame:
+    """
+    Autofills the coordinates section of each variable
+    """
+    vars = get_variables(wf)
+    for varname in vars:
+        varmeta = wf.vocabulary[varname]
+        varmeta["coordinates"] = dimensions
     return wf
 
 
@@ -243,8 +262,9 @@ def autofill_waterframe(wf):
     """
     emso = EmsoMetadata()
     variables = get_variables(wf)
-    rich.print(f"variables: {variables}")
-    rich.print(f"Dataframe: {list(wf.data.columns)}")
+
+    wf = autofill_coordinates(wf)  # fill the coordinates
+
     rich.print("Autofilling variables")
     for varname in variables:
         varmeta = wf.vocabulary[varname]
@@ -252,6 +272,12 @@ def autofill_waterframe(wf):
             wf.vocabulary[varname] = autofill_variable(varmeta, emso)
         except LookupError as e:
             rich.print(f"[red]couldn't autofill {varname} metadata: {e}")
+
+        try:
+            wf.vocabulary[varname] = autofill_sensor(varmeta, emso)
+        except LookupError as e:
+            rich.print(f"[red]couldn't autofill sensor metadata for {varname}: {e}")
+
 
     try:
         wf = set_multisensor(wf)
