@@ -204,4 +204,18 @@ def merge_dicts(strong: dict, weak: dict):
     return out
 
 
-
+def get_file_list(dir_name):
+    """
+     create a list of file and sub directories names in the given directory
+     :param dir_name: directory name
+     :returns: list of all files with relative path
+     """
+    file_list = os.listdir(dir_name)
+    all_files = list()
+    for entry in file_list:
+        full_path = os.path.join(dir_name, entry)
+        if os.path.isdir(full_path):
+            all_files = all_files + get_file_list(full_path)
+        else:
+            all_files.append(full_path)
+    return all_files

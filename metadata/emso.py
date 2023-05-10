@@ -14,7 +14,7 @@ import rich
 import pandas as pd
 import json
 import time
-from .utils import download_files
+from .utils import download_files, get_file_list
 
 emso_version = "develop"
 #emso_version = "v0.1"
@@ -277,16 +277,15 @@ class EmsoMetadata:
         else:
             self.edmo_codes = pd.read_csv(edmo_csv)
 
-
     @staticmethod
     def clear_downloads():
         """
         Clears all files in .emso folder
         """
-        files = os.listdir(".emso")
+        files = get_file_list(".emso")
         for f in files:
             if os.path.isfile(f):
-                os.remove(os.path.join(".emso", f))
+                os.remove(f)
 
     @staticmethod
     def load_sdn_vocab(filename):

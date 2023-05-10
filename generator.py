@@ -104,8 +104,15 @@ if __name__ == "__main__":
 
     argparser.add_argument("-o", "--output", type=str, help="Output NetCDF file", required=False, default="out.nc")
     argparser.add_argument("-x", "--xml", type=str, help="Filename to store datasets.xml chunk", required=False)
+    argparser.add_argument("--clear", action="store_true", help="Clears all downloads", required=False)
 
     args = argparser.parse_args()
+
+    if args.clear:
+        rich.print("Clearing downloaded files...", end="")
+        EmsoMetadata.clear_downloads()
+        rich.print("[green]done")
+        exit()
 
     if args.generate and args.metadata:
         raise ValueError("--metadata and --generate cannot be used at the same time!")
