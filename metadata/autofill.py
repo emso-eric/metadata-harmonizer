@@ -134,10 +134,13 @@ def autofill_variable(varmeta: dict, emso: EmsoMetadata) -> dict:
         urn = varmeta["sdn_parameter_urn"]
         sdn_parameter_uri = emso.vocab_get_by_urn("P01", urn, "uri")
     else:
-
         raise LookupError("URN nor URI present in variable!")
 
     sdn_parameter_uri = emso.harmonize_uri(sdn_parameter_uri)
+
+    if "sdn_parameter_uri" not in varmeta.keys():
+        varmeta["sdn_parameter_uri"] = sdn_parameter_uri 
+
     label = emso.vocab_get("P01", sdn_parameter_uri, "prefLabel")
     sdn_id = emso.vocab_get("P01", sdn_parameter_uri, "id")
     varmeta["sdn_parameter_urn"] = sdn_id
