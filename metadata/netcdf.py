@@ -13,6 +13,7 @@ import netCDF4 as nc
 import pandas as pd
 import numpy as np
 import mooda as md
+import rich
 
 
 def wf_to_multidim_nc(wf: md.WaterFrame, filename: str, dimensions: list, fill_value=-99999.9999, time_key="TIME",

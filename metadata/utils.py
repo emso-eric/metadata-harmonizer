@@ -47,7 +47,7 @@ def group_metadata_variables(metadata):
 
     qcs = {key: m["variables"].pop(key) for key in vars if key.upper().endswith("_QC")}
     stds = {key: m["variables"].pop(key) for key in vars if key.upper().endswith("_STD")}
-    dims = {key: m["variables"].pop(key) for key in vars if key.lower() in dimensions}
+    dims = {key: m["variables"].pop(key) for key in vars if key.upper() in dimensions}
 
     m = {
         "global": m["global"],
@@ -202,3 +202,6 @@ def merge_dicts(strong: dict, weak: dict):
     out = weak.copy()
     out.update(strong)
     return out
+
+
+

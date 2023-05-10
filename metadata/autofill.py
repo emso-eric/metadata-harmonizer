@@ -15,12 +15,9 @@ import mooda as md
 import rich
 from metadata import EmsoMetadata
 from metadata.constants import dimensions, iso_time_format
+from metadata.dataset import get_variables, set_multisensor
 from metadata.metadata_templates import choose_interactively, dimension_metadata, quality_control_metadata
 from metadata.utils import merge_dicts
-
-
-def autofill(wf: md.WaterFrame, minmeta: dict):
-    pass
 
 
 def set_default(m: dict, key: str, value: any):
@@ -130,13 +127,26 @@ def autofill_variable(varmeta: dict, emso: EmsoMetadata) -> dict:
     """
     Expands the variable metadata adding uris, uoms and names for variables and units
     """
-    sdn_parameter_uri = emso.harmonize_uri(varmeta["sdn_parameter_uri"])
+
+    if "sdn_parameter_uri" in varmeta.keys():
+        sdn_parameter_uri = varmeta["sdn_parameter_uri"]
+    elif "sdn_parameter_urn" in varmeta.keys():  # find the URI based on the URN
+        urn = varmeta["sdn_parameter_urn"]
+        sdn_parameter_uri = emso.vocab_get_by_urn("P01", urn, "uri")
+    else:
+        raise LookupError("URN nor URI present in variable!")
+
+    sdn_parameter_uri = emso.harmonize_uri(sdn_parameter_uri)
+
+    if "sdn_parameter_uri" not in varmeta.keys():
+        varmeta["sdn_parameter_uri"] = sdn_parameter_uri 
+
     label = emso.vocab_get("P01", sdn_parameter_uri, "prefLabel")
     sdn_id = emso.vocab_get("P01", sdn_parameter_uri, "id")
     varmeta["sdn_parameter_urn"] = sdn_id
     varmeta["sdn_parameter_name"] = label.strip()
 
-    if varmeta["sdn_uom_uri"]:
+    if "sdn_uom_uri" in varmeta.keys():
         sdn_uom_uri = varmeta["sdn_uom_uri"]
     else:
         rich.print(f"[yellow]WARNING: units for {sdn_parameter_uri} not set, using P01 default units...")
@@ -168,7 +178,14 @@ def autofill_global(m: dict, emso: EmsoMetadata) -> dict:
 
 
 def autofill_sensor(s: dict, emso: EmsoMetadata) -> dict:
-    sensor_uri = s["sensor_model_uri"]
+
+    if "sensor_model_uri" in s.keys():
+        sensor_uri = s["sensor_model_uri"]
+    elif "sensor_reference" in s.keys():
+        sensor_uri = s["sensor_reference"]
+    else:
+        raise LookupError("Could not find sensor reference!")
+
     rich.print("    propagating sensor model info...", end="")
     try:
         s["sensor_model"] = emso.vocab_get("L22", sensor_uri, "prefLabel")
@@ -178,19 +195,22 @@ def autofill_sensor(s: dict, emso: EmsoMetadata) -> dict:
         s["sensor_SeaVoX_L22_code"] = ""
         s["sensor_manufacturer_uri"] = ""
         s["sensor_manufacturer_urn"] = ""
-        s["sensor_manufacturer_name"] = ""
+        s["sensor_manufacturer"] = ""
         return s
 
     try:
         manufacturer_uri = emso.get_relation("L22", sensor_uri, "related", "L35")
         s["sensor_manufacturer_uri"] = manufacturer_uri
         s["sensor_manufacturer_urn"] = emso.vocab_get("L35", manufacturer_uri, "id")
-        s["sensor_manufacturer_name"] = emso.vocab_get("L35", manufacturer_uri, "prefLabel")
+        s["sensor_manufacturer"] = emso.vocab_get("L35", manufacturer_uri, "prefLabel")
     except LookupError:
         rich.print("[red]No manufacturer found on SeaDataNet L35 vocab!!")
         s["sensor_manufacturer_uri"] = ""
         s["sensor_manufacturer_urn"] = ""
-        s["sensor_manufacturer_name"] = ""
+        s["sensor_manufacturer"] = ""
+
+    if "sensor_model_uri" in s.keys():
+        s["sensor_reference"] = s.pop("sensor_model_uri")
     return s
 
 
@@ -206,6 +226,17 @@ def autofill_waterframe_coverage(wf: md.WaterFrame) -> md.WaterFrame:
     wf.metadata["geospatial_vertical_max"] = int(wf.data["depth"].min())
     wf.metadata["time_coverage_start"] = wf.data["time"].min().strftime(iso_time_format)
     wf.metadata["time_coverage_end"] = wf.data["time"].max().strftime(iso_time_format)
+    return wf
+
+
+def autofill_coordinates(wf: md.WaterFrame) -> md.WaterFrame:
+    """
+    Autofills the coordinates section of each variable
+    """
+    vars = get_variables(wf)
+    for varname in vars:
+        varmeta = wf.vocabulary[varname]
+        varmeta["coordinates"] = dimensions
     return wf
 
 
@@ -226,3 +257,35 @@ def propagate_sensor_metadata(metadata: dict) -> (dict, str):
     sensor_id = metadata["sensor"]["sensor_serial_number"]
     del metadata["sensor"]
     return metadata, sensor_id
+
+
+def autofill_waterframe(wf):
+    """
+    Takes a waterframe and tries to autofill it
+    """
+    emso = EmsoMetadata()
+    variables = get_variables(wf)
+
+    wf = autofill_coordinates(wf)  # fill the coordinates
+
+    rich.print("Autofilling variables")
+    for varname in variables:
+        varmeta = wf.vocabulary[varname]
+        try:
+            wf.vocabulary[varname] = autofill_variable(varmeta, emso)
+        except LookupError as e:
+            rich.print(f"[red]couldn't autofill {varname} metadata: {e}")
+
+        try:
+            wf.vocabulary[varname] = autofill_sensor(varmeta, emso)
+        except LookupError as e:
+            rich.print(f"[red]couldn't autofill sensor metadata for {varname}: {e}")
+
+
+    try:
+        wf = set_multisensor(wf)
+    except LookupError as e:
+        rich.print(f"[red]ERROR {e}")
+
+    return wf
+

@@ -76,7 +76,7 @@ class ERDDAP:
         metadata_url = f"{self.url}/info/{dataset_id}/index.json"
         r = self.get(metadata_url)
         metadata = {
-            "global": {},
+            "global": {"dataset_id": dataset_id},
             "variables": {},
             "qc": {}
         }

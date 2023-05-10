@@ -272,7 +272,7 @@ class EmsoMetadataTester:
                     results["value"].append(value)
         return results
 
-    def validate_dataset(self, metadata, verbose=True):
+    def validate_dataset(self, metadata, verbose=True, store_results=False):
         """
         Takes the well-formatted JSON metadata from an ERDDAP dataset and processes it
         :param metadata: well-formatted JSON metadta for an ERDDAP dataset
@@ -281,11 +281,26 @@ class EmsoMetadataTester:
 
         metadata = group_metadata_variables(metadata)
 
+        # Try to get a dataset id
+        if "dataset_id" in metadata["global"].keys():
+            dataset_id = metadata["global"]["dataset_id"]
+        elif "id" in metadata["global"].keys():
+            dataset_id = metadata["global"]["id"]
+        else:
+            dataset_id = metadata["global"]["title"]
+
         rich.print(f"#### Validating dataset [cyan]{metadata['global']['title']}[/cyan] ####")
 
         # Test global attributes
         results = self.__test_group_handler(self.metadata.global_attr, metadata["global"], "global", verbose)
 
+        # Test every dimension
+        for varname, var_metadata in metadata["dimensions"].items():
+            if varname.lower() == "sensor_id":
+                # Deliberately skip sensor_id
+                continue
+            results = self.__test_group_handler(self.metadata.dimension_attr, metadata["dimensions"][varname], varname,
+                                                verbose, results)
         # Test every variable
         for varname, var_metadata in metadata["variables"].items():
             results = self.__test_group_handler(self.metadata.variable_attr, metadata["variables"][varname], varname,
@@ -294,7 +309,9 @@ class EmsoMetadataTester:
         for varname, var_metadata in metadata["qc"].items():
             results = self.__test_group_handler(self.metadata.qc_attr, metadata["qc"][varname], varname,
                                                 verbose, results)
+
         df = pd.DataFrame(results)
+
         r = self.__process_results(df, verbose=verbose)
         if "institution" in metadata["global"].keys():
             r["institution"] = metadata["global"]["institution"]
@@ -302,6 +319,12 @@ class EmsoMetadataTester:
             r["institution"] = "EMDO Code " + metadata["global"]["institution_edmo_codi"]
         else:
             r["institution"] = "unkdnwon"
+
+        if store_results:
+            results_csv = f"report_{dataset_id}.csv".replace(" ", "_").replace(",", "")
+            rich.print(f"[green]Storing results into file {results_csv}...")
+            df.to_csv(results_csv, index=False)
+
         return r
 
     # ------------------------------------------------ TEST METHODS -------------------------------------------------- #
@@ -360,7 +383,6 @@ class EmsoMetadataTester:
         if len(args) != 1:
             raise SyntaxError("Vocabulary identifier should be passed in args, e.g. 'P01'")
         vocab = args[0]
-
         if vocab not in self.metadata.sdn_vocabs_pref_label.keys():
             raise ValueError(
                 f"Vocabulary '{vocab}' not loaded! Loaded vocabs are {self.metadata.sdn_vocabs_pref_label.keys()}")
@@ -532,6 +554,6 @@ class EmsoMetadataTester:
         return False, f"email '{value}' not valid"
 
     def valid_doi(self, value, args) -> (bool, str):
-        if re.match("^(10\.\d{4,5}\/[\S]+[^;,.\s])$ ", value):
+        if re.match(r"^10.\d{4,9}/[-._;()/:A-Za-z0-9]+$", value):
             return True, ""
         return False, f"DOI '{value}' not valid"

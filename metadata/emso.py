@@ -193,6 +193,7 @@ class EmsoMetadata:
         tables = process_markdown_file(emso_metadata_file)
         self.global_attr = tables["Global Attributes"]
         self.variable_attr = tables["Variable Attributes"]
+        self.dimension_attr = tables["Dimension Attributes"]
         self.qc_attr = tables["Quality Control Attributes"]
 
         tables = process_markdown_file(oceansites_file)
@@ -358,6 +359,20 @@ class EmsoMetadata:
         row = df.loc[df["uri"] == uri]
         if row.empty:
             raise LookupError(f"Could not get {key} for '{uri}' in vocab {vocab_id}")
+        return row[key].values[0]
+
+    def vocab_get_by_urn(self, vocab_id, urn, key):
+        """
+        Search in vocab <vocab_id> for the element with matching uri and return element identified by key
+        """
+        __allowed_keys = ["prefLabel", "uri", "definition"]
+        if key not in __allowed_keys:
+            raise ValueError(f"Key '{key}' not valid, allowed keys: {__allowed_keys}")
+
+        df = self.sdn_vocabs[vocab_id]
+        row = df.loc[df["id"] == urn]
+        if row.empty:
+            raise LookupError(f"Could not get {key} for '{urn}' in vocab {vocab_id}")
         return row[key].values[0]
 
     def get_relations(self, vocab_id, uri, relation, target_vocab):
