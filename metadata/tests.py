@@ -338,7 +338,10 @@ class EmsoMetadataTester:
     def edmo_code(self, value, args):
         if type(value) == str:
             rich.print("[yellow]WARNING: EDMO code should be integer! converting from string to int")
-            value = int(value)
+            try:
+                value = int(value)
+            except ValueError:
+                return False, f"'{value}' is not a valid EDMO code"
         if value in self.metadata.edmo_codes["code"].values:
             return True, ""
         return False, f"'{value}' is not a valid EDMO code"
