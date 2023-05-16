@@ -12,28 +12,11 @@ created: 13/4/23
 
 from argparse import ArgumentParser
 import rich
-from erddap.datasets_xml import generate_datsets_xml
 from metadata.autofill import expand_minmeta, autofill_waterframe
-from metadata.constants import dimensions
-from metadata.dataset import load_csv_data, add_coordinates, ensure_coordinates, update_waterframe_metadata, \
-    export_to_netcdf, load_nc_data
+from metadata.dataset import add_coordinates, ensure_coordinates, update_waterframe_metadata, export_to_netcdf
 from metadata.merge import merge_waterframes
 from metadata.minmeta import generate_min_meta_template, load_min_meta, load_full_meta, generate_full_metadata
-from metadata import EmsoMetadata
-
-
-def load_data(file: str):
-    """
-    Opens a CSV or NetCDF data and returns a WaterFrame
-    """
-    if file.endswith(".csv"):
-        wf = load_csv_data(file)
-    elif file.endswith(".nc"):
-        wf = load_nc_data(file)
-    else:
-        raise ValueError("Unimplemented file format for data!")
-
-    return wf
+from metadata import EmsoMetadata, load_data
 
 
 def generate_metadata(data_files: list, folder):
@@ -49,7 +32,6 @@ def generate_metadata(data_files: list, folder):
             generate_min_meta_template(wf, folder)
         elif file.endswith(".nc"):
             generate_full_metadata(wf, folder)
-
 
     rich.print(f"[green]Please edit the following files and run the generator with the -m option!")
 
@@ -102,11 +84,12 @@ if __name__ == "__main__":
     argparser.add_argument("-a", "--autofill", action="store_true", help="Takes a NetCDF file and tries to autofill its metadata",
                            required=False)
 
-    argparser.add_argument("-o", "--output", type=str, help="Output NetCDF file", required=False, default="out.nc")
-    argparser.add_argument("-x", "--xml", type=str, help="Filename to store datasets.xml chunk", required=False)
+    argparser.add_argument("-o", "--output", type=str, help="Output NetCDF file", required=False, default="")
     argparser.add_argument("--clear", action="store_true", help="Clears all downloads", required=False)
 
     args = argparser.parse_args()
+
+    wf = None
 
     if args.clear:
         rich.print("Clearing downloaded files...", end="")
@@ -117,8 +100,8 @@ if __name__ == "__main__":
     if args.generate and args.metadata:
         raise ValueError("--metadata and --generate cannot be used at the same time!")
 
-    if not args.generate and not args.metadata and not args.autofill:
-        raise ValueError("--metadata OR --generate OR --autofill option ust be used!")
+    if not args.generate and not args.metadata and not args.autofill and not args.xml:
+        raise ValueError("--metadata OR --generate OR --autofill OR --xml option ust be used!")
 
     # If metadata and generate
     if args.generate:
@@ -140,6 +123,8 @@ if __name__ == "__main__":
     if args.output:
         export_to_netcdf(wf, args.output)
 
-    if args.xml:
-        generate_datsets_xml(wf, args.xml)
-
+    if not wf:
+        if len(args.data) > 1:
+            raise ValueError("Only one data file expected!")
+        filename = args.data[0]
+        wf = load_data(filename)

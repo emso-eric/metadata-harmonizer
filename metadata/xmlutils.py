@@ -256,7 +256,7 @@ def get_element(root, tag, attr=None, attr_value=None):
     elif len(candidates) > 1:
         raise LookupError("Too many elements %s found, expected 1 got %d" % (tag, len(candidates)))
 
-    raise LookupError( RED + "Element not found %s %s=%s" % (tag, attr, attr_value) + RST)
+    raise LookupError("Element not found %s %s=%s" % (tag, attr, attr_value))
 
 
 def get_children_index(root, tag):

@@ -16,7 +16,7 @@ import rich
 import netCDF4 as nc
 
 from metadata.metadata_templates import dimension_metadata, quality_control_metadata
-from metadata.netcdf import wf_to_multidim_nc
+from metadata.netcdf import wf_to_multidim_nc, read_nc
 from metadata.utils import drop_duplicates, merge_dicts
 
 
@@ -25,8 +25,9 @@ def get_variables(wf):
     returns a list of QC variables within a waterframe
     """
     vars = []
+    dimensions_l = [d.lower() for d in dimensions]
     for c in wf.data.columns:
-        if not c.endswith("_QC") and not c.endswith("_STD") and c.lower() not in dimensions:
+        if not c.endswith("_QC") and not c.endswith("_STD") and c.lower() not in dimensions and c.lower() not in dimensions_l:
             vars.append(c)
     return vars
 
@@ -35,7 +36,7 @@ def get_dimensions(wf):
     """
     returns a list of QC variables within a waterframe
     """
-    return [col for col in wf.data.columns if col in dimensions]
+    return [col for col in wf.data.columns if col.upper() in dimensions]
 
 
 def get_qc_variables(wf):
@@ -150,24 +151,49 @@ def wf_force_upper_case(wf: md.WaterFrame) -> md.WaterFrame:
     return wf
 
 
+def load_data(file: str):
+    """
+    Opens a CSV or NetCDF data and returns a WaterFrame
+    """
+    if file.endswith(".csv"):
+        wf = load_csv_data(file)
+    elif file.endswith(".nc"):
+        wf = load_nc_data(file)
+    else:
+        raise ValueError("Unimplemented file format for data!")
+    return wf
+
+
 # -------- Load NetCDF data -------- #
-def load_nc_data(filename) -> (pd.DataFrame, list):
+def load_nc_data(filename, drop_duplicates=False) -> (md.WaterFrame, list):
     """
     Loads NetCDF data into a waterframe
     """
 
-    wf = md.read_nc(filename, decode_times=False)
+    wf = read_nc(filename, decode_times=False)
     wf.data = wf.data.reset_index()
     wf = wf_force_upper_case(wf)
     df = wf.data
-    df["TIME"] = nc.num2date(df["TIME"].values, wf.vocabulary["TIME"]["units"], only_use_python_datetimes=True,
-                           only_use_cftime_datetimes=False)
+
+    units = wf.vocabulary["TIME"]["units"]
+    rich.print(f"Units: {units}")
+    rich.print(wf.vocabulary["TIME"]["sdn_parameter_name"])
+    if "since" not in units:  # netcdf library requires that the units fields has the 'since' keyword
+        if wf.vocabulary["TIME"]["sdn_parameter_urn"] == "SDN:P01::ELTJLD01":
+            rich.print("[blue]Trying to decode TIME as days since 1950...")
+            units = "days since 1950-01-01T00:00:00z"
+        else:
+            rich.print("[blue]Trying to decode TIME as seconds since 1970...")
+            units = "seconds since 1970-01-01T00:00:00z"
+
+    df["TIME"] = nc.num2date(df["TIME"].values, units, only_use_python_datetimes=True, only_use_cftime_datetimes=False)
     df["TIME"] = pd.to_datetime((df["TIME"]), utc=True)
 
-    dups = df[df["TIME"].duplicated()]
-    if len(dups) > 0:
-        rich.print(f"[yellow]WARNING! detected {len(dups)} duplicated times!, deleting")
-        df = drop_duplicates(df)
+    if drop_duplicates:
+        dups = df[df["TIME"].duplicated()]
+        if len(dups) > 0:
+            rich.print(f"[yellow]WARNING! detected {len(dups)} duplicated times!, deleting")
+            df = drop_duplicates(df)
 
     wf.data = df  # assign data
     wf.metadata["$datafile"] = filename  # Add the filename as a special param
@@ -257,7 +283,6 @@ def update_waterframe_metadata(wf: md.WaterFrame, meta: dict):
         for varname in get_variables(wf):
             if attr not in wf.vocabulary[varname].keys():
                 wf.vocabulary[varname][attr] = ""
-        rich.print(wf.vocabulary[varname])
 
     return wf
 
@@ -356,4 +381,18 @@ def extract_netcdf_metadata(wf):
         if key.startswith("$"):
             del metadata["global"][key]  # remove special fields
 
+    return metadata
+
+
+def get_netcdf_metadata(filename):
+    """
+    Returns the metadata from a NetCDF file
+    :param: filename
+    :returns: dict with the metadata { "global": ..., "variables": {"VAR1": {...},"VAR2":{...}}
+    """
+    wf = load_nc_data(filename)
+    metadata = {
+        "global": wf.metadata,
+        "variables": wf.vocabulary
+    }
     return metadata

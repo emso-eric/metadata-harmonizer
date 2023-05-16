@@ -19,20 +19,6 @@ from metadata.constants import dimensions
 import numpy as np
 
 
-def get_netcdf_metadata(filename):
-    """
-    Returns the metadata from a NetCDF file
-    :param: filename
-    :returns: dict with the metadata { "global": ..., "variables": {"VAR1": {...},"VAR2":{...}}
-    """
-    wf = md.read_nc(filename)
-    metadata = {
-        "global": wf.metadata,
-        "variables": wf.vocabulary
-    }
-    return metadata
-
-
 def group_metadata_variables(metadata):
     """
     Takes a dictionary with all the variables in the "variable" and groups them into "variables", "qualityControl" and
