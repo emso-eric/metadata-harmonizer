@@ -58,7 +58,7 @@ def quality_control_metadata(long_name):
 def dimension_metadata(dim):
 
     __dimension_metadata = {
-        "time": {
+        "TIME": {
             "long_name": "time of measurements",
             # UNIX time: seconds since 1970
             "sdn_parameter_uri": "https://vocab.nerc.ac.uk/collection/P01/current/ELTMEP01/",
@@ -68,33 +68,33 @@ def dimension_metadata(dim):
             "axis": "T",
             "sdn_uom_uri": "http://vocab.nerc.ac.uk/collection/P06/current/UTBB/"
         },
-        "depth": {
+        "DEPTH": {
             "long_name": "depth of measurements",
             "sdn_parameter_uri": "https://vocab.nerc.ac.uk/collection/P01/current/ADEPZZ01",
             "standard_name": "depth",
             "axis": "Z",
             "sdn_uom_uri": "http://vocab.nerc.ac.uk/collection/P06/current/ULAA/"
         },
-        "latitude": {
+        "LATITUDE": {
             "long_name": "latitude of measurements",
             "sdn_parameter_uri": "https://vocab.nerc.ac.uk/collection/P01/current/ALATZZ01",
             "standard_name": "latitude",
             "axis": "Y",
             "sdn_uom_uri": "http://vocab.nerc.ac.uk/collection/P06/current/UAAA/"
         },
-        "longitude": {
+        "LONGITUDE": {
             "long_name": "longitude of measurements",
             "sdn_parameter_uri": "https://vocab.nerc.ac.uk/collection/P01/current/ALONZZ01",
             "standard_name": "longitude",
             "axis": "X",
             "sdn_uom_uri": "http://vocab.nerc.ac.uk/collection/P06/current/UAAA/"
         },
-        "sensor_id": {
+        "SENSOR_ID": {
             "long_name": "Identifier of the sensor that took the measurement"
         }
     }
     if dim not in __dimension_metadata.keys():
-        raise LookupError(f"Not a valid {dim}")
+        raise LookupError(f"Not a valid dimension '{dim}'. Expected one of the following {list(__dimension_metadata.keys())}")
     return __dimension_metadata[dim].copy()
 
 

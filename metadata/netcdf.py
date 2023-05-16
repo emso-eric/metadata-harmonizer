@@ -55,12 +55,13 @@ def wf_to_multidim_nc(wf: md.WaterFrame, filename: str, dimensions: list, fill_v
                 values = nc.date2num(times, "seconds since 1970-01-01", calendar="standard")
 
             ncfile.createDimension(dimension, len(values))  # create dimension
-            if type(values[0]) == str:  # Some dimension may be a string (e.g. sesnor_id)
+            if type(values[0]) == str:  # Some dimension may be a string (e.g. sensor_id)
                 var = ncfile.createVariable(dimension, str, (dimension,), fill_value=fill_value, zlib=True)
             else:
                 var = ncfile.createVariable(dimension, 'f8', (dimension,), fill_value=fill_value, zlib=True)
 
             var[:] = values  # assign dimension values
+
             # add all dimension metadata
 
             for key, value in wf.vocabulary[dimension].items():

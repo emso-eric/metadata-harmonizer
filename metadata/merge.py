@@ -16,14 +16,13 @@ def merge_waterframes(waterframes):
     dataframes = []  # list of dataframes
     global_attr = []  # list of dict containing global attributes
     variables_attr = {}  # dict all the variables metadata
-    i = 0
     for wf in waterframes:
         df = wf.data
         # setting time as the index
-
-        df = df.set_index("time")
+        df = df.set_index("TIME")
+        df = df.drop_duplicates(keep="first")
         df = df.sort_index(ascending=True)
-        df["sensor_id"] = wf.metadata["$sensor_id"]
+        df["SENSOR_ID"] = wf.metadata["$sensor_id"]
 
         dataframes.append(df)
         global_attr.append(wf.metadata)
@@ -33,9 +32,13 @@ def merge_waterframes(waterframes):
             else:
                 variables_attr[varname].append(varmeta)
 
+    rich.print(df)
     df = pd.concat(dataframes)  # Consolidate data in a single dataframe
     df = df.sort_index(ascending=True)  # sort by date
     df = df.reset_index()  # get back to numerical index
+    rich.print(df)
+    df.to_csv("data.csv")
+    input("Before and after concatenating...")
 
     # Consolidating Global metadata, the position in the array is the priority
     global_meta = {}

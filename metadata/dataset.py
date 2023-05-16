@@ -62,7 +62,7 @@ def harmonize_dataframe(df, fill_value=fill_value):
     for time_key in ["time", "timestamp", "datetime", "date time"]:
         for key in df.columns:
             if key.lower() == time_key:
-                df = df.rename(columns={key: "time"})
+                df = df.rename(columns={key: "TIME"})
 
     for var in df.columns:
         skip = False
@@ -108,17 +108,18 @@ def load_csv_data(filename, sep=",") -> (pd.DataFrame, list):
 
     header_lines = csv_detect_header(filename, separator=sep)
     df = pd.read_csv(filename, skiprows=header_lines, sep=sep)
+    df = df_force_upper_case(df)
     df = harmonize_dataframe(df)
-    dups = df[df["time"].duplicated()]
-    if len(dups) > 0:
-        rich.print(f"[yellow]WARNING! detected {len(dups)} duplicated times!, deleting")
-        df = drop_duplicates(df)
+    # dups = df[df["time"].duplicated()]
+    # if len(dups) > 0:
+    #     rich.print(f"[yellow]WARNING! detected {len(dups)} duplicated times!, deleting")
+    #     df = drop_duplicates(df)
     wf = md.WaterFrame()
     wf.data = df  # assign data
     wf.metadata = {"$datafile": filename}  # Add the filename as a special param
     wf.vocabulary = {c: {} for c in df.columns}
 
-    wf.data["time"] = pd.to_datetime(wf.data["time"])
+    wf.data["TIME"] = pd.to_datetime(wf.data["TIME"])
 
     return wf
 
@@ -151,6 +152,15 @@ def wf_force_upper_case(wf: md.WaterFrame) -> md.WaterFrame:
     return wf
 
 
+def df_force_upper_case(df: pd.DataFrame) -> pd.DataFrame:
+    # Force upper case in dimensions
+    for key in df.columns:
+        if key.upper() in dimensions and key.upper() != key:
+            rich.print(f"[purple]Forcing upper case for {key}")
+            df = df.rename(columns={key: key.upper()})
+    return df
+
+
 def load_data(file: str):
     """
     Opens a CSV or NetCDF data and returns a WaterFrame
@@ -164,6 +174,16 @@ def load_data(file: str):
     return wf
 
 
+def semicolon_to_list(attr: str):
+    """
+    Converts semi-colon separated list of items into a python list
+    """
+    if type(attr) == str and ";" in attr:
+        return attr.split(";")
+    else:
+        return attr
+
+
 # -------- Load NetCDF data -------- #
 def load_nc_data(filename, drop_duplicates=False) -> (md.WaterFrame, list):
     """
@@ -171,6 +191,14 @@ def load_nc_data(filename, drop_duplicates=False) -> (md.WaterFrame, list):
     """
 
     wf = read_nc(filename, decode_times=False)
+
+    for key, value in wf.metadata.items():
+        wf.metadata[key] = semicolon_to_list(value)
+
+    for var in wf.vocabulary.keys():
+        for key, value in wf.vocabulary[var].items():
+            wf.vocabulary[var][key] = semicolon_to_list(value)
+
     wf.data = wf.data.reset_index()
     wf = wf_force_upper_case(wf)
     df = wf.data
@@ -212,7 +240,7 @@ def add_coordinates(wf: md.WaterFrame, latitude, longitude, depth):
     """
     Takes a waterframe and adds nominal lat/lon/depth values
     """
-    coordinates = {"latitude": latitude, "longitude": longitude, "depth": depth}
+    coordinates = {"LATITUDE": latitude, "LONGITUDE": longitude, "DEPTH": depth}
     for name, value in coordinates.items():
         if name not in wf.data.columns:
             rich.print(f"   Adding fixed {name} with value {value}...", end="")
@@ -225,7 +253,7 @@ def add_coordinates(wf: md.WaterFrame, latitude, longitude, depth):
     return wf
 
 
-def ensure_coordinates(wf, required=["depth", "latitude", "longitude"]):
+def ensure_coordinates(wf, required=["DEPTH", "LATITUDE", "LONGITUDE"]):
     """
     Make sure that depth, lat and lon variables (and their QC) are properly set
     """
@@ -351,8 +379,8 @@ def export_to_netcdf(wf, filename):
     """
     Stores the waterframe to a NetCDF file
     """
-
     # If only one sensor remove all sensor_id fields
+    set_multisensor(wf)
     if not wf.metadata['$multisensor']:
         if "SENSOR_ID" in wf.data.columns:
             del wf.data["SENSOR_ID"]
@@ -364,8 +392,7 @@ def export_to_netcdf(wf, filename):
     [wf.metadata.pop(key) for key in wf.metadata.copy().keys() if key.startswith("$")]
 
     rich.print(f"Writing WaterFrame into multidemsncional NetCDF {filename}...", end="")
-
-    wf_to_multidim_nc(wf, filename, dimensions, fill_value=-999, time_key="time")
+    wf_to_multidim_nc(wf, filename, dimensions, fill_value=fill_value, time_key="TIME")
     rich.print("[green]ok!")
 
 

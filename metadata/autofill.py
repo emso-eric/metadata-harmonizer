@@ -101,11 +101,11 @@ def expand_minmeta(wf: md.WaterFrame, minmeta: dict, emso: EmsoMetadata) -> dict
         rich.print("[green]done")
 
     # Autofill all variables
-    [autofill_variable(v, emso) for name, v in metadata["variables"].items() if name != "sensor_id"]
+    [autofill_variable(v, emso) for name, v in metadata["variables"].items() if name != "SENSOR_ID"]
 
     # Add QC metadata for all variables and dimensions
     for varname, varmeta in metadata["variables"].copy().items():
-        if varname == "sensor_id":
+        if varname == "SENSOR_ID":
             continue
         rich.print(f"    adding metadata for variable  [cyan]{varname + '_QC'}[/cyan]...", end="")
         qcmeta = quality_control_metadata(varmeta["long_name"])
@@ -218,14 +218,14 @@ def autofill_waterframe_coverage(wf: md.WaterFrame) -> md.WaterFrame:
     """
     Autofills geospatial and time coverage in a WaterFrame
     """
-    wf.metadata["geospatial_lat_min"] = wf.data["latitude"].min()
-    wf.metadata["geospatial_lat_max"] = wf.data["latitude"].max()
-    wf.metadata["geospatial_lon_min"] = wf.data["longitude"].min()
-    wf.metadata["geospatial_lon_max"] = wf.data["longitude"].min()
-    wf.metadata["geospatial_vertical_min"] = int(wf.data["depth"].min())
-    wf.metadata["geospatial_vertical_max"] = int(wf.data["depth"].min())
-    wf.metadata["time_coverage_start"] = wf.data["time"].min().strftime(iso_time_format)
-    wf.metadata["time_coverage_end"] = wf.data["time"].max().strftime(iso_time_format)
+    wf.metadata["geospatial_lat_min"] = wf.data["LATITUDE"].min()
+    wf.metadata["geospatial_lat_max"] = wf.data["LATITUDE"].max()
+    wf.metadata["geospatial_lon_min"] = wf.data["LONGITUDE"].min()
+    wf.metadata["geospatial_lon_max"] = wf.data["LONGITUDE"].min()
+    wf.metadata["geospatial_vertical_min"] = int(wf.data["DEPTH"].min())
+    wf.metadata["geospatial_vertical_max"] = int(wf.data["DEPTH"].min())
+    wf.metadata["time_coverage_start"] = wf.data["TIME"].min().strftime(iso_time_format)
+    wf.metadata["time_coverage_end"] = wf.data["TIME"].max().strftime(iso_time_format)
     return wf
 
 
