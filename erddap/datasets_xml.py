@@ -28,24 +28,39 @@ def generate_erddap_dataset(wf: md.WaterFrame, directory, dataset_id):
     returns: a string containing the datasets.xml chunk to setup the dataset
     """
     rich.print(f"Generating dataset {dataset_id}...")
+    dimensions = ["TIME", "LATITUDE", "LONGITUDE", "DEPTH"]  # custom dimensional order
+    qc_variables = get_qc_variables(wf)
 
-    variables = get_variables(wf)
+    # ERDDAP will force dimensions to be lowercase, so let's create a dict with source dest like:
+    #     { "TIME": "time" }
+    erddap_dims = {dim: dim.lower() for dim in dimensions}
+
+    # To ensure that quality control variables match lowercase dimensions another dict like:
+    #  {"LATITUDE_QC": "latitude_QC"}
+    erddap_qc = {}
+    for qcvar in qc_variables:
+        source = qcvar.replace("_QC", "")
+        if source in dimensions:
+            erddap_qc[qcvar] = source.lower() + "_QC"  # ensure dimension is in lower case
+        else:
+            erddap_qc[qcvar] = qcvar  # do not modify
+
+    # subset variables are QC vars and sensor_id
+    subset_vars_str = ", ".join(erddap_qc.values())
 
     if "$multisensor" not in wf.metadata.keys():
         wf = set_multisensor(wf)
 
     if wf.metadata["$multisensor"]:
-        rich.print("Multisensor dataset, adding sensor_id column")
-        variables += ["SENSOR_ID"]
-        timeseries_id = "SENSOR_ID"
+        erddap_dims["SENSOR_ID"] = "sensor_id"
+        subset_vars_str += ", sensor_id"  # manually add as subset variable
+
+
+    if "infoUrl" in wf.metadata.keys(): # If infoURL not set, use the edmo uri
+        info_url = wf.metadata["infoUrl"]
     else:
-        variables += ["time"]
-        timeseries_id = "time"
+        info_url = wf.metadata["institution_edmo_uri"]
 
-    variables_str = ", ".join(variables)
-
-    qc_variables = get_variables(wf)
-    qc_variables_str = ", ".join(qc_variables)
 
     x = f"""
 <dataset type="EDDTableFromMultidimNcFiles" datasetID="{dataset_id}" active="true">
@@ -53,7 +68,7 @@ def generate_erddap_dataset(wf: md.WaterFrame, directory, dataset_id):
     <updateEveryNMillis>10000</updateEveryNMillis>
     <fileDir>{directory}</fileDir>
     <fileNameRegex>.*</fileNameRegex>
-    <recursive>true</recursive>
+    <recursive>true</recursive>    
     <pathRegex>.*</pathRegex>
     <metadataFrom>last</metadataFrom>
     <standardizeWhat>0</standardizeWhat>
@@ -62,51 +77,51 @@ def generate_erddap_dataset(wf: md.WaterFrame, directory, dataset_id):
     <fileTableInMemory>false</fileTableInMemory>
     <addAttributes>
         <att name="_NCProperties">null</att>
-        <att name="cdm_data_type">TimeSeries</att>                
+        <att name="cdm_data_type">Point</att>
+        <att name="infoUrl">{info_url}</att>                
         <att name="sourceUrl">(local files)</att>
         <att name="standard_name_vocabulary">CF Standard Name Table v70</att>
-        <att name="subsetVariables">{qc_variables_str}</att>        
-        <att name="cdm_timeseries_variables">{variables_str}</att>
+        <att name="subsetVariables">{subset_vars_str}</att> 
     </addAttributes>        
 </dataset>
     """
     tree = etree.ElementTree(etree.fromstring(x))
     root = tree.getroot()
 
-    rich.print("adding dimensions...", end="")
-    dims = get_dimensions(wf)
-    for d in dims:
-        #  ERDDAP wants all dimensions in lowercase
-        dimension_lowercase = d.lower()
+    rich.print("adding dimensions...")
+    for source, dest in erddap_dims.items():  # already in lowercase
+        datatype = "float"
         attrs = {}
-        if dimension_lowercase == "time":
+        if dest == "time":
+            datatype = "double"
             attrs = {
                 "units": "seconds since 1970-01-01",
                 "time_precision": "1970-01-01T00:00:00Z"
             }
+        elif dest == "depth":
+            attrs = {
+                "units": "m",
+            }
+        elif dest == "sensor_id":
+            datatype = "String"
+        rich.print(f"    [purple]Adding dimension '{dest}'")
+        add_variable(root, source, dest, datatype, attributes=attrs)
 
-        if d == timeseries_id:  # Force timeseries id to sensor_id or time
-            attrs["cf_role"] = "timeseries_id"
-
-        add_variable(root, d, dimension_lowercase, "double", attributes=attrs)
     rich.print("[green]done!")
 
-    rich.print("adding data variables...", end="")
+    rich.print("adding data variables...", end="\n")
     # Process all data variables
     for v in get_variables(wf):
-        add_variable(root, v, v, "double", attributes={})
+        rich.print(f"    [cyan]Adding variable '{v}'")
+        add_variable(root, v, v, "float", attributes={})
     rich.print("[green]done!")
 
-    rich.print("adding quality control...", end="")
-    for qc in get_qc_variables(wf):
-        var = qc.split("_QC")[0]
-        dest = qc
-        if var in dims:
-            # Avoid mismatching QC vars, e.g. LATITUDE_QC -> latitude_QC
-            dest = qc.lower().replace("_qc", "_QC")
-        add_variable(root, qc, dest, "int", attributes={})
+    rich.print("adding quality control...", end="\n")
+    for source, dest in erddap_qc.items():
+        rich.print(f"    [blue]Adding QC '{dest}'")
+        add_variable(root, source, dest, "byte", attributes={})
     rich.print("[green]done!")
-    etree.indent(root, space="  ", level=0)  # force indentation
+    etree.indent(root, space="    ", level=0)  # force indentation
 
     return serialize(tree)
 
@@ -139,7 +154,8 @@ def add_variable(root, source, destination, datatype, attributes: dict = {}):
     """
     Adds a variable to an ERDDAP dataset
     """
-    __valid_data_types = ["int", "double", "float"]
+
+    __valid_data_types = ["int", "byte", "double", "float", "String"]
 
     if datatype not in __valid_data_types:
         raise ValueError(f"Data type '{datatype}' not valid!")

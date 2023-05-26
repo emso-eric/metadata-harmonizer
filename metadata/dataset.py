@@ -185,19 +185,23 @@ def semicolon_to_list(attr: str):
 
 
 # -------- Load NetCDF data -------- #
-def load_nc_data(filename, drop_duplicates=False) -> (md.WaterFrame, list):
+def load_nc_data(filename, drop_duplicates=False, process_lists=True) -> (md.WaterFrame, list):
     """
     Loads NetCDF data into a waterframe
     """
 
     wf = read_nc(filename, decode_times=False)
 
-    for key, value in wf.metadata.items():
-        wf.metadata[key] = semicolon_to_list(value)
+    if process_lists:  # Process semicolon separated lists
+        for key, value in wf.metadata.items():
+            wf.metadata[key] = semicolon_to_list(value)
 
-    for var in wf.vocabulary.keys():
-        for key, value in wf.vocabulary[var].items():
-            wf.vocabulary[var][key] = semicolon_to_list(value)
+        for var in wf.vocabulary.keys():
+            for key, value in wf.vocabulary[var].items():
+                wf.vocabulary[var][key] = semicolon_to_list(value)
+    else:
+        rich.print("[blue]ignorint lists!")
+        input()
 
     wf.data = wf.data.reset_index()
     wf = wf_force_upper_case(wf)
@@ -205,9 +209,9 @@ def load_nc_data(filename, drop_duplicates=False) -> (md.WaterFrame, list):
 
     units = wf.vocabulary["TIME"]["units"]
     rich.print(f"Units: {units}")
-    rich.print(wf.vocabulary["TIME"]["sdn_parameter_name"])
+
     if "since" not in units:  # netcdf library requires that the units fields has the 'since' keyword
-        if wf.vocabulary["TIME"]["sdn_parameter_urn"] == "SDN:P01::ELTJLD01":
+        if "sdn_parameter_urn" in wf.vocabulary["TIME"].keys() and wf.vocabulary["TIME"]["sdn_parameter_urn"] == "SDN:P01::ELTJLD01":
             rich.print("[blue]Trying to decode TIME as days since 1950...")
             units = "days since 1950-01-01T00:00:00z"
         else:
@@ -391,8 +395,10 @@ def export_to_netcdf(wf, filename):
     # Remove internal elements in metadata
     [wf.metadata.pop(key) for key in wf.metadata.copy().keys() if key.startswith("$")]
 
+    rich.print( wf.vocabulary["DEPTH_QC"])
+
     rich.print(f"Writing WaterFrame into multidemsncional NetCDF {filename}...", end="")
-    wf_to_multidim_nc(wf, filename, dimensions, fill_value=fill_value, time_key="TIME")
+    wf_to_multidim_nc(wf, filename, dimensions, fill_value=fill_value, time_key="TIME", join_attr=";")
     rich.print("[green]ok!")
 
 
@@ -402,7 +408,7 @@ def extract_netcdf_metadata(wf):
     """
     metadata = {
         "global": wf.metadata,
-        "variable": wf.vocabulary
+        "variables": wf.vocabulary
     }
     for key in list(metadata["global"].keys()):
         if key.startswith("$"):
@@ -417,7 +423,7 @@ def get_netcdf_metadata(filename):
     :param: filename
     :returns: dict with the metadata { "global": ..., "variables": {"VAR1": {...},"VAR2":{...}}
     """
-    wf = load_nc_data(filename)
+    wf = load_nc_data(filename, process_lists=False)
     metadata = {
         "global": wf.metadata,
         "variables": wf.vocabulary

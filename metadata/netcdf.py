@@ -13,10 +13,11 @@ import netCDF4 as nc
 import pandas as pd
 import numpy as np
 import mooda as md
+from metadata.constants import fill_value
 import xarray as xr
 
 
-def wf_to_multidim_nc(wf: md.WaterFrame, filename: str, dimensions: list, fill_value=-99999.9999, time_key="TIME",
+def wf_to_multidim_nc(wf: md.WaterFrame, filename: str, dimensions: list, fill_value=fill_value, time_key="TIME",
                       join_attr="; "):
     """
     Creates a multidimensinoal NetCDF-4 file
@@ -41,7 +42,6 @@ def wf_to_multidim_nc(wf: md.WaterFrame, filename: str, dimensions: list, fill_v
 
     # Create a dataframe with multiindex
     data_df = pd.DataFrame(data, index=multiindex)
-
     dimensions = tuple(dimensions)
 
     with nc.Dataset(filename, "w", format="NETCDF4") as ncfile:
@@ -58,7 +58,7 @@ def wf_to_multidim_nc(wf: md.WaterFrame, filename: str, dimensions: list, fill_v
             if type(values[0]) == str:  # Some dimension may be a string (e.g. sensor_id)
                 var = ncfile.createVariable(dimension, str, (dimension,), fill_value=fill_value, zlib=True)
             else:
-                var = ncfile.createVariable(dimension, 'f8', (dimension,), fill_value=fill_value, zlib=True)
+                var = ncfile.createVariable(dimension, 'float', (dimension,), fill_value=fill_value, zlib=True)
 
             var[:] = values  # assign dimension values
 
@@ -137,4 +137,38 @@ def read_nc(path, decode_times=True, time_key="TIME"):
         wf.vocabulary[time_key]["units"] = time_units
 
     return wf
+
+
+def new_read_nc2(filename, decode_times=False):
+
+    import rich
+    with nc.Dataset(filename, 'r') as dataset:
+        varnames = dataset.variables.keys()
+        dimnames = dataset.dimensions.keys()
+        rich.print(f"Got {len(dimnames)} dimensions: {dimnames}")
+        data = {}
+        shapes = []
+        manual_sizes = {}
+        for var in varnames:
+            values = dataset.variables[var][:]
+            data[var] = values
+            shapes.append(values.shape)
+            a = 1
+            for s in values.shape:
+                a *= s
+            manual_sizes[a] = var
+
+        rich.print(manual_sizes)
+        key_max = max(manual_sizes.keys())
+        max_shape = data[var].shape
+
+        reshaped_data = {}
+        for key, value in data.items():
+            shape = data[key].shape
+            rich.print(f"{key} shape = {shape}")
+            reshaped_data[key] = value.reshape(max_shape)
+
+        df = pd.DataFrame(reshaped_data)
+        print(df)
+    exit()
 
