@@ -199,10 +199,7 @@ def load_nc_data(filename, drop_duplicates=False, process_lists=True) -> (md.Wat
         for var in wf.vocabulary.keys():
             for key, value in wf.vocabulary[var].items():
                 wf.vocabulary[var][key] = semicolon_to_list(value)
-    else:
-        rich.print("[blue]ignorint lists!")
-        input()
-
+g
     wf.data = wf.data.reset_index()
     wf = wf_force_upper_case(wf)
     df = wf.data

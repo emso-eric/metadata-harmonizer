@@ -17,13 +17,11 @@ import time
 from .utils import download_files, get_file_list
 
 emso_version = "develop"
-#emso_version = "v0.1"
-
 
 # List of URLs
-emso_metadata_url = f"https://gitlab.emso.eu/Martinez/emso-metadata-specification/-/raw/{emso_version}/EMSO_metadata.md"
-oceansites_codes_url = f"https://gitlab.emso.eu/Martinez/emso-metadata-specification/-/raw/{emso_version}/OceanSites_codes.md"
-emso_codes_url = f"https://gitlab.emso.eu/Martinez/emso-metadata-specification/-/raw/{emso_version}/EMSO_codes.md"
+emso_metadata_url = f"https://raw.githubusercontent.com/emso-eric/emso-metadata-specifications/{emso_version}/EMSO_metadata.md"
+oceansites_codes_url = f"https://raw.githubusercontent.com/emso-eric/emso-metadata-specifications/{emso_version}/OceanSites_codes.md"
+emso_codes_url = f"https://raw.githubusercontent.com/emso-eric/emso-metadata-specifications/{emso_version}/EMSO_codes.md"
 
 sdn_vocab_p01 = "https://vocab.nerc.ac.uk/downloads/publish/P01.json"
 sdn_vocab_p02 = "https://vocab.nerc.ac.uk/collection/P02/current/?_profile=nvs&_mediatype=application/ld+json"
