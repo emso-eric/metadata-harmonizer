@@ -116,7 +116,7 @@ class EmsoMetadataTester:
         total_tests = len(df)
         total_passed = len(df[df["passed"]])
         rich.print(f"Required tests passed: {req_passed} of {req_tests}")
-        rich.print(f"Required tests passed: {opt_passed} of {opt_tests}")
+        rich.print(f"Optional tests passed: {opt_passed} of {opt_tests}")
         rich.print(f"   [bold]Total tests passed: {total_passed} of {total_tests}")
 
         def generate_bar_col(n):
