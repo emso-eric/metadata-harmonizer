@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
-This script contains tools to access, download and parse Metadata stored in Markdown in a gitlab repository.
+This script contains tools to access, download and parse Metadata stored in Markdown format within EMSO ERIC's github
+repository.
 
 author: Enoc Martínez
 institution: Universitat Politècnica de Catalunya (UPC)
