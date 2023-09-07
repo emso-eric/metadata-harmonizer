@@ -13,6 +13,8 @@ import requests
 import rich
 import json
 
+from metadata.utils import group_metadata_variables
+
 
 class ERDDAP:
     """
@@ -56,7 +58,7 @@ class ERDDAP:
 
         return dataset_ids
 
-    def datasetet_metadata(self, dataset_id):
+    def dataset_metadata(self, dataset_id):
         """
         Formats from ERDDAP's ugly and disgusting JSON format to a nice, well-structured JSON
         :param url: ERDDAP url
@@ -72,13 +74,11 @@ class ERDDAP:
             }
         """
         metadata_url = f"{self.url}/info/{dataset_id}/index.json"
-        rich.print(f"Getting metadata from '{metadata_url}'...", end="")
         r = self.get(metadata_url)
-        rich.print(f"[green]ok")
-
         metadata = {
-            "global": {},
-            "variables": {}
+            "global": {"dataset_id": dataset_id},
+            "variables": {},
+            "qc": {}
         }
         for row in r["table"]["rows"]:
             # Each row is similar to: ['attribute', 'NC_GLOBAL', 'author', 'String', 'Enoc Martinez']
@@ -98,4 +98,5 @@ class ERDDAP:
                     metadata["variables"][param][attribute_key] = attribute_value  # process variable attribute
             else:
                 rich.print(f"WARNING could not process row {row}")
+
         return metadata
