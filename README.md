@@ -4,7 +4,7 @@ This python project contains the tools to connect to an ERDDAP service and asses
 ## Setup this project ##
 To download this repository:
 ```bash
-$ git clone https://gitlab.emso.eu/Martinez/metadata-harmonizer.git
+$ git clone https://github.com/emso-eric/metadata-harmonizer
 $ cd metadata-harmonizer
 $ pip3 install -r requirements.txt
 ```
@@ -19,7 +19,7 @@ To test an erddap dataset:
 $ python3 metadata_report.py <erddap url>  --list  # get the list of datasets
 $ python3 metadata_report.py <erddap url>  -d <dataset_id>  # Run the test for one dataset
 ```
-
+    
 To run tests on all ERDDAP datasets:
 ```bash
 $ python3 metadata_report.py <erddap url> 
@@ -71,6 +71,6 @@ Now the data from both files is combined into the `all.nc` file. Note that there
 ### Contact info ###
 
 * **author**: Enoc Martínez  
-* **version**: v0.1    
+* **version**: v0.2    
 * **organization**: Universitat Politècnica de Catalunya (UPC)  
 * **contact**: enoc.martinez@upc.edu  
