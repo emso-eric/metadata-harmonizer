@@ -19,6 +19,12 @@ To test an erddap dataset:
 $ python3 metadata_report.py <erddap url>  --list  # get the list of datasets
 $ python3 metadata_report.py <erddap url>  -d <dataset_id>  # Run the test for one dataset
 ```
+
+For example, to run tests on dataset with id=```EMSO_Western_Ionian_Sea_CTD_2002_2003``` from EMSO's central ERDDAP:
+```bash
+$ python3 metadata_report.py https://erddap.emso.eu  -d EMSO_Western_Ionian_Sea_CTD_2002_2003
+```
+
     
 To run tests on all ERDDAP datasets:
 ```bash
