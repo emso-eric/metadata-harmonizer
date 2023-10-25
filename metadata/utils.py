@@ -27,8 +27,6 @@ def group_metadata_variables(metadata):
 
     m = metadata.copy()
 
-    rich.print(m)
-
     vars = list(m["variables"].keys())
 
     qcs = {key: m["variables"].pop(key) for key in vars if key.upper().endswith("_QC")}

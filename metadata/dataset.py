@@ -373,6 +373,7 @@ def set_multisensor(wf: md.waterframe):
         wf.metadata["$multisensor"] = False
         raise LookupError("No sensor serial numbers found!!")
     wf.metadata["$multisensor"] = multi_sensor
+
     return wf
 
 
@@ -391,8 +392,6 @@ def export_to_netcdf(wf, filename):
 
     # Remove internal elements in metadata
     [wf.metadata.pop(key) for key in wf.metadata.copy().keys() if key.startswith("$")]
-
-    rich.print( wf.vocabulary["DEPTH_QC"])
 
     rich.print(f"Writing WaterFrame into multidemsncional NetCDF {filename}...", end="")
     wf_to_multidim_nc(wf, filename, dimensions, fill_value=fill_value, time_key="TIME", join_attr=";")

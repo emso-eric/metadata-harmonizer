@@ -39,6 +39,9 @@ edmo_codes = "https://edmo.seadatanet.org/sparql/sparql?query=SELECT%20%3Fs%20%3
 
 spdx_licenses_github = "https://raw.githubusercontent.com/spdx/license-list-data/main/licenses.md"
 
+# Copernicus INS TAC Parameter list v3.1
+copernicus_param_list = "https://archimer.ifremer.fr/doc/00422/53381/89960.xlsx"
+
 
 def process_markdown_file(file) -> (dict, dict):
     """
@@ -170,6 +173,7 @@ class EmsoMetadata:
         sdn_vocab_l35_file = os.path.join(".emso", "jsonld", "sdn_vocab_l35.json")
         edmo_codes_jsonld = os.path.join(".emso", "edmo_codes.json")
         spdx_licenses_file = os.path.join(".emso", "spdx_licenses.md")
+        copernicus_params_file = os.path.join(".emso", "copernicus_param_list.xlsx")
 
         tasks = [
             [emso_metadata_url, emso_metadata_file, "EMSO metadata"],
@@ -184,7 +188,8 @@ class EmsoMetadata:
             [sdn_vocab_l22, sdn_vocab_l22_file, "SDN Vocab L22"],
             [sdn_vocab_l35, sdn_vocab_l35_file, "SDN Vocab L35"],
             [edmo_codes, edmo_codes_jsonld, "EDMO codes"],
-            [spdx_licenses_github, spdx_licenses_file, "spdx licenses"]
+            [spdx_licenses_github, spdx_licenses_file, "spdx licenses"],
+            [copernicus_param_list, copernicus_params_file, "spdx licenses"]
         ]
 
         download_files(tasks)
@@ -275,6 +280,20 @@ class EmsoMetadata:
             self.edmo_codes.to_csv(edmo_csv, index=False)
         else:
             self.edmo_codes = pd.read_csv(edmo_csv)
+
+        # TODO: Move hardcoded list to OceanSITES_codes.md
+        self.oceansites_param_codes = ["AIRT", "CAPH", "CDIR", "CNDC", "CSPD", "DEPTH", "DEWT", "DOX2", "DOXY",
+                                       "DOXY_TEMP", "DYNHT", "FLU2", "HCSP", "HEAT", "ISO17", "LW", "OPBS", "PCO2",
+                                       "PRES", "PSAL", "RAIN", "RAIT", "RELH", "SDFA", "SRAD", "SW", "TEMP", "UCUR",
+                                       "UWND", "VAVH", "VAVT", "VCUR", "VDEN", "VDIR", "VWND", "WDIR", "WSPD"]
+
+        # Parse Copernicus Params excel file
+        df = pd.read_excel(copernicus_params_file, sheet_name="Parameters", keep_default_na=False, header=1)
+        variables = df["variable name"].dropna().values
+        variables = [v.split(" (")[0] for v in variables]  # remove citations
+        variables = [v for v in variables if len(v) > 1]   # remove empty lines
+        self.copernicus_variables = variables
+
 
     @staticmethod
     def clear_downloads():
