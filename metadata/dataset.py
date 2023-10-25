@@ -131,6 +131,11 @@ def csv_detect_header(filename, separator=","):
     """
     with open(filename) as f:
         lines = f.readlines()
+
+    if len(lines) == 1:
+        # empty CSV, first line is the header
+        return 0
+
     nfields = len(lines[-2].split(separator))
     if nfields < 2 or not (nfields == len(lines[-3].split(separator)) == len(lines[-4].split(separator))):
         raise ValueError("Could not determine number of fields")
