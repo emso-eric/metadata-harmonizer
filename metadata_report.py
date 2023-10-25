@@ -31,6 +31,7 @@ if __name__ == "__main__":
     argparser.add_argument("-o", "--output", type=str, help="file to store the report of all the datasets", default="")
     argparser.add_argument("-r", "--report", action="store_true", help="Generate a CSV file for every test")
     argparser.add_argument("-c", "--clear", action="store_true", help="Clears downloaded files")
+    argparser.add_argument("-t", "--table", action="store_true", help="prints the results in excel compatible table")
 
     args = argparser.parse_args()
 
@@ -100,22 +101,29 @@ if __name__ == "__main__":
     required = []
     optional = []
     institution = []
+    emso_facility = []
+    dataset_id = []
     for i in range(len(datasets_metadata)):
         metadata = datasets_metadata[i]
         r = tests.validate_dataset(metadata, verbose=args.verbose, store_results=args.report)
-        total.append(100*r["total"])
-        required.append(100*r["required"])
-        optional.append(100*r["optional"])
+        total.append(r["total"])
+        required.append(r["required"])
+        optional.append(r["optional"])
         institution.append(r["institution"])
+        emso_facility.append(r["emso_facility"])
+        dataset_id.append(r["dataset_id"])
+
+    tests = pd.DataFrame(
+    {
+        "dataset_id": dataset_id,
+        "emso_facility": emso_facility,
+        "institution": institution,
+        "total": total,
+        "required": required,
+        "optional": optional,
+    })
 
     if args.output:
         rich.print(f"Storing tests results in {args.output}...", end="")
-        tests = pd.DataFrame(
-            {
-                "total": total,
-                "required": required,
-                "optional": optional,
-                "institution": institution
-            })
-        tests.to_csv(args.output, index=False)
+        tests.to_csv(args.output, index=False, sep="\t")
         rich.print("[green]done")

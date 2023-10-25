@@ -60,7 +60,7 @@ class EmsoMetadataTester:
         if error:
             raise ValueError("Some tests are not implemented")
 
-    def __process_results(self, df, verbose=False):
+    def __process_results(self, df, verbose=False) -> (float, float, float):
         """
         Prints the results in a nice-looking table using rich
         :param df: DataFrame with test results
@@ -143,12 +143,11 @@ class EmsoMetadataTester:
             progress.update(opt_task, advance=opt_passed)
             progress.update(total_task, advance=total_passed)
             progress.stop()
+        total = 100*round(total_passed / total_tests, 2)
+        required = 100*round(req_passed / req_tests, 2)
+        optional = 100*round(opt_passed / opt_tests, 2)
 
-        return {
-            "total": total_passed / total_tests,
-            "required": req_passed / req_tests,
-            "optional": opt_passed / opt_tests
-        }
+        return total, required, optional
 
     def __run_test(self, test_name, args, attribute: str, metadata, required, multiple, varname, results) -> (
     bool, str, any):
@@ -318,20 +317,31 @@ class EmsoMetadataTester:
                                                 verbose, results)
 
         df = pd.DataFrame(results)
+        total, required, optional = self.__process_results(df, verbose=verbose)
+        r = {
+            "dataset_id": dataset_id,
+            "institution": "unknown",
+            "emso_facility": "",
+            "total": total,
+            "required": required,
+            "optional": optional
+        }
 
-        r = self.__process_results(df, verbose=verbose)
         if "institution" in metadata["global"].keys():
             r["institution"] = metadata["global"]["institution"]
         elif "institution_edmo_codi" in metadata["global"].keys():
             r["institution"] = "EMDO Code " + metadata["global"]["institution_edmo_codi"]
         else:
-            r["institution"] = "unkdnwon"
+            r["institution"] = "unknown"
+
+        # Add EMSO Facility in results
+        if "emso_facility" in metadata["global"].keys():
+            r["emso_facility"] = metadata["global"]["emso_facility"]
 
         if store_results:
             results_csv = f"report_{dataset_id}.csv".replace(" ", "_").replace(",", "")
             rich.print(f"[green]Storing results into file {results_csv}...")
             df.to_csv(results_csv, index=False)
-
         return r
 
     # ------------------------------------------------ TEST METHODS -------------------------------------------------- #
