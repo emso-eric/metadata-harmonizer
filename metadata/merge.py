@@ -38,7 +38,6 @@ def merge_waterframes(waterframes):
     df = df.reset_index()  # get back to numerical index
     rich.print(df)
     df.to_csv("data.csv")
-    input("Before and after concatenating...")
 
     # Consolidating Global metadata, the position in the array is the priority
     global_meta = {}

@@ -60,12 +60,12 @@ class EmsoMetadataTester:
         if error:
             raise ValueError("Some tests are not implemented")
 
-    def __process_results(self, df, verbose=False):
+    def __process_results(self, df, verbose=False) -> (float, float, float):
         """
         Prints the results in a nice-looking table using rich
         :param df: DataFrame with test results
         """
-        table = Table(title="ERDDAP test report")
+        table = Table(title="Dataset Test Report")
         table.add_column("variable", justify="right", no_wrap=True, style="cyan")
         table.add_column("attribute", justify="right")
         table.add_column("required", justify="right")
@@ -143,12 +143,11 @@ class EmsoMetadataTester:
             progress.update(opt_task, advance=opt_passed)
             progress.update(total_task, advance=total_passed)
             progress.stop()
+        total = 100*round(total_passed / total_tests, 2)
+        required = 100*round(req_passed / req_tests, 2)
+        optional = 100*round(opt_passed / opt_tests, 2)
 
-        return {
-            "total": total_passed / total_tests,
-            "required": req_passed / req_tests,
-            "optional": opt_passed / opt_tests
-        }
+        return total, required, optional
 
     def __run_test(self, test_name, args, attribute: str, metadata, required, multiple, varname, results) -> (
     bool, str, any):
@@ -165,16 +164,16 @@ class EmsoMetadataTester:
         :return: a tuple with (bool, str, any). Boolean indicates success, str is an error message and any is the value
                  of the attribute or None if not present.
         """
-        if attribute not in metadata.keys():
-            passed = False
-            message = "not found"
-            value = ""
-        else:
+
+        if attribute == "$name" or attribute in metadata.keys():
             if test_name not in self.implemented_tests.keys():
                 rich.print(f"[red]Test '{test_name}' not implemented!")
                 raise LookupError(f"Test {test_name} not found")
 
-            value = metadata[attribute]
+            if attribute == "$name":
+                value = varname
+            else:
+                value = metadata[attribute]
 
             if type(value) == str and ";" in value:
                 values = value.split(";")  # split multiple values
@@ -209,6 +208,10 @@ class EmsoMetadataTester:
 
                 for p in passed_flags:
                     passed = p and passed
+        else:  # Not found
+            passed = False
+            message = "not found"
+            value = ""
 
         results["attribute"].append(attribute)
         results["variable"].append(varname)
@@ -246,7 +249,6 @@ class EmsoMetadataTester:
             test_name = row["Compliance test"]
             required = row["Required"]
             multiple = row["Multiple"]
-
             if not test_name:
                 rich.print(f"[yellow]WARNING: test for {attribute} not implemented!")
                 continue
@@ -255,6 +257,7 @@ class EmsoMetadataTester:
             if "#" in test_name:
                 test_name, args = test_name.split("#")
                 args = args.split(",")  # comma-separated fields are args
+
             self.__run_test(test_name, args, attribute, metadata, required, multiple, variable, results)
 
         if verbose:  # add all parameters not listed in the standard
@@ -299,8 +302,11 @@ class EmsoMetadataTester:
             if varname.lower() == "sensor_id":
                 # Deliberately skip sensor_id
                 continue
+            # First check variable name manually
+
             results = self.__test_group_handler(self.metadata.dimension_attr, metadata["dimensions"][varname], varname,
                                                 verbose, results)
+
         # Test every variable
         for varname, var_metadata in metadata["variables"].items():
             results = self.__test_group_handler(self.metadata.variable_attr, metadata["variables"][varname], varname,
@@ -311,20 +317,31 @@ class EmsoMetadataTester:
                                                 verbose, results)
 
         df = pd.DataFrame(results)
+        total, required, optional = self.__process_results(df, verbose=verbose)
+        r = {
+            "dataset_id": dataset_id,
+            "institution": "unknown",
+            "emso_facility": "",
+            "total": total,
+            "required": required,
+            "optional": optional
+        }
 
-        r = self.__process_results(df, verbose=verbose)
         if "institution" in metadata["global"].keys():
             r["institution"] = metadata["global"]["institution"]
         elif "institution_edmo_codi" in metadata["global"].keys():
             r["institution"] = "EMDO Code " + metadata["global"]["institution_edmo_codi"]
         else:
-            r["institution"] = "unkdnwon"
+            r["institution"] = "unknown"
+
+        # Add EMSO Facility in results
+        if "emso_facility" in metadata["global"].keys():
+            r["emso_facility"] = metadata["global"]["emso_facility"]
 
         if store_results:
             results_csv = f"report_{dataset_id}.csv".replace(" ", "_").replace(",", "")
             rich.print(f"[green]Storing results into file {results_csv}...")
             df.to_csv(results_csv, index=False)
-
         return r
 
     # ------------------------------------------------ TEST METHODS -------------------------------------------------- #
@@ -560,3 +577,22 @@ class EmsoMetadataTester:
         if re.match(r"^10.\d{4,9}/[-._;()/:A-Za-z0-9]+$", value):
             return True, ""
         return False, f"DOI '{value}' not valid"
+
+    def check_variable_name(self, value, args) -> (bool, str):
+        """
+        Checks if a variable name exists in:
+            1. OceanSITES
+            2. P02
+            3. Copernicus Params
+
+        If not throw a warning
+        """
+        if value in self.metadata.oceansites_param_codes:
+            return True, "Variable name found in OceanSITES"
+        elif value in self.metadata.sdn_vocabs_uris["P02"]:
+            return True, "Variable name found in P02"
+        elif value in self.metadata.copernicus_variables:
+            return True, "Variable name found in Copernicus INSTAC codes"
+        else:
+            return False, "Parameter name not found in OceanSITES, P02 and Copernicus!"
+

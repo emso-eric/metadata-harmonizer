@@ -100,8 +100,8 @@ if __name__ == "__main__":
     if args.generate and args.metadata:
         raise ValueError("--metadata and --generate cannot be used at the same time!")
 
-    if not args.generate and not args.metadata and not args.autofill and not args.xml:
-        raise ValueError("--metadata OR --generate OR --autofill OR --xml option ust be used!")
+    if not args.generate and not args.metadata and not args.autofill:
+        raise ValueError("--metadata OR --generate OR --autofill option ust be used!")
 
     # If metadata and generate
     if args.generate:
