@@ -132,7 +132,7 @@ def csv_detect_header(filename, separator=","):
     with open(filename) as f:
         lines = f.readlines()
 
-    if len(lines) == 1:
+    if len(lines) < 3:
         # empty CSV, first line is the header
         return 0
 
@@ -149,6 +149,9 @@ def csv_detect_header(filename, separator=","):
 
 def wf_force_upper_case(wf: md.WaterFrame) -> md.WaterFrame:
     # Force upper case in dimensions
+    rich.print(wf)
+    rich.print(wf.data)
+    rich.print(wf.vocabulary)
     for key in wf.data.columns:
         if key.upper() in dimensions and key.upper() != key:
             rich.print(f"[purple]Forcing upper case for {key}")
@@ -269,7 +272,7 @@ def ensure_coordinates(wf, required=["DEPTH", "LATITUDE", "LONGITUDE"]):
         if r not in df.columns:
             error = True
             rich.print(f"[red]Coordinate {r} is missing!")
-        if df[r].dtype != np.float:
+        if df[r].dtype != np.float64:
             df[r] = df[r].astype(np.float)
 
     if error:
