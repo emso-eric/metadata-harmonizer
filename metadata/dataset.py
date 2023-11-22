@@ -273,7 +273,7 @@ def ensure_coordinates(wf, required=["DEPTH", "LATITUDE", "LONGITUDE"]):
             error = True
             rich.print(f"[red]Coordinate {r} is missing!")
         if df[r].dtype != np.float64:
-            df[r] = df[r].astype(np.float)
+            df[r] = df[r].astype(np.float64)
 
     if error:
         raise ValueError("Coordinates not properly set")
@@ -401,7 +401,7 @@ def export_to_netcdf(wf, filename):
     # Remove internal elements in metadata
     [wf.metadata.pop(key) for key in wf.metadata.copy().keys() if key.startswith("$")]
 
-    rich.print(f"Writing WaterFrame into multidemsncional NetCDF {filename}...", end="")
+    rich.print(f"Writing WaterFrame into multidimensional NetCDF {filename}...", end="")
     wf_to_multidim_nc(wf, filename, dimensions, fill_value=fill_value, time_key="TIME", join_attr=";")
     rich.print("[green]ok!")
 

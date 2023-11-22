@@ -33,12 +33,22 @@ def group_metadata_variables(metadata):
     stds = {key: m["variables"].pop(key) for key in vars if key.upper().endswith("_STD")}
     dims = {key: m["variables"].pop(key) for key in vars if key.upper() in dimensions}
 
+    technical = {}
+    for key in vars:
+        try:
+            if "technical_data" in m["variables"][key].keys():
+                rich.print(f"variable {key} is 'technical'")
+                technical[key] = m["variables"].pop(key)
+        except KeyError:
+            rich.print(f"variable {key} is 'scientific'")
+
     m = {
         "global": m["global"],
         "variables": m["variables"],
         "qc": qcs,
         "dimensions": dims,
-        "std": stds
+        "std": stds,
+        "technical": technical
     }
     return m
 
