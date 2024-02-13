@@ -376,7 +376,9 @@ class EmsoMetadata:
         df = self.sdn_vocabs[vocab_id]
         row = df.loc[df["uri"] == uri]
         if row.empty:
-            raise LookupError(f"Could not get {key} for '{uri}' in vocab {vocab_id}")
+            #raise LookupError(f"Could not get {key} for '{uri}' in vocab {vocab_id}")
+            rich.print(f"[red]Could not get {key} for '{uri}' in vocab {vocab_id}")
+            return ""
         return row[key].values[0]
 
     def vocab_get_by_urn(self, vocab_id, urn, key):
@@ -423,7 +425,11 @@ class EmsoMetadata:
         else:  # related
             relations = self.sdn_vocabs_related[vocab_id]
 
-        uri_relations = relations[uri]
+        try:
+            uri_relations = relations[uri]
+        except KeyError:
+            rich.print(f"[red]relation {relation} for {uri} not found!")
+            return ""
 
         if type(uri_relations) == str:  # make sure it's a list
             uri_relations = [uri_relations]
@@ -439,7 +445,10 @@ class EmsoMetadata:
         The same as get relations but throws an error if more than one element are found
         """
         results = self.get_relations(vocab_id, uri, relation, target_vocab)
-        if len(results) != 1:
+        if len(results) == 0:
+            rich.print(f"[red]Could not find relation {relation} for {uri}")
+            return ""
+        elif len(results) != 1:
             raise LookupError(f"Expected 1 value, got {len(results)}")
 
         return results[0]
