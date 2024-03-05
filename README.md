@@ -77,6 +77,6 @@ Now the data from both files is combined into the `all.nc` file. Note that there
 ### Contact info ###
 
 * **author**: Enoc Martínez  
-* **version**: v0.3    
+* **version**: v0.4    
 * **organization**: Universitat Politècnica de Catalunya (UPC)  
-* **contact**: enoc.martinez@upc.edu
+* **contact**: enoc.martinez@upc.edu  
