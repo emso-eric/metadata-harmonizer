@@ -32,12 +32,9 @@ def merge_waterframes(waterframes):
             else:
                 variables_attr[varname].append(varmeta)
 
-    rich.print(df)
     df = pd.concat(dataframes)  # Consolidate data in a single dataframe
     df = df.sort_index(ascending=True)  # sort by date
     df = df.reset_index()  # get back to numerical index
-    rich.print(df)
-    df.to_csv("data.csv")
 
     # Consolidating Global metadata, the position in the array is the priority
     global_meta = {}

@@ -316,6 +316,10 @@ class EmsoMetadataTester:
             results = self.__test_group_handler(self.metadata.qc_attr, metadata["qc"][varname], varname,
                                                 verbose, results)
 
+        for varname, var_metadata in metadata["technical"].items():
+            results = self.__test_group_handler(self.metadata.technical_attr, metadata["technical"][varname], varname,
+                                                verbose, results)
+
         df = pd.DataFrame(results)
         total, required, optional = self.__process_results(df, verbose=verbose)
         r = {

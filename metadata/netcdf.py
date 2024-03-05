@@ -129,7 +129,12 @@ def read_nc(path, decode_times=True, time_key="TIME"):
 
     # Save ds into a WaterFrame
     wf.metadata = dict(ds.attrs)
+
     wf.data = ds.to_dataframe()
+
+    if time_key in wf.data.columns:
+        wf.data = wf.data.set_index(time_key)
+
     for variable in ds.variables:
         wf.vocabulary[variable] = dict(ds[variable].attrs)
 

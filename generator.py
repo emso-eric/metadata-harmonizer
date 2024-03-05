@@ -111,6 +111,14 @@ if __name__ == "__main__":
 
     if args.metadata:
         waterframes = generate_datasets(args.data, args.metadata)
+        # If ALL waterframes are empty we have nothing else to do, just exit
+        some_data = False
+        for wf in waterframes:
+            if not wf.data.empty:
+               some_data = True
+        if not some_data:
+            rich.print("[red]There is not data in the dataframes! exit")
+            exit(0)
         wf = merge_waterframes(waterframes)
 
     if args.autofill:

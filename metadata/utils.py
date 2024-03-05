@@ -33,12 +33,22 @@ def group_metadata_variables(metadata):
     stds = {key: m["variables"].pop(key) for key in vars if key.upper().endswith("_STD")}
     dims = {key: m["variables"].pop(key) for key in vars if key.upper() in dimensions}
 
+    technical = {}
+    for key in vars:
+        try:
+            if "technical_data" in m["variables"][key].keys():
+                rich.print(f"variable {key} is 'technical'")
+                technical[key] = m["variables"].pop(key)
+        except KeyError:
+            rich.print(f"variable {key} is 'scientific'")
+
     m = {
         "global": m["global"],
         "variables": m["variables"],
         "qc": qcs,
         "dimensions": dims,
-        "std": stds
+        "std": stds,
+        "technical": technical
     }
     return m
 
@@ -90,6 +100,18 @@ def threadify(arg_list, handler, max_threads=10, text: str = "progress..."):
         return final_results
 
 
+def download_file(url, file):
+    """
+    wrapper for urllib.error.HTTPError
+    """
+    try:
+        return urllib.request.urlretrieve(url, file)
+    except urllib.error.HTTPError as e:
+        rich.print(f"[red]{str(e)}")
+        rich.print(f"[red]Could not download from {url} to file {file}")
+        raise e
+
+
 def download_files(tasks, force_download=False):
     if len(tasks) == 1:
         return None
@@ -102,7 +124,7 @@ def download_files(tasks, force_download=False):
             rich.print(f"    downloading [cyan]'{name}'[/cyan]...")
             args.append((url, file))
 
-    threadify(args, urllib.request.urlretrieve)
+    threadify(args, download_file)
 
 
 def drop_duplicates(df, timestamp="time"):

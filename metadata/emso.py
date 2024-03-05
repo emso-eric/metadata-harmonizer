@@ -40,7 +40,7 @@ edmo_codes = "https://edmo.seadatanet.org/sparql/sparql?query=SELECT%20%3Fs%20%3
 spdx_licenses_github = "https://raw.githubusercontent.com/spdx/license-list-data/main/licenses.md"
 
 # Copernicus INS TAC Parameter list v3.1
-copernicus_param_list = "https://archimer.ifremer.fr/doc/00422/53381/89960.xlsx"
+copernicus_param_list = "https://archimer.ifremer.fr/doc/00422/53381/108480.xlsx"
 
 
 def process_markdown_file(file) -> (dict, dict):
@@ -199,6 +199,7 @@ class EmsoMetadata:
         self.variable_attr = tables["Variable Attributes"]
         self.dimension_attr = tables["Dimension Attributes"]
         self.qc_attr = tables["Quality Control Attributes"]
+        self.technical_attr = tables["Technical Variables"]
 
         tables = process_markdown_file(oceansites_file)
         self.oceansites_sensor_mount = list(tables["Sensor Mount"]["sensor_mount"].values)
@@ -262,6 +263,7 @@ class EmsoMetadata:
                         json.dump(values, f)
             # for vocab, df in self.sdn_vocabs.items():
                 # Storing to CSV to make it easier to search
+                rich.print(list(df.columns))
                 df = df[["id", "uri", "prefLabel", "definition"]]
                 filename = os.path.join(".emso", f"{vocab}.csv")
                 df.to_csv(filename, index=False)
@@ -315,7 +317,7 @@ class EmsoMetadata:
 
         data = {
             "@id": [],
-            "dce:identifier": [],
+            "dc:identifier": [],
             "prefLabel": [],
             "definition": []
         }
@@ -328,11 +330,16 @@ class EmsoMetadata:
                 continue
 
             for key in data.keys():
-                if type(element[key]) == dict:
-                    value = element[key]["@value"]
-                else:  # assuming string
-                    value = element[key]
-                data[key].append(value)
+                if key in element.keys():
+                    if type(element[key]) is dict:
+                        value = element[key]["@value"]
+                    else:  # assuming string
+                        value = element[key]
+                    data[key].append(value)
+
+            # sometimes it is dce:identifier instead of dc:identifier
+            if "dce:identifier" in element.keys():
+                data["dc:identifier"].append(element["dce:identifier"])
 
             # Initialize as empty list
             narrower[uri] = []
@@ -348,7 +355,7 @@ class EmsoMetadata:
                 related[uri] = element["related"]
 
         df = pd.DataFrame(data)
-        df = df.rename(columns={"@id": "uri", "dce:identifier": "id"})
+        df = df.rename(columns={"@id": "uri", "dc:identifier": "id"})
         return df, narrower, broader, related
 
     @staticmethod
@@ -375,7 +382,9 @@ class EmsoMetadata:
         df = self.sdn_vocabs[vocab_id]
         row = df.loc[df["uri"] == uri]
         if row.empty:
-            raise LookupError(f"Could not get {key} for '{uri}' in vocab {vocab_id}")
+            #raise LookupError(f"Could not get {key} for '{uri}' in vocab {vocab_id}")
+            rich.print(f"[red]Could not get {key} for '{uri}' in vocab {vocab_id}")
+            return ""
         return row[key].values[0]
 
     def vocab_get_by_urn(self, vocab_id, urn, key):
@@ -422,9 +431,13 @@ class EmsoMetadata:
         else:  # related
             relations = self.sdn_vocabs_related[vocab_id]
 
-        uri_relations = relations[uri]
+        try:
+            uri_relations = relations[uri]
+        except KeyError:
+            rich.print(f"[red]relation {relation} for {uri} not found!")
+            return ""
 
-        if type(uri_relations) == str:  # make sure it's a list
+        if type(uri_relations) is str:  # make sure it's a list
             uri_relations = [uri_relations]
 
         results = []
@@ -438,7 +451,10 @@ class EmsoMetadata:
         The same as get relations but throws an error if more than one element are found
         """
         results = self.get_relations(vocab_id, uri, relation, target_vocab)
-        if len(results) != 1:
+        if len(results) == 0:
+            rich.print(f"[red]Could not find relation {relation} for {uri}")
+            return ""
+        elif len(results) != 1:
             raise LookupError(f"Expected 1 value, got {len(results)}")
 
         return results[0]
