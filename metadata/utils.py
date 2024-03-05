@@ -100,6 +100,18 @@ def threadify(arg_list, handler, max_threads=10, text: str = "progress..."):
         return final_results
 
 
+def download_file(url, file):
+    """
+    wrapper for urllib.error.HTTPError
+    """
+    try:
+        return urllib.request.urlretrieve(url, file)
+    except urllib.error.HTTPError as e:
+        rich.print(f"[red]{str(e)}")
+        rich.print(f"[red]Could not download from {url} to file {file}")
+        raise e
+
+
 def download_files(tasks, force_download=False):
     if len(tasks) == 1:
         return None
@@ -112,7 +124,7 @@ def download_files(tasks, force_download=False):
             rich.print(f"    downloading [cyan]'{name}'[/cyan]...")
             args.append((url, file))
 
-    threadify(args, urllib.request.urlretrieve)
+    threadify(args, download_file)
 
 
 def drop_duplicates(df, timestamp="time"):
