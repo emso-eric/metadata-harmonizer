@@ -593,7 +593,7 @@ class EmsoMetadataTester:
         """
         if value in self.metadata.oceansites_param_codes:
             return True, "Variable name found in OceanSITES"
-        elif value in self.metadata.sdn_vocabs_uris["P02"]:
+        elif value in self.metadata.sdn_p02_names:
             return True, "Variable name found in P02"
         elif value in self.metadata.copernicus_variables:
             return True, "Variable name found in Copernicus INSTAC codes"
