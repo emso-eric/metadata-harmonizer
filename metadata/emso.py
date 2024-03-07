@@ -39,7 +39,7 @@ edmo_codes = "https://edmo.seadatanet.org/sparql/sparql?query=SELECT%20%3Fs%20%3
 
 spdx_licenses_github = "https://raw.githubusercontent.com/spdx/license-list-data/main/licenses.md"
 
-# Copernicus INS TAC Parameter list v3.1
+# Copernicus INS TAC Parameter list v3.2
 copernicus_param_list = "https://archimer.ifremer.fr/doc/00422/53381/108480.xlsx"
 
 
@@ -288,6 +288,8 @@ class EmsoMetadata:
                                        "DOXY_TEMP", "DYNHT", "FLU2", "HCSP", "HEAT", "ISO17", "LW", "OPBS", "PCO2",
                                        "PRES", "PSAL", "RAIN", "RAIT", "RELH", "SDFA", "SRAD", "SW", "TEMP", "UCUR",
                                        "UWND", "VAVH", "VAVT", "VCUR", "VDEN", "VDIR", "VWND", "WDIR", "WSPD"]
+        # Convert P02 IDs to 4-letter codes
+        self.sdn_p02_names = [code.split(":")[-1] for code in self.sdn_vocabs_ids["P02"]]
 
         # Parse Copernicus Params excel file
         df = pd.read_excel(copernicus_params_file, sheet_name="Parameters", keep_default_na=False, header=1)
