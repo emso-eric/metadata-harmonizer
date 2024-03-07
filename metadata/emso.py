@@ -39,7 +39,7 @@ edmo_codes = "https://edmo.seadatanet.org/sparql/sparql?query=SELECT%20%3Fs%20%3
 
 spdx_licenses_github = "https://raw.githubusercontent.com/spdx/license-list-data/main/licenses.md"
 
-# Copernicus INS TAC Parameter list v3.1
+# Copernicus INS TAC Parameter list v3.2
 copernicus_param_list = "https://archimer.ifremer.fr/doc/00422/53381/108480.xlsx"
 
 
