@@ -128,7 +128,6 @@ def load_min_meta(wf: md.WaterFrame, filename: str, emso: EmsoMetadata):
     wf.metadata["$minmeta"] = filename
     with open(filename) as f:
         metadata = json.load(f)
-
     metadata["global"] = process_selectable_metadata(metadata["global"], filename)
     metadata["sensor"] = process_selectable_metadata(metadata["sensor"], filename)
     metadata["coordinates"] = process_selectable_metadata(metadata["coordinates"], filename)

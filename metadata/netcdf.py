@@ -56,7 +56,8 @@ def wf_to_multidim_nc(wf: md.WaterFrame, filename: str, dimensions: list, fill_v
 
             ncfile.createDimension(dimension, len(values))  # create dimension
             if type(values[0]) == str:  # Some dimension may be a string (e.g. sensor_id)
-                var = ncfile.createVariable(dimension, str, (dimension,), fill_value=fill_value, zlib=True)
+                # zlib=False because variable-length strings cannot be compressed
+                var = ncfile.createVariable(dimension, str, (dimension,), fill_value=fill_value, zlib=False)
             else:
                 var = ncfile.createVariable(dimension, 'float', (dimension,), fill_value=fill_value, zlib=True)
 
