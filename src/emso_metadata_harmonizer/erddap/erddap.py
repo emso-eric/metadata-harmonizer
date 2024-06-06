@@ -13,7 +13,6 @@ import requests
 import rich
 import json
 
-from metadata.utils import group_metadata_variables
 
 
 class ERDDAP:

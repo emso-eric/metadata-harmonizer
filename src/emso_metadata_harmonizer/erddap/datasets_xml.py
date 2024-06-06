@@ -12,14 +12,14 @@ import os
 import shutil
 
 import lxml.etree as etree
-import mooda as md
-from metadata.dataset import get_variables, set_multisensor, get_dimensions, get_qc_variables
+from ..metadata.waterframe import WaterFrame
+from ..metadata.dataset import get_variables, set_multisensor, get_dimensions, get_qc_variables
+from ..metadata.xmlutils import get_element
 import rich
-from metadata.xmlutils import get_element
 from datetime import datetime
 
 
-def generate_erddap_dataset(wf: md.WaterFrame, directory, dataset_id):
+def generate_erddap_dataset(wf: WaterFrame, directory, dataset_id):
     """
     Generates a XML chunk to add it into ERDDAP's datasets.xml
     :param wf: waterframe with data and metadata

@@ -18,12 +18,10 @@ from rich.style import Style
 from rich.progress import Progress
 import pandas as pd
 import re
-from metadata import EmsoMetadata
+from . import EmsoMetadata
+from .utils import group_metadata_variables
 import inspect
 import numpy as np
-
-from metadata.utils import group_metadata_variables
-
 
 class EmsoMetadataTester:
     def __init__(self):
