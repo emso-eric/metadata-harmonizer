@@ -175,6 +175,7 @@ def backup_datsets_file(filename):
     """
     Generates a .datasets.xml.YYYMMDD_HHMMSS backup file of the datasets.xml
     """
+    assert type(filename) is str, f"expected string, got {type(filename)}"
     basename = os.path.basename(filename)
     directory = os.path.dirname(filename)
     backup = "." + basename + "." + datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -183,12 +184,15 @@ def backup_datsets_file(filename):
     return backup
 
 
-def add_dataset(filename, dataset):
+def add_dataset(filename: str, dataset: str):
     """
     Adds a dataset to an exsiting ERDDAP deployment by modifying the datasets.xml config file
     :param filename: path to datasets.xml file
     :param dataset: string containing the XML configuration for the dataset
     """
+
+    assert type(filename) is str, f"expected string, got {type(filename)}"
+    assert type(dataset) is str, f"expected string, got {type(dataset)}"
 
     rich.print("Backing up datasets.xml file...", end="")
     bckp = backup_datsets_file(filename)

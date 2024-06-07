@@ -148,9 +148,6 @@ def csv_detect_header(filename, separator=","):
 
 def wf_force_upper_case(wf: WaterFrame) -> WaterFrame:
     # Force upper case in dimensions
-    rich.print(wf)
-    rich.print(wf.data)
-    rich.print(wf.vocabulary)
     for key in wf.data.columns:
         if key.upper() in dimensions and key.upper() != key:
             rich.print(f"[purple]Forcing upper case for {key}")
@@ -178,6 +175,7 @@ def load_data(file: str):
         wf = load_nc_data(file)
     else:
         raise ValueError("Unimplemented file format for data!")
+
     return wf
 
 
@@ -198,7 +196,6 @@ def load_nc_data(filename, drop_duplicates=False, process_lists=True) -> (WaterF
     """
 
     wf = read_nc(filename, decode_times=False)
-
     if process_lists:  # Process semicolon separated lists
         for key, value in wf.metadata.items():
             wf.metadata[key] = semicolon_to_list(value)
@@ -208,9 +205,13 @@ def load_nc_data(filename, drop_duplicates=False, process_lists=True) -> (WaterF
                 wf.vocabulary[var][key] = semicolon_to_list(value)
 
     wf.data = wf.data.reset_index()
+
+    if "row" in wf.data.columns:
+        # a 'row' column may be introduced by reset index if there previous index was an integer
+        del wf.data["row"]
+
     wf = wf_force_upper_case(wf)
     df = wf.data
-
     units = wf.vocabulary["TIME"]["units"]
     rich.print(f"Units: {units}")
 
@@ -224,7 +225,6 @@ def load_nc_data(filename, drop_duplicates=False, process_lists=True) -> (WaterF
 
     df["TIME"] = nc.num2date(df["TIME"].values, units, only_use_python_datetimes=True, only_use_cftime_datetimes=False)
     df["TIME"] = pd.to_datetime((df["TIME"]), utc=True)
-
     if drop_duplicates:
         dups = df[df["TIME"].duplicated()]
         if len(dups) > 0:
@@ -239,7 +239,6 @@ def load_nc_data(filename, drop_duplicates=False, process_lists=True) -> (WaterF
         if varname not in wf.vocabulary.keys():
             rich.print(f"[red]ERROR: Variable {varname} not listed in metadata!")
             wf.vocabulary[varname] = {}  # generate empty metadata vocab
-
     return wf
 
 

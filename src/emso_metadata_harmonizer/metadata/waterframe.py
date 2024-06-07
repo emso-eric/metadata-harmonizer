@@ -11,6 +11,7 @@ created: 6/6/24
 """
 import pandas as pd
 
+
 class WaterFrame:
     def __init__(self, data: pd.DataFrame, metadata: dict, vocabulary: dict):
         """

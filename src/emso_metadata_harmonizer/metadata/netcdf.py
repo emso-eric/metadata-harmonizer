@@ -33,7 +33,6 @@ def wf_to_multidim_nc(wf: WaterFrame, filename: str, dimensions: list, fill_valu
         dimensions.append(time_key)
 
     df = wf.data  # Access the DataFrame within the waterframe
-
     index_df = df[dimensions].copy()  # create a dataframe with only the variables that will be used as indexes
     multiindex = pd.MultiIndex.from_frame(index_df)  # create a multiindex from the dataframe
 
@@ -131,6 +130,7 @@ def read_nc(path, decode_times=True, time_key="TIME"):
     metadata = dict(ds.attrs)
 
     df = ds.to_dataframe()
+    print(df)
 
     if time_key in df.columns:
         df = df.set_index(time_key)
@@ -141,7 +141,6 @@ def read_nc(path, decode_times=True, time_key="TIME"):
 
     if time_units:
         vocabulary[time_key]["units"] = time_units
-
     return WaterFrame(df, metadata, vocabulary)
 
 
