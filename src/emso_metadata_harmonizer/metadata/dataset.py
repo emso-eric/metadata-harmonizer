@@ -8,16 +8,16 @@ license: MIT
 created: 29/4/23
 """
 
-import mooda as md
+from .waterframe import WaterFrame
 import pandas as pd
-from metadata.constants import dimensions, qc_flags, fill_value
+from .constants import dimensions, qc_flags, fill_value
 import numpy as np
 import rich
 import netCDF4 as nc
 
-from metadata.metadata_templates import dimension_metadata, quality_control_metadata
-from metadata.netcdf import wf_to_multidim_nc, read_nc
-from metadata.utils import drop_duplicates, merge_dicts
+from .metadata_templates import dimension_metadata, quality_control_metadata
+from .netcdf import wf_to_multidim_nc, read_nc
+from .utils import drop_duplicates, merge_dicts
 
 
 def get_variables(wf):
@@ -114,10 +114,9 @@ def load_csv_data(filename, sep=",") -> (pd.DataFrame, list):
     # if len(dups) > 0:
     #     rich.print(f"[yellow]WARNING! detected {len(dups)} duplicated times!, deleting")
     #     df = drop_duplicates(df)
-    wf = md.WaterFrame()
-    wf.data = df  # assign data
-    wf.metadata = {"$datafile": filename}  # Add the filename as a special param
-    wf.vocabulary = {c: {} for c in df.columns}
+    metadata = {"$datafile": filename}  # Add the filename as a special param
+    vocabulary = {c: {} for c in df.columns}
+    wf = WaterFrame(df, metadata, vocabulary)
 
     wf.data["TIME"] = pd.to_datetime(wf.data["TIME"])
 
@@ -147,11 +146,8 @@ def csv_detect_header(filename, separator=","):
     return i
 
 
-def wf_force_upper_case(wf: md.WaterFrame) -> md.WaterFrame:
+def wf_force_upper_case(wf: WaterFrame) -> WaterFrame:
     # Force upper case in dimensions
-    rich.print(wf)
-    rich.print(wf.data)
-    rich.print(wf.vocabulary)
     for key in wf.data.columns:
         if key.upper() in dimensions and key.upper() != key:
             rich.print(f"[purple]Forcing upper case for {key}")
@@ -179,6 +175,7 @@ def load_data(file: str):
         wf = load_nc_data(file)
     else:
         raise ValueError("Unimplemented file format for data!")
+
     return wf
 
 
@@ -193,13 +190,12 @@ def semicolon_to_list(attr: str):
 
 
 # -------- Load NetCDF data -------- #
-def load_nc_data(filename, drop_duplicates=False, process_lists=True) -> (md.WaterFrame, list):
+def load_nc_data(filename, drop_duplicates=False, process_lists=True) -> (WaterFrame, list):
     """
     Loads NetCDF data into a waterframe
     """
 
     wf = read_nc(filename, decode_times=False)
-
     if process_lists:  # Process semicolon separated lists
         for key, value in wf.metadata.items():
             wf.metadata[key] = semicolon_to_list(value)
@@ -209,9 +205,13 @@ def load_nc_data(filename, drop_duplicates=False, process_lists=True) -> (md.Wat
                 wf.vocabulary[var][key] = semicolon_to_list(value)
 
     wf.data = wf.data.reset_index()
+
+    if "row" in wf.data.columns:
+        # a 'row' column may be introduced by reset index if there previous index was an integer
+        del wf.data["row"]
+
     wf = wf_force_upper_case(wf)
     df = wf.data
-
     units = wf.vocabulary["TIME"]["units"]
     rich.print(f"Units: {units}")
 
@@ -225,7 +225,6 @@ def load_nc_data(filename, drop_duplicates=False, process_lists=True) -> (md.Wat
 
     df["TIME"] = nc.num2date(df["TIME"].values, units, only_use_python_datetimes=True, only_use_cftime_datetimes=False)
     df["TIME"] = pd.to_datetime((df["TIME"]), utc=True)
-
     if drop_duplicates:
         dups = df[df["TIME"].duplicated()]
         if len(dups) > 0:
@@ -240,12 +239,11 @@ def load_nc_data(filename, drop_duplicates=False, process_lists=True) -> (md.Wat
         if varname not in wf.vocabulary.keys():
             rich.print(f"[red]ERROR: Variable {varname} not listed in metadata!")
             wf.vocabulary[varname] = {}  # generate empty metadata vocab
-
     return wf
 
 
 # -------- Coordinate-related functions -------- #
-def add_coordinates(wf: md.WaterFrame, latitude, longitude, depth):
+def add_coordinates(wf: WaterFrame, latitude, longitude, depth):
     """
     Takes a waterframe and adds nominal lat/lon/depth values
     """
@@ -279,7 +277,7 @@ def ensure_coordinates(wf, required=["DEPTH", "LATITUDE", "LONGITUDE"]):
         raise ValueError("Coordinates not properly set")
 
 
-def update_waterframe_metadata(wf: md.WaterFrame, meta: dict):
+def update_waterframe_metadata(wf: WaterFrame, meta: dict):
     """
     Merges a full metadata JSON dict into a Waterframe
     """
@@ -356,7 +354,7 @@ def consolidate_metadata(dicts: list) -> dict:
     return final
 
 
-def set_multisensor(wf: md.waterframe):
+def set_multisensor(wf: WaterFrame):
     """
     Looks through all the variables and checks if data comes from two or more sensors. Sets the multisensor flag
     """

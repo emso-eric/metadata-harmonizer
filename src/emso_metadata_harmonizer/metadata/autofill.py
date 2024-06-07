@@ -11,13 +11,13 @@ created: 29/4/23
 
 from argparse import ArgumentParser
 import json
-import mooda as md
 import rich
-from metadata import EmsoMetadata
-from metadata.constants import dimensions, iso_time_format
-from metadata.dataset import get_variables, set_multisensor
-from metadata.metadata_templates import choose_interactively, dimension_metadata, quality_control_metadata
-from metadata.utils import merge_dicts
+from . import EmsoMetadata
+from .constants import dimensions, iso_time_format
+from .dataset import get_variables, set_multisensor
+from .metadata_templates import choose_interactively, dimension_metadata, quality_control_metadata
+from .utils import merge_dicts
+from .waterframe import WaterFrame
 
 
 def set_default(m: dict, key: str, value: any):
@@ -77,7 +77,7 @@ def autofill_minmeta(minmeta: dict, emso: EmsoMetadata):
     return minmeta
 
 
-def expand_minmeta(wf: md.WaterFrame, minmeta: dict, emso: EmsoMetadata) -> dict:
+def expand_minmeta(wf: WaterFrame, minmeta: dict, emso: EmsoMetadata) -> dict:
     """
     Expands minimal metadata into full metadata and sotres it within the WaterFrame
     """
@@ -214,7 +214,7 @@ def autofill_sensor(s: dict, emso: EmsoMetadata) -> dict:
     return s
 
 
-def autofill_waterframe_coverage(wf: md.WaterFrame) -> md.WaterFrame:
+def autofill_waterframe_coverage(wf: WaterFrame) -> WaterFrame:
     """
     Autofills geospatial and time coverage in a WaterFrame
     """
@@ -229,7 +229,7 @@ def autofill_waterframe_coverage(wf: md.WaterFrame) -> md.WaterFrame:
     return wf
 
 
-def autofill_coordinates(wf: md.WaterFrame) -> md.WaterFrame:
+def autofill_coordinates(wf: WaterFrame) -> WaterFrame:
     """
     Autofills the coordinates section of each variable
     """

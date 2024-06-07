@@ -8,14 +8,12 @@ email: enoc.martinez@upc.edu
 license: MIT
 created: 26/4/23
 """
-
-import mooda as md
 import rich
 from rich.progress import Progress
 import urllib
 import concurrent.futures as futures
 import os
-from metadata.constants import dimensions
+from .constants import dimensions
 import numpy as np
 
 

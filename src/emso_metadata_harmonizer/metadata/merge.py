@@ -1,11 +1,11 @@
 import pandas as pd
-import mooda as md
 import rich
 
-from metadata.autofill import autofill_waterframe_coverage
-from metadata.constants import iso_time_format
-from metadata.dataset import consolidate_metadata, set_multisensor
-from metadata.utils import merge_dicts
+from .autofill import autofill_waterframe_coverage
+from .constants import iso_time_format
+from .dataset import consolidate_metadata, set_multisensor
+from .utils import merge_dicts
+from .waterframe import WaterFrame
 
 
 def merge_waterframes(waterframes):
@@ -45,10 +45,7 @@ def merge_waterframes(waterframes):
     for varname, varmeta in variables_attr.items():
         variable_meta[varname] = consolidate_metadata(varmeta)
 
-    wf = md.WaterFrame()
-    wf.data = df
-    wf.vocabulary = variable_meta
-    wf.metadata = global_meta
+    wf = WaterFrame(df, global_meta, variable_meta)
 
     try:
         wf = set_multisensor(wf)

@@ -9,21 +9,21 @@ email: enoc.martinez@upc.edu
 license: MIT
 created: 29/4/23
 """
-from metadata import EmsoMetadata
-from metadata.autofill import autofill_minmeta
-from metadata.metadata_templates import global_metadata, sensor_metadata, variable_metadata, user_selectable_attributes, \
+from . import EmsoMetadata
+from .autofill import autofill_minmeta
+from .metadata_templates import global_metadata, sensor_metadata, variable_metadata, user_selectable_attributes, \
     choose_interactively
 import rich
-import mooda as md
 import os
-from metadata.dataset import get_qc_variables, get_variables, extract_netcdf_metadata
+from .dataset import get_qc_variables, get_variables, extract_netcdf_metadata
 import json
 import numpy as np
 
-from metadata.utils import avoid_filename_collision
+from .utils import avoid_filename_collision
+from .waterframe import WaterFrame
 
 
-def generate_min_meta_template(wf: md.WaterFrame, folder: str):
+def generate_min_meta_template(wf: WaterFrame, folder: str):
     """
     Takes a data frame and generates the a minimal metadata file from which the rest of the metadata can be derived
     """
@@ -98,7 +98,7 @@ def remove_minmeta_keys(m):
     return m
 
 
-def load_full_meta(wf: md.WaterFrame, filename: str):
+def load_full_meta(wf: WaterFrame, filename: str):
     """
     Loads a full metadata file
     """
@@ -121,14 +121,13 @@ def load_full_meta(wf: md.WaterFrame, filename: str):
     return metadata
 
 
-def load_min_meta(wf: md.WaterFrame, filename: str, emso: EmsoMetadata):
+def load_min_meta(wf: WaterFrame, filename: str, emso: EmsoMetadata):
     """
     Loads a minimal metadata file.
     """
     wf.metadata["$minmeta"] = filename
     with open(filename) as f:
         metadata = json.load(f)
-
     metadata["global"] = process_selectable_metadata(metadata["global"], filename)
     metadata["sensor"] = process_selectable_metadata(metadata["sensor"], filename)
     metadata["coordinates"] = process_selectable_metadata(metadata["coordinates"], filename)
@@ -183,7 +182,7 @@ def np_encoder(object):
     if isinstance(object, np.generic):
         return object.item()
 
-def generate_full_metadata(wf: md.WaterFrame, folder):
+def generate_full_metadata(wf: WaterFrame, folder):
     """
     Takes a waterframe and stores its full metadtaa in to a JSON file
     """

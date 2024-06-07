@@ -11,65 +11,7 @@ created: 13/4/23
 """
 
 from argparse import ArgumentParser
-import rich
-from metadata.autofill import expand_minmeta, autofill_waterframe
-from metadata.dataset import add_coordinates, ensure_coordinates, update_waterframe_metadata, export_to_netcdf
-from metadata.merge import merge_waterframes
-from metadata.minmeta import generate_min_meta_template, load_min_meta, load_full_meta, generate_full_metadata
-from metadata import EmsoMetadata, load_data
-
-
-def generate_metadata(data_files: list, folder):
-    """
-    Generate the metadata templates for the input file in the target folder
-    """
-    # If metadata and generate
-    for file in data_files:
-        rich.print(f"generating minimal metadata template for {file}")
-        wf = load_data(file)
-
-        if file.endswith(".csv"):  # For CSV always generate a minimal metdata file
-            generate_min_meta_template(wf, folder)
-        elif file.endswith(".nc"):
-            generate_full_metadata(wf, folder)
-
-    rich.print(f"[green]Please edit the following files and run the generator with the -m option!")
-
-
-def generate_datasets(data_files, metadata_files: list):
-    """
-    Merge data fiiles and metadata files into a NetCDF dataset according to EMSO specs. If provided, depths, lats and
-    longs will be added to the dataset as dimensions.
-    """
-    emso = EmsoMetadata()
-    waterframes = []
-    for i in range(len(data_files)):
-        datafile = data_files[i]
-        metafile = metadata_files[i]
-
-        wf = load_data(datafile)
-
-        if metafile.endswith(".min.json"):
-            rich.print(f"Loading a minimal metadata file {metafile}...")
-            minmeta = load_min_meta(wf, metafile, emso)
-            if "coordinates" in minmeta.keys():
-                lat = minmeta["coordinates"]["latitude"]
-                lon = minmeta["coordinates"]["longitude"]
-                depth = minmeta["coordinates"]["depth"]
-                wf = add_coordinates(wf, lat, lon, depth)
-            ensure_coordinates(wf)  # make sure that all coordinates are set
-            metadata = expand_minmeta(wf, minmeta, emso)
-
-        elif metafile.endswith(".full.json"):
-            rich.print(f"Loading a full metadata file {metafile}...")
-            metadata = load_full_meta(wf, metafile)
-        else:
-            raise ValueError("Expected metadata file with extension .full.json or .min.json!")
-
-        wf = update_waterframe_metadata(wf, metadata)
-        waterframes.append(wf)
-    return waterframes
-
+from src.emso_metadata_harmonizer import generate_dataset
 
 if __name__ == "__main__":
     argparser = ArgumentParser()
@@ -80,59 +22,12 @@ if __name__ == "__main__":
                            nargs="+")
     argparser.add_argument("-g", "--generate", type=str, help="Generates metadata templates in the specified folder",
                            required=False)
-
-    argparser.add_argument("-a", "--autofill", action="store_true", help="Takes a NetCDF file and tries to autofill its metadata",
+    argparser.add_argument("-a", "--autofill", action="store_true",
+                           help="Takes a NetCDF file and tries to autofill its metadata",
                            required=False)
-
     argparser.add_argument("-o", "--output", type=str, help="Output NetCDF file", required=False, default="")
     argparser.add_argument("--clear", action="store_true", help="Clears all downloads", required=False)
 
     args = argparser.parse_args()
-
-    wf = None
-
-    if args.clear:
-        rich.print("Clearing downloaded files...", end="")
-        EmsoMetadata.clear_downloads()
-        rich.print("[green]done")
-        exit()
-
-    if args.generate and args.metadata:
-        raise ValueError("--metadata and --generate cannot be used at the same time!")
-
-    if not args.generate and not args.metadata and not args.autofill:
-        raise ValueError("--metadata OR --generate OR --autofill option ust be used!")
-
-    # If metadata and generate
-    if args.generate:
-        rich.print("[blue]Generating metadata templates...")
-        generate_metadata(args.data, args.generate)
-        exit()
-
-    if args.metadata:
-        waterframes = generate_datasets(args.data, args.metadata)
-        # If ALL waterframes are empty we have nothing else to do, just exit
-        some_data = False
-        for wf in waterframes:
-            if not wf.data.empty:
-               some_data = True
-        if not some_data:
-            rich.print("[red]There is not data in the dataframes! exit")
-            exit(0)
-        wf = merge_waterframes(waterframes)
-
-    if args.autofill:
-        if len(args.data) > 1:
-            raise ValueError("Only one data file expected!")
-        filename = args.data[0]
-        wf = load_data(filename)
-        wf = autofill_waterframe(wf)
-
-    if args.output:
-        export_to_netcdf(wf, args.output)
-
-    if not wf:
-        if len(args.data) > 1:
-            raise ValueError("Only one data file expected!")
-        filename = args.data[0]
-        wf = load_data(filename)
+    generate_dataset(args.data, args.metadata, generate=args.generate, autofill=args.autofill, output=args.output,
+                     clear=args.clear)
