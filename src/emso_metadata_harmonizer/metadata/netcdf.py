@@ -12,12 +12,12 @@ created: 18/4/23
 import netCDF4 as nc
 import pandas as pd
 import numpy as np
-import mooda as md
-from metadata.constants import fill_value
+from .constants import fill_value
 import xarray as xr
+from .waterframe import WaterFrame
 
 
-def wf_to_multidim_nc(wf: md.WaterFrame, filename: str, dimensions: list, fill_value=fill_value, time_key="TIME",
+def wf_to_multidim_nc(wf: WaterFrame, filename: str, dimensions: list, fill_value=fill_value, time_key="TIME",
                       join_attr="; "):
     """
     Creates a multidimensinoal NetCDF-4 file
@@ -33,7 +33,6 @@ def wf_to_multidim_nc(wf: md.WaterFrame, filename: str, dimensions: list, fill_v
         dimensions.append(time_key)
 
     df = wf.data  # Access the DataFrame within the waterframe
-
     index_df = df[dimensions].copy()  # create a dataframe with only the variables that will be used as indexes
     multiindex = pd.MultiIndex.from_frame(index_df)  # create a multiindex from the dataframe
 
@@ -115,13 +114,12 @@ def read_nc(path, decode_times=True, time_key="TIME"):
         wf: WaterFrame
     """
     # Create WaterFrame
-    wf = md.WaterFrame()
 
     time_units = ""
     if decode_times:
         # decode_times in xarray.open_dataset will erase the unit field from TIME, so store it before it is removed
         ds = xr.open_dataset(path, decode_times=False)
-        if  time_key in ds.variables and "units" in ds[time_units].attrs.keys():
+        if time_key in ds.variables and "units" in ds[time_units].attrs.keys():
             time_units = ds[time_key].attrs["units"]
         ds.close()
 
@@ -129,20 +127,21 @@ def read_nc(path, decode_times=True, time_key="TIME"):
     ds = xr.open_dataset(path, decode_times=decode_times)
 
     # Save ds into a WaterFrame
-    wf.metadata = dict(ds.attrs)
+    metadata = dict(ds.attrs)
 
-    wf.data = ds.to_dataframe()
+    df = ds.to_dataframe()
+    print(df)
 
-    if time_key in wf.data.columns:
-        wf.data = wf.data.set_index(time_key)
+    if time_key in df.columns:
+        df = df.set_index(time_key)
 
+    vocabulary = {}
     for variable in ds.variables:
-        wf.vocabulary[variable] = dict(ds[variable].attrs)
+        vocabulary[variable] = dict(ds[variable].attrs)
 
     if time_units:
-        wf.vocabulary[time_key]["units"] = time_units
-
-    return wf
+        vocabulary[time_key]["units"] = time_units
+    return WaterFrame(df, metadata, vocabulary)
 
 
 def new_read_nc2(filename, decode_times=False):

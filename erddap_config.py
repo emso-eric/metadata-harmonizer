@@ -11,9 +11,7 @@ created: 15/5/23
 """
 
 from argparse import ArgumentParser
-from metadata import load_data
-from erddap.datasets_xml import generate_erddap_dataset, add_dataset
-import rich
+from src.emso_metadata_harmonizer import erddap_config
 
 if __name__ == "__main__":
     argparser = ArgumentParser()
@@ -24,22 +22,5 @@ if __name__ == "__main__":
     argparser.add_argument("-x", "--xml", type=str, help="Path to the datasets.xml file, new dataset will be overwritten or apended", default="")
     args = argparser.parse_args()
 
-    rich.print("Generating datasets.xml chunk!")
-    rich.print(f"[cyan]    NetCDF file: {args.file}")
-    rich.print(f"[cyan]     dataset id: {args.dataset_id}")
-    rich.print(f"[cyan]  source folder: {args.source}")
-
-    wf = load_data(args.file)
-    xml_chunk = generate_erddap_dataset(wf, args.source, dataset_id=args.dataset_id)
-
-    if args.output:
-        with open(args.output, "w") as f:
-            f.write(xml_chunk)
-
-    if args.xml:
-        add_dataset(args.xml, xml_chunk)
-
-    if not args.xml and not args.output:
-        rich.print(xml_chunk)
-
+    erddap_config(args.file, args.dataset_id, args.source, output=args.output, xml=args.xml)
 
