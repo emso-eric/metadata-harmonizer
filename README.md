@@ -1,5 +1,6 @@
 # Metadata Harmonizer #
-This python project contains the tools to connect to an ERDDAP service and assess if the metadata is compliant with the EMSO Metadata Specifications. 
+This python project contains the tools to connect to an ERDDAP service and assess if the metadata is compliant with the EMSO Metadata Specifications.
+This project can be used as a standalone cli tool or as a [PyPi](https://pypi.org/project/emso-metadata-harmonizer) package to be integrated with other code.
 
 ## Setup this project ##
 To download this repository:

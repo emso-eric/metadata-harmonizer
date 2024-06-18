@@ -12,9 +12,10 @@ created: 13/4/23
 
 from argparse import ArgumentParser
 import rich
+import pandas as pd
 from .metadata.autofill import expand_minmeta, autofill_waterframe
 from .metadata.dataset import add_coordinates, ensure_coordinates, update_waterframe_metadata, export_to_netcdf, \
-    load_data
+    load_data, df_to_wf
 from .metadata.merge import merge_waterframes
 from .metadata.minmeta import generate_min_meta_template, load_min_meta, load_full_meta, generate_full_metadata
 from .metadata import EmsoMetadata
@@ -37,22 +38,47 @@ def generate_metadata(data_files: list, folder):
     rich.print(f"[green]Please edit the following files and run the generator with the -m option!")
 
 
-def generate_datasets(data_files, metadata_files: list):
+def generate_datasets(data_list:list, metadata_list: list):
     """
     Merge data fiiles and metadata files into a NetCDF dataset according to EMSO specs. If provided, depths, lats and
     longs will be added to the dataset as dimensions.
     """
     emso = EmsoMetadata()
     waterframes = []
-    for i in range(len(data_files)):
-        datafile = data_files[i]
-        metafile = metadata_files[i]
+    for i in range(len(data_list)):
+        data = data_list[i]
+        metadata = metadata_list[i]
 
-        wf = load_data(datafile)
+        if type(data) is str:
+            wf = load_data(data)
+        elif type(data) is pd.DataFrame:
+            wf = df_to_wf(data)
+        else:
+            raise ValueError("Data must be a file or DataFrame, got '{type(data)}'")
 
-        if metafile.endswith(".min.json"):
-            rich.print(f"Loading a minimal metadata file {metafile}...")
-            minmeta = load_min_meta(wf, metafile, emso)
+        if type(data) is str:
+            wf = load_data(data)
+        elif type(data) is pd.DataFrame:
+            wf = df_to_wf(data)
+        else:
+            raise ValueError(f"Data must be a file or DataFrame, got '{type(data)}'")
+
+        if type(metadata) not in [str, dict]:
+            raise ValueError(f"Expected str or dict, got '{type(data)}'")
+
+        # If metadata is dict, assume it as minimal
+        if type(metadata) is dict:
+            minimal_metadata = True
+        elif type(metadata) is str and metadata.endswith(".min.json"):
+            minimal_metadata = True
+        elif type(metadata) is str and metadata.endswith(".full.json") or type(metadata):
+            minimal_metadata = False
+        else:
+            raise ValueError("Expected metadata file with extension .full.json or .min.json!")
+
+        if minimal_metadata:
+            rich.print(f"Loading a minimal metadata file {metadata}...")
+            minmeta = load_min_meta(wf, metadata, emso)
             if "coordinates" in minmeta.keys():
                 lat = minmeta["coordinates"]["latitude"]
                 lon = minmeta["coordinates"]["longitude"]
@@ -61,11 +87,9 @@ def generate_datasets(data_files, metadata_files: list):
             ensure_coordinates(wf)  # make sure that all coordinates are set
             metadata = expand_minmeta(wf, minmeta, emso)
 
-        elif metafile.endswith(".full.json"):
-            rich.print(f"Loading a full metadata file {metafile}...")
-            metadata = load_full_meta(wf, metafile)
         else:
-            raise ValueError("Expected metadata file with extension .full.json or .min.json!")
+            rich.print(f"Loading a full metadata file {metadata}...")
+            metadata = load_full_meta(wf, metadata)
 
         wf = update_waterframe_metadata(wf, metadata)
         waterframes.append(wf)

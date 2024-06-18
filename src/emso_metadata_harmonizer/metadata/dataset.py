@@ -109,18 +109,22 @@ def load_csv_data(filename, sep=",") -> (pd.DataFrame, list):
     header_lines = csv_detect_header(filename, separator=sep)
     df = pd.read_csv(filename, skiprows=header_lines, sep=sep)
     df = df_force_upper_case(df)
-    df = harmonize_dataframe(df)
-    # dups = df[df["time"].duplicated()]
-    # if len(dups) > 0:
-    #     rich.print(f"[yellow]WARNING! detected {len(dups)} duplicated times!, deleting")
-    #     df = drop_duplicates(df)
-    metadata = {"$datafile": filename}  # Add the filename as a special param
-    vocabulary = {c: {} for c in df.columns}
-    wf = WaterFrame(df, metadata, vocabulary)
-
-    wf.data["TIME"] = pd.to_datetime(wf.data["TIME"])
-
+    wf = df_to_wf(df)
+    wf.metadata["$datafile"] = filename  # Add the filename as a special param
     return wf
+
+
+def df_to_wf(df: pd.DataFrame) -> WaterFrame:
+    """
+    Converts a dataframe into a waterframe
+    """
+    df = harmonize_dataframe(df)
+    vocabulary = {c: {} for c in df.columns}
+    wf = WaterFrame(df, {}, vocabulary)
+    wf.data["TIME"] = pd.to_datetime(wf.data["TIME"])
+    return wf
+
+
 
 
 def csv_detect_header(filename, separator=","):

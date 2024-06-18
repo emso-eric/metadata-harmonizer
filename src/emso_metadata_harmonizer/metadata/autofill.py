@@ -112,14 +112,13 @@ def expand_minmeta(wf: WaterFrame, minmeta: dict, emso: EmsoMetadata) -> dict:
         metadata["variables"][varname + "_QC"] = qcmeta
         rich.print("[green]done")
 
-    full_meta_file = wf.metadata["$minmeta"].replace(".min.json", ".full.json")
-
-    rich.print(f"Storing full metadata into {full_meta_file}...", end="")
-    with open(full_meta_file, "w") as f:
-        f.write(json.dumps(metadata, indent=2))
-    rich.print("[green]done!")
-
-    rich.print("[green]Full metadata created!\n")
+    if "$minmeta" in wf.metadata.keys():
+        full_meta_file = wf.metadata["$minmeta"].replace(".min.json", ".full.json")
+        rich.print(f"Storing full metadata into {full_meta_file}...", end="")
+        with open(full_meta_file, "w") as f:
+            f.write(json.dumps(metadata, indent=2))
+        rich.print("[green]done!")
+        rich.print("[green]Full metadata created!\n")
     return metadata
 
 
