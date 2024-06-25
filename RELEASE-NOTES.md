@@ -1,6 +1,11 @@
+## version 0.4.4 ##
+1. Fixing inconsistencies with PyPi
+
 ## version 0.4.3 ##
 1. Improved API to generate datasets, now can be called with dicts and DataFrames (before only with files)
 2. Removing mooda dependencies (this time for sure)
+3. Adding option to reuse EmsoMetadata, speeding up creation of multiple datasets
+4. Removing most prints to clear stout
 
 ## version 0.4.2 ##
 
