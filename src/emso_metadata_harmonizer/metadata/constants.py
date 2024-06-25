@@ -13,4 +13,5 @@ qc_flags = {
     "missing_value": 9
 }
 
-fill_value = -999999
+fill_value = -999999  # default, for floats
+fill_value_uint8 = 254

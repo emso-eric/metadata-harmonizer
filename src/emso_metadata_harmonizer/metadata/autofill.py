@@ -35,15 +35,12 @@ def autofill_minmeta(minmeta: dict, emso: EmsoMetadata):
     """
     Takes a minimal metadata JSON dict and tries to fill the gaps with default values
     """
-    rich.print("autofilling global metatadata...", end="")
     set_default(minmeta["global"], "~Conventions", ["OceanSITES", "EMSO"])
     set_default(minmeta["global"], "~format_version", "1.4")
     set_default(minmeta["global"], "~update_interval", "void")
     set_default(minmeta["global"], "~network", "EMSO")
     set_default(minmeta["global"], "~license", "CC-BY-4.0")
-    rich.print("[green]done!")
     for varname, varmeta in minmeta["variables"].items():
-        rich.print(f"   processing variable [cyan]{varname}[/cyan]...", end="")
         sdn_parameter_uri = emso.harmonize_uri(varmeta["*sdn_parameter_uri"])
         sdn_uom_uri = emso.get_relation("P01", sdn_parameter_uri, "related", "P06")
         set_default(varmeta, "~sdn_uom_uri", sdn_uom_uri)
@@ -73,7 +70,6 @@ def autofill_minmeta(minmeta: dict, emso: EmsoMetadata):
                     standard_name = ""
             set_default(varmeta, "~standard_name", standard_name)
 
-        rich.print("[green]done!")
     return minmeta
 
 
@@ -81,7 +77,6 @@ def expand_minmeta(wf: WaterFrame, minmeta: dict, emso: EmsoMetadata) -> dict:
     """
     Expands minimal metadata into full metadata and sotres it within the WaterFrame
     """
-    rich.print("Expanding minimal metadata into full metadata document:")
     metadata = minmeta.copy()
 
     if "coordinates" in metadata.keys():
@@ -96,9 +91,7 @@ def expand_minmeta(wf: WaterFrame, minmeta: dict, emso: EmsoMetadata) -> dict:
 
     # Now, add dimensions info
     for dimname in dimensions:
-        rich.print(f"    adding metadata for dimension [purple]{dimname}[/purple]...", end="")
         metadata["variables"][dimname] = dimension_metadata(dimname)
-        rich.print("[green]done")
 
     # Autofill all variables
     [autofill_variable(v, emso) for name, v in metadata["variables"].items() if name != "SENSOR_ID"]
@@ -107,19 +100,13 @@ def expand_minmeta(wf: WaterFrame, minmeta: dict, emso: EmsoMetadata) -> dict:
     for varname, varmeta in metadata["variables"].copy().items():
         if varname == "SENSOR_ID":
             continue
-        rich.print(f"    adding metadata for variable  [cyan]{varname + '_QC'}[/cyan]...", end="")
         qcmeta = quality_control_metadata(varmeta["long_name"])
         metadata["variables"][varname + "_QC"] = qcmeta
-        rich.print("[green]done")
 
-    full_meta_file = wf.metadata["$minmeta"].replace(".min.json", ".full.json")
-
-    rich.print(f"Storing full metadata into {full_meta_file}...", end="")
-    with open(full_meta_file, "w") as f:
-        f.write(json.dumps(metadata, indent=2))
-    rich.print("[green]done!")
-
-    rich.print("[green]Full metadata created!\n")
+    if "$minmeta" in wf.metadata.keys():
+        full_meta_file = wf.metadata["$minmeta"].replace(".min.json", ".full.json")
+        with open(full_meta_file, "w") as f:
+            f.write(json.dumps(metadata, indent=2))
     return metadata
 
 
@@ -186,7 +173,6 @@ def autofill_sensor(s: dict, emso: EmsoMetadata) -> dict:
     else:
         raise LookupError("Could not find sensor reference!")
 
-    rich.print("    propagating sensor model info...", end="")
     try:
         s["sensor_model"] = emso.vocab_get("L22", sensor_uri, "prefLabel")
         s["sensor_SeaVoX_L22_code"] = emso.vocab_get("L22", sensor_uri, "id")

@@ -7,6 +7,7 @@ email: enoc.martinez@upc.edu
 license: MIT
 created: 29/4/23
 """
+import logging
 
 from .waterframe import WaterFrame
 import pandas as pd
@@ -109,18 +110,22 @@ def load_csv_data(filename, sep=",") -> (pd.DataFrame, list):
     header_lines = csv_detect_header(filename, separator=sep)
     df = pd.read_csv(filename, skiprows=header_lines, sep=sep)
     df = df_force_upper_case(df)
-    df = harmonize_dataframe(df)
-    # dups = df[df["time"].duplicated()]
-    # if len(dups) > 0:
-    #     rich.print(f"[yellow]WARNING! detected {len(dups)} duplicated times!, deleting")
-    #     df = drop_duplicates(df)
-    metadata = {"$datafile": filename}  # Add the filename as a special param
-    vocabulary = {c: {} for c in df.columns}
-    wf = WaterFrame(df, metadata, vocabulary)
-
-    wf.data["TIME"] = pd.to_datetime(wf.data["TIME"])
-
+    wf = df_to_wf(df)
+    wf.metadata["$datafile"] = filename  # Add the filename as a special param
     return wf
+
+
+def df_to_wf(df: pd.DataFrame) -> WaterFrame:
+    """
+    Converts a dataframe into a waterframe
+    """
+    df = harmonize_dataframe(df)
+    vocabulary = {c: {} for c in df.columns}
+    wf = WaterFrame(df, {}, vocabulary)
+    wf.data["TIME"] = pd.to_datetime(wf.data["TIME"])
+    return wf
+
+
 
 
 def csv_detect_header(filename, separator=","):
@@ -150,7 +155,6 @@ def wf_force_upper_case(wf: WaterFrame) -> WaterFrame:
     # Force upper case in dimensions
     for key in wf.data.columns:
         if key.upper() in dimensions and key.upper() != key:
-            rich.print(f"[purple]Forcing upper case for {key}")
             wf.data = wf.data.rename(columns={key: key.upper()})
             wf.vocabulary[key.upper()] = wf.vocabulary.pop(key)
     return wf
@@ -160,7 +164,6 @@ def df_force_upper_case(df: pd.DataFrame) -> pd.DataFrame:
     # Force upper case in dimensions
     for key in df.columns:
         if key.upper() in dimensions and key.upper() != key:
-            rich.print(f"[purple]Forcing upper case for {key}")
             df = df.rename(columns={key: key.upper()})
     return df
 
@@ -194,7 +197,6 @@ def load_nc_data(filename, drop_duplicates=False, process_lists=True) -> (WaterF
     """
     Loads NetCDF data into a waterframe
     """
-
     wf = read_nc(filename, decode_times=False)
     if process_lists:  # Process semicolon separated lists
         for key, value in wf.metadata.items():
@@ -203,26 +205,19 @@ def load_nc_data(filename, drop_duplicates=False, process_lists=True) -> (WaterF
         for var in wf.vocabulary.keys():
             for key, value in wf.vocabulary[var].items():
                 wf.vocabulary[var][key] = semicolon_to_list(value)
-
     wf.data = wf.data.reset_index()
 
     if "row" in wf.data.columns:
         # a 'row' column may be introduced by reset index if there previous index was an integer
         del wf.data["row"]
-
     wf = wf_force_upper_case(wf)
     df = wf.data
     units = wf.vocabulary["TIME"]["units"]
-    rich.print(f"Units: {units}")
-
     if "since" not in units:  # netcdf library requires that the units fields has the 'since' keyword
         if "sdn_parameter_urn" in wf.vocabulary["TIME"].keys() and wf.vocabulary["TIME"]["sdn_parameter_urn"] == "SDN:P01::ELTJLD01":
-            rich.print("[blue]Trying to decode TIME as days since 1950...")
             units = "days since 1950-01-01T00:00:00z"
         else:
-            rich.print("[blue]Trying to decode TIME as seconds since 1970...")
             units = "seconds since 1970-01-01T00:00:00z"
-
     df["TIME"] = nc.num2date(df["TIME"].values, units, only_use_python_datetimes=True, only_use_cftime_datetimes=False)
     df["TIME"] = pd.to_datetime((df["TIME"]), utc=True)
     if drop_duplicates:
@@ -250,13 +245,10 @@ def add_coordinates(wf: WaterFrame, latitude, longitude, depth):
     coordinates = {"LATITUDE": latitude, "LONGITUDE": longitude, "DEPTH": depth}
     for name, value in coordinates.items():
         if name not in wf.data.columns:
-            rich.print(f"   Adding fixed {name} with value {value}...", end="")
             wf.data[name] = value
             wf.data[f"{name}_QC"] = qc_flags["nominal_value"]
             wf.vocabulary[name] = dimension_metadata(name)
             wf.vocabulary[f"{name}_QC"] = quality_control_metadata(wf.vocabulary[name]["long_name"])
-            rich.print("[green]done!")
-
     return wf
 
 
@@ -371,7 +363,6 @@ def set_multisensor(wf: WaterFrame):
                 if serial not in serial_numbers:
                     serial_numbers.append(serial)
     if len(serial_numbers) > 1:
-        rich.print(f"Multiple sensors found: {serial_numbers}")
         multi_sensor = True
     elif len(serial_numbers) == 1:
         multi_sensor = False
@@ -398,10 +389,7 @@ def export_to_netcdf(wf, filename):
 
     # Remove internal elements in metadata
     [wf.metadata.pop(key) for key in wf.metadata.copy().keys() if key.startswith("$")]
-
-    rich.print(f"Writing WaterFrame into multidimensional NetCDF {filename}...", end="")
     wf_to_multidim_nc(wf, filename, dimensions, fill_value=fill_value, time_key="TIME", join_attr=";")
-    rich.print("[green]ok!")
 
 
 def extract_netcdf_metadata(wf):

@@ -12,13 +12,13 @@ created: 18/4/23
 import netCDF4 as nc
 import pandas as pd
 import numpy as np
-from .constants import fill_value
+from .constants import fill_value, fill_value_uint8
 import xarray as xr
 from .waterframe import WaterFrame
 
 
 def wf_to_multidim_nc(wf: WaterFrame, filename: str, dimensions: list, fill_value=fill_value, time_key="TIME",
-                      join_attr="; "):
+                      join_attr="; ", fill_value_uint8=fill_value_uint8):
     """
     Creates a multidimensinoal NetCDF-4 file
     :param filename: name of the output file
@@ -74,7 +74,7 @@ def wf_to_multidim_nc(wf: WaterFrame, filename: str, dimensions: list, fill_valu
             values = data_df[varname].to_numpy()  # assign values to the variable
             if varname.endswith("_QC"):
                 # Store Quality Control as unsigned bytes
-                var = ncfile.createVariable(varname, "u1", dimensions, fill_value=fill_value, zlib=True)
+                var = ncfile.createVariable(varname, "u1", dimensions, fill_value=fill_value_uint8, zlib=True)
                 var[:] = values.astype(np.int8)
             else:
                 var = ncfile.createVariable(varname, 'float', dimensions, fill_value=fill_value, zlib=True)
@@ -130,7 +130,6 @@ def read_nc(path, decode_times=True, time_key="TIME"):
     metadata = dict(ds.attrs)
 
     df = ds.to_dataframe()
-    print(df)
 
     if time_key in df.columns:
         df = df.set_index(time_key)
