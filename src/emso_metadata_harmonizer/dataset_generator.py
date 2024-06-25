@@ -9,7 +9,7 @@ email: enoc.martinez@upc.edu
 license: MIT
 created: 13/4/23
 """
-
+import json
 from argparse import ArgumentParser
 import rich
 import pandas as pd
@@ -19,6 +19,7 @@ from .metadata.dataset import add_coordinates, ensure_coordinates, update_waterf
 from .metadata.merge import merge_waterframes
 from .metadata.minmeta import generate_min_meta_template, load_min_meta, load_full_meta, generate_full_metadata
 from .metadata import EmsoMetadata
+import copy
 
 
 def generate_metadata(data_files: list, folder):
@@ -38,23 +39,21 @@ def generate_metadata(data_files: list, folder):
     rich.print(f"[green]Please edit the following files and run the generator with the -m option!")
 
 
-def generate_datasets(data_list:list, metadata_list: list):
+def generate_datasets(data_list: list, metadata_list: list, emso_metadata: EmsoMetadata):
     """
     Merge data fiiles and metadata files into a NetCDF dataset according to EMSO specs. If provided, depths, lats and
     longs will be added to the dataset as dimensions.
     """
-    emso = EmsoMetadata()
+
+    if emso_metadata:
+        emso = emso_metadata
+    else:
+        emso = EmsoMetadata()
+
     waterframes = []
     for i in range(len(data_list)):
         data = data_list[i]
         metadata = metadata_list[i]
-
-        if type(data) is str:
-            wf = load_data(data)
-        elif type(data) is pd.DataFrame:
-            wf = df_to_wf(data)
-        else:
-            raise ValueError("Data must be a file or DataFrame, got '{type(data)}'")
 
         if type(data) is str:
             wf = load_data(data)
@@ -71,36 +70,40 @@ def generate_datasets(data_list:list, metadata_list: list):
             minimal_metadata = True
         elif type(metadata) is str and metadata.endswith(".min.json"):
             minimal_metadata = True
+            wf.metadata["$minmeta"] = metadata
         elif type(metadata) is str and metadata.endswith(".full.json") or type(metadata):
             minimal_metadata = False
         else:
             raise ValueError("Expected metadata file with extension .full.json or .min.json!")
 
+        if type(metadata) is str:
+            with open(metadata) as f:
+                metadata = json.load(f)
+
+        # Create deep copy of the metadata
+        metadata = copy.deepcopy(metadata)
         if minimal_metadata:
-            rich.print(f"Loading a minimal metadata file {metadata}...")
             minmeta = load_min_meta(wf, metadata, emso)
+
             if "coordinates" in minmeta.keys():
                 lat = minmeta["coordinates"]["latitude"]
                 lon = minmeta["coordinates"]["longitude"]
                 depth = minmeta["coordinates"]["depth"]
                 wf = add_coordinates(wf, lat, lon, depth)
+
             ensure_coordinates(wf)  # make sure that all coordinates are set
             metadata = expand_minmeta(wf, minmeta, emso)
 
         else:
             rich.print(f"Loading a full metadata file {metadata}...")
             metadata = load_full_meta(wf, metadata)
-
         wf = update_waterframe_metadata(wf, metadata)
         waterframes.append(wf)
     return waterframes
 
 
 def generate_dataset(data: list, metadata: list, generate: bool = False, autofill: bool = False, output: str = "",
-                     clear: bool = False) -> str:
-    """
-    Based on a list of CSV files and metadata documents
-    """
+                     clear: bool = False, emso_metadata=None) -> str:
     wf = None
     if clear:
         rich.print("Clearing downloaded files...", end="")
@@ -121,8 +124,9 @@ def generate_dataset(data: list, metadata: list, generate: bool = False, autofil
         exit()
 
     if metadata:
-        waterframes = generate_datasets(data, metadata)
-        # If ALL waterframes are empty we have nothing else to do, just exit
+        waterframes = generate_datasets(data, metadata, emso_metadata=emso_metadata)
+
+        # If ALL water frames are empty we have nothing else to do, just exit
         some_data = False
         for wf in waterframes:
             if not wf.data.empty:

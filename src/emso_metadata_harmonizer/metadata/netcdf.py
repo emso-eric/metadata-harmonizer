@@ -130,7 +130,6 @@ def read_nc(path, decode_times=True, time_key="TIME"):
     metadata = dict(ds.attrs)
 
     df = ds.to_dataframe()
-    print(df)
 
     if time_key in df.columns:
         df = df.set_index(time_key)
