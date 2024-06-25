@@ -22,7 +22,6 @@ import numpy as np
 from .utils import avoid_filename_collision
 from .waterframe import WaterFrame
 
-
 def generate_min_meta_template(wf: WaterFrame, folder: str):
     """
     Takes a data frame and generates the a minimal metadata file from which the rest of the metadata can be derived
@@ -124,29 +123,20 @@ def load_full_meta(wf: WaterFrame, filename: str):
     return metadata
 
 
-def load_min_meta(wf: WaterFrame, metadata: str | dict, emso: EmsoMetadata):
+def load_min_meta(wf: WaterFrame, metadata: dict, emso: EmsoMetadata) -> dict:
     """
     Loads a minimal metadata file.
     """
+    assert type(metadata) is dict, f"expected dict, got {type(metadata)}"
+    minimal_metadata_file = ""
+    if "$minmeta" in wf.metadata.keys():
+        minimal_metadata_file = wf.metadata["$minmeta"]
 
-    if type(metadata) is str:
-        if os.path.isfile(metadata):
-            filename = metadata
-        else:
-            raise ValueError(f"{metadata} is not a file!")
-        wf.metadata["$minmeta"] = metadata
-        with open(metadata) as f:
-            metadata = json.load(f)
-    elif type(metadata) is dict:
-        filename = ""
-    else:
-        raise ValueError(f"Expected file or dict, got '{metadata}'")
-
-    metadata["global"] = process_selectable_metadata(metadata["global"], filename=filename)
-    metadata["sensor"] = process_selectable_metadata(metadata["sensor"], filename=filename)
-    metadata["coordinates"] = process_selectable_metadata(metadata["coordinates"], filename=filename)
+    metadata["global"] = process_selectable_metadata(metadata["global"], filename=minimal_metadata_file)
+    metadata["sensor"] = process_selectable_metadata(metadata["sensor"], filename=minimal_metadata_file)
+    metadata["coordinates"] = process_selectable_metadata(metadata["coordinates"], filename=minimal_metadata_file)
     for var, m in metadata["variables"].items():
-        metadata["variables"][var] = process_selectable_metadata(m, filename=filename)
+        metadata["variables"][var] = process_selectable_metadata(m, filename=minimal_metadata_file)
 
     # Make sure that we have all the necessary info
     check_mandatory_fields(metadata["global"])
@@ -154,11 +144,12 @@ def load_min_meta(wf: WaterFrame, metadata: str | dict, emso: EmsoMetadata):
     for var, m in metadata["variables"].items():
         check_mandatory_fields(m)
 
+    metadata = metadata.copy()
     metadata = autofill_minmeta(metadata, emso)
 
-    if type(metadata) is str:
-        rich.print(f"Updating file {filename} with selected user choices...", end="")
-        with open(filename, "w") as f:
+    if minimal_metadata_file:
+        rich.print(f"Updating file {minimal_metadata_file} with selected user choices...", end="")
+        with open(minimal_metadata_file, "w") as f:
             json.dump(metadata, f, indent=2)  # update the file, so
         rich.print("[green]done!")
 

@@ -73,12 +73,10 @@ def process_markdown_file(file) -> (dict, dict):
                 table[header] = []
 
             in_table = True
-            rich.print(f"parsing Markdown table [cyan]'{title}'[/cyan]...", end="")
 
         elif in_table and not line.startswith("|"):  # end of the table
             in_table = False
             tables[title] = pd.DataFrame(table)  # store the metadata as a DataFrame
-            rich.print("[green]done")
 
         elif line.startswith("|---"):  # skip the title and body separator (|----|---|---|)
             continue
@@ -211,7 +209,6 @@ class EmsoMetadata:
         self.emso_regional_facilities = list(tables["EMSO Regional Facilities"]["EMSO Regional Facilities"].values)
         self.emso_sites = list(tables["EMSO Sites"]["EMSO Site"].values)
 
-        rich.print("Loading spdx licenses...")
         tables = process_markdown_file(spdx_licenses_file)
         t = tables["Licenses with Short Idenifiers"]
         # remove extra '[' ']' in license identifiers
@@ -219,7 +216,6 @@ class EmsoMetadata:
         self.spdx_license_names = new_ids
         self.spdx_license_uris = {lic: f"https://spdx.org/licenses/{lic}" for lic in self.spdx_license_names}
 
-        rich.print("Loading SeaDataNet vocabularies...")
         sdn_vocabs = {
             "P01": sdn_vocab_p01_file,
             "P02": sdn_vocab_p02_file,

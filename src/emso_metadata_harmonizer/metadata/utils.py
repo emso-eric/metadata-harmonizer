@@ -64,7 +64,7 @@ def __threadify_index_handler(index, handler, args):
     return index, result  # add index to the result
 
 
-def threadify(arg_list, handler, max_threads=10, text: str = "progress..."):
+def threadify(arg_list, handler, max_threads=10):
     """
     Splits a repetitive task into several threads
     :param arg_list: each element in the list will crate a thread and its contents passed to the handler
@@ -82,12 +82,9 @@ def threadify(arg_list, handler, max_threads=10, text: str = "progress..."):
             index += 1
 
         # wait for all threads to end
-        with Progress() as progress:  # Use Progress() to show a nice progress bar
-            task = progress.add_task(text, total=index)
-            for future in futures.as_completed(threads):
-                future_result = future.result()  # result of the handler
-                results.append(future_result)
-                progress.update(task, advance=1)
+        for future in futures.as_completed(threads):
+            future_result = future.result()  # result of the handler
+            results.append(future_result)
 
         # sort the results by the index added by __threadify_index_handler
         sorted_results = sorted(results, key=lambda a: a[0])
@@ -113,13 +110,11 @@ def download_file(url, file):
 def download_files(tasks, force_download=False):
     if len(tasks) == 1:
         return None
-    rich.print("Downloading files...")
     args = []
     for url, file, name in tasks:
         if os.path.isfile(file) and not force_download:
-            rich.print(f"    [dark_grey]{name} already downloaded")
+            pass
         else:
-            rich.print(f"    downloading [cyan]'{name}'[/cyan]...")
             args.append((url, file))
 
     threadify(args, download_file)
