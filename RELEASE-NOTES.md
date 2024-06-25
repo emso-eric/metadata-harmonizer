@@ -1,4 +1,8 @@
-## Version 0.4.2 ##
+## version 0.4.3 ##
+1. Improved API to generate datasets, now can be called with dicts and DataFrames (before only with files)
+2. Removing mooda dependencies (this time for sure)
+
+## version 0.4.2 ##
 
 **changes**:
 1. Converter generator/reporter/erddap_config into callable functions (before it was only cli)
