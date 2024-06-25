@@ -23,10 +23,6 @@ def erddap_config(file: str, dataset_id: str, source_path: str, output: str = ""
     :param output: If set, the dataset configuration will be stored in a new XML file
     :param datasets_xml: Path to the datasets.xml file. If set the configuration will be appended.
     """
-    rich.print("Generating datasets.xml chunk!")
-    rich.print(f"[cyan]    NetCDF file: {file}")
-    rich.print(f"[cyan]     dataset id: {dataset_id}")
-    rich.print(f"[cyan]  source folder: {source_path}")
     wf = load_data(file)
     xml_chunk = generate_erddap_dataset(wf, source_path, dataset_id=dataset_id)
 
