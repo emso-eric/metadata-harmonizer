@@ -15,8 +15,8 @@ import lxml.etree as etree
 from ..metadata.waterframe import WaterFrame
 from ..metadata.dataset import get_variables, set_multisensor, get_dimensions, get_qc_variables
 from ..metadata.xmlutils import get_element
-import rich
 from datetime import datetime
+import rich
 
 
 def generate_erddap_dataset(wf: WaterFrame, directory, dataset_id):
@@ -27,7 +27,6 @@ def generate_erddap_dataset(wf: WaterFrame, directory, dataset_id):
     :param dataset_id: datsetID to identify the dataset
     returns: a string containing the datasets.xml chunk to setup the dataset
     """
-    rich.print(f"Generating dataset {dataset_id}...")
     dimensions = ["TIME", "LATITUDE", "LONGITUDE", "DEPTH"]  # custom dimensional order
     qc_variables = get_qc_variables(wf)
 
@@ -88,7 +87,6 @@ def generate_erddap_dataset(wf: WaterFrame, directory, dataset_id):
     tree = etree.ElementTree(etree.fromstring(x))
     root = tree.getroot()
 
-    rich.print("adding dimensions...")
     for source, dest in erddap_dims.items():  # already in lowercase
         datatype = "float"
         attrs = {}
@@ -104,23 +102,14 @@ def generate_erddap_dataset(wf: WaterFrame, directory, dataset_id):
             }
         elif dest == "sensor_id":
             datatype = "String"
-        rich.print(f"    [purple]Adding dimension '{dest}'")
         add_variable(root, source, dest, datatype, attributes=attrs)
 
-    rich.print("[green]done!")
-
-    rich.print("adding data variables...", end="\n")
     # Process all data variables
     for v in get_variables(wf):
-        rich.print(f"    [cyan]Adding variable '{v}'")
         add_variable(root, v, v, "float", attributes={})
-    rich.print("[green]done!")
 
-    rich.print("adding quality control...", end="\n")
     for source, dest in erddap_qc.items():
-        rich.print(f"    [blue]Adding QC '{dest}'")
         add_variable(root, source, dest, "byte", attributes={})
-    rich.print("[green]done!")
     etree.indent(root, space="    ", level=0)  # force indentation
 
     return serialize(tree)
@@ -146,7 +135,6 @@ def prettyprint_xml(x):
     produces a pretty print of an etree
     """
     etree.indent(x, space="  ", level=1)
-    rich.print(etree.tostring(x, pretty_print=True, encoding="unicode"))
 
 
 def add_variable(root, source, destination, datatype, attributes: dict = {}):
@@ -194,9 +182,7 @@ def add_dataset(filename: str, dataset: str):
     assert type(filename) is str, f"expected string, got {type(filename)}"
     assert type(dataset) is str, f"expected string, got {type(dataset)}"
 
-    rich.print("Backing up datasets.xml file...", end="")
     bckp = backup_datsets_file(filename)
-    rich.print(f"[green]done![/green] ({bckp})")
     dataset_tree = etree.ElementTree(etree.fromstring(dataset))
     dataset_root = dataset_tree.getroot()
     dataset_id = dataset_root.attrib["datasetID"]
@@ -210,16 +196,13 @@ def add_dataset(filename: str, dataset: str):
         rich.print(f"[yellow]Overwriting existing dataset {dataset_id}!")
         e.getparent().remove(e)  # Remove the old dataset
     except LookupError:
-        rich.print(f"[blue]Adding new dataset {dataset_id}")
         pass
 
     root.append(dataset_root)
-    rich.print("Writing updated datasets file...", end="")
     with open(filename, "w") as f:
         xml = etree.tostring(tree, encoding="UTF-8", pretty_print=True, xml_declaration=True)
         s = xml.decode()
         f.write(s)
-    rich.print("[green]done!")
 
 
 
