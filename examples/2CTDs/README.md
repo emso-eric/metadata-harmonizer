@@ -117,7 +117,7 @@ Now that we have added the metadata into the minimal metadata templates, we can 
 
 To generate a NetCDF dataset run the following command:
 
-> $ python3 generator.py --data examples/2CTDs/SBE16.csv examples/2CTDs/SBE37.csv --metadata examples/2CTDs/SBE16.min.json examples/2CTDs/SBE16.min.json --output dataset.nc
+> $ python3 generator.py --data examples/2CTDs/SBE16.csv examples/2CTDs/SBE37.csv --metadata examples/2CTDs/SBE16.min.json examples/2CTDs/SBE37.min.json --output dataset.nc
 
 After running the command and providing all the input required by the script, all your inputs will be reflected on the `SBE16.min.json` and `SBE37.min.json`. If you re-run the script note that it won't ask again for input, since all the data is already present in the minimal metadata template files.
 
@@ -127,7 +127,7 @@ With the previous command we passed two CSV data files to the generator and two 
 
 In the previous step, in addition to the output NetCDF file, two extensive metadata document have been created: `SBE16.full.json` and `SBE37.full.json`. This documents contain all the metadata that is included in the  output NetCDF dataset. Note that a lot of information has been automatically filled based on BODC vocabularies default relations, e.g. preferred units. In case this metadata needs to be fine-tuned, it is possible to manually edit the `full.json` metadata files and then re-generate the NetCDF dataset. To do so, instead use the same command but with the `.full.json` files within the  `--metadata` option:  
 
-> $ python3 generator.py --data examples/2CTDs/SBE16.csv examples/2CTDs/SBE37.csv --metadata examples/2CTDs/SBE16.full.json examples/2CTDs/SBE16.full.json --output dataset.nc
+> $ python3 generator.py --data examples/2CTDs/SBE16.csv examples/2CTDs/SBE37.csv --metadata examples/2CTDs/SBE16.full.json examples/2CTDs/SBE37.full.json --output dataset.nc
 
 #### Step 5. Adding the dataset to ERDDAP ####
 Once we have a nice NetCDF file with all our data and metadata, it is time to include it into an ERDDAP service. To add a NetCDF dataset into an ERDDAP we need to define a new dataset within the `datasets.xml` ERDDAP file. Writing this file manually is often complex and error-prone, but within this repository there is an automated tool for the integration of datasets into ERDDAP, the `erddap_config.py` script.

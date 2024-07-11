@@ -22,5 +22,5 @@ if __name__ == "__main__":
     argparser.add_argument("-x", "--xml", type=str, help="Path to the datasets.xml file, new dataset will be overwritten or apended", default="")
     args = argparser.parse_args()
 
-    erddap_config(args.file, args.dataset_id, args.source, output=args.output, xml=args.xml)
+    erddap_config(args.file, args.dataset_id, args.source, output=args.output, datasets_xml_file=args.xml)
 

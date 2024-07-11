@@ -10,7 +10,6 @@ license: MIT
 created: 13/4/23
 """
 import json
-from argparse import ArgumentParser
 import rich
 import pandas as pd
 from .metadata.autofill import expand_minmeta, autofill_waterframe
