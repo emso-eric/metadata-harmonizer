@@ -72,8 +72,7 @@ def metadata_report(target,
         # Get all Metadata from all datasets
         t = time.time()
         tasks = [(dataset_id,) for dataset_id in datasets]
-        datasets_metadata = threadify(tasks, erddap.dataset_metadata, text="Getting metadata from ERDDAP...",
-                                      max_threads=5)
+        datasets_metadata = threadify(tasks, erddap.dataset_metadata, max_threads=5)
         rich.print(f"Getting metadata from ERDDDAP took {time.time() - t:.02f} seconds")
 
     # Processing NetCDF file
