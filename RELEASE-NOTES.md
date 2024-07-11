@@ -1,3 +1,8 @@
+## version 0.4.5 ##
+1. Fixing threadify arguments
+2. Fixing erddap_config arguments
+3. Fixing 2CTDs examples README
+
 ## version 0.4.4 ##
 1. Fixing inconsistencies with PyPi
 
