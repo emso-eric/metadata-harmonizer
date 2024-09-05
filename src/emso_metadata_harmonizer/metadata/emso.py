@@ -405,16 +405,8 @@ class EmsoMetadata:
         Loads a SDN vocab into a pandas dataframe.
         """
         data, narrower, broader, related = parse_sdn_jsonld(filename)
-
-        try:
-            df = pd.DataFrame(data)
-        except Exception as e:
-            import rich
-            rich.print(data.keys())
-            rich.print(f"[orange1]Hey!")
-            for key, value in data.items():
-                rich.print(f"{key}: {len(value)}")
-            raise e
+        
+        df = pd.DataFrame(data)
         df = df.rename(columns={"@id": "uri", "dc:identifier": "id"})
         return df, narrower, broader, related
 
