@@ -149,6 +149,101 @@ def get_edmo_codes(file):
     })
     return df
 
+def parse_sdn_jsonld(filename):
+    """
+    Opens a JSON-LD file from SeaDataNet and try to process it.
+    :param filename: file path
+    :returns: data (dict), narrower (list), broader (list), related (list)
+    """
+    with open(filename, encoding="utf-8") as f:
+        contents = json.load(f)
+
+    data = {
+        "uri": [],
+        "identifier": [],
+        "prefLabel": [],
+        "definition": []
+    }
+
+    alias = {  # key-> key to be stored in data dict, value -> all possible keys found in JSON-LD docs
+        "definition": ["definition", "skos:definition"],
+        "prefLabel": ["definition", "skos:prefLabel"],
+        "identifier": ["dc:identifier", "dce:identifier"],
+        "uri": ["@id"]
+    }
+
+    def get_value_by_alias(mydict, mykey):
+        if mykey not in alias.keys():
+            return mydict[mykey]
+        for try_alias in alias[mykey]:
+            try:
+                return mydict[try_alias]
+            except KeyError:
+                pass
+        return None
+
+    narrower = {}
+    broader = {}
+    related = {}
+    for element in contents["@graph"]:
+        uri = element["@id"]
+        if element["@type"] != "skos:Concept":
+            continue
+
+        for key in data.keys():
+            value = get_value_by_alias(element, key)
+            if type(value) == type(None):
+                # Check that it is explicitly NoneType
+                continue
+            if type(value) is dict:
+                value = value["@value"]
+            data[key].append(value)
+
+        # Initialize as empty list
+        narrower[uri] = []
+        broader[uri] = []
+        related[uri] = []
+
+        def extract_related_elements(mydict, mykeys):
+            for mykey in mykeys:
+                if mykey not in mydict.keys():
+                    continue
+                if isinstance(mydict[mykey], dict):
+                    return [mydict[mykey]["@id"]]  # generate a dict with the dict value
+                elif isinstance(mydict[mykey], list):
+                    newlist = []
+                    for nested_value in mydict[mykey]:
+                        if isinstance(nested_value, dict):
+                            newlist.append(nested_value["@id"])
+                        else:
+                            newlist.append(nested_value)
+                    return newlist
+                elif isinstance(mydict[mykey], str):
+                    return [mydict[mykey]]  # generate a list with the string
+                else:
+                    raise ValueError(f"Type {type(mydict[mykey])} not expected")
+            return []
+
+        # If present, store relationships
+        narrower[uri] = extract_related_elements(element, ["skos:narrower", "narrower"])
+        broader[uri] = extract_related_elements(element, ["skos:broader", "broader"])
+        related[uri] = extract_related_elements(element, ["skos:related", "related"])
+
+    # Remove prefixes like skos and dce
+    prefixes = ["skos:", "dce:", "dc:"]
+    for p in prefixes:
+        for key in list(data.keys()):
+            if key.startswith(p):
+                new_key = key.replace(p, "")
+                data[new_key] = data.pop(key)
+
+    if "@id" in data.keys():
+        data["uri"] = data.pop("@id")
+    if "identifier" in data.keys():
+        data["id"] = data.pop("identifier")
+
+    return data, narrower, broader, related
+
 
 class EmsoMetadata:
     def __init__(self, force_update=False):
@@ -259,7 +354,6 @@ class EmsoMetadata:
                         json.dump(values, f)
             # for vocab, df in self.sdn_vocabs.items():
                 # Storing to CSV to make it easier to search
-                rich.print(list(df.columns))
                 df = df[["id", "uri", "prefLabel", "definition"]]
                 filename = os.path.join(".emso", f"{vocab}.csv")
                 df.to_csv(filename, index=False)
@@ -308,51 +402,19 @@ class EmsoMetadata:
     @staticmethod
     def load_sdn_vocab(filename):
         """
-        Loads a SDN vocab into a pandas dataframe
+        Loads a SDN vocab into a pandas dataframe.
         """
-        with open(filename, encoding="utf-8") as f:
-            contents = json.load(f)
+        data, narrower, broader, related = parse_sdn_jsonld(filename)
 
-        data = {
-            "@id": [],
-            "dc:identifier": [],
-            "prefLabel": [],
-            "definition": []
-        }
-        narrower = {}
-        broader = {}
-        related = {}
-        for element in contents["@graph"]:
-            uri = element["@id"]
-            if element["@type"] != "skos:Concept":
-                continue
-
-            for key in data.keys():
-                if key in element.keys():
-                    if type(element[key]) is dict:
-                        value = element[key]["@value"]
-                    else:  # assuming string
-                        value = element[key]
-                    data[key].append(value)
-
-            # sometimes it is dce:identifier instead of dc:identifier
-            if "dce:identifier" in element.keys():
-                data["dc:identifier"].append(element["dce:identifier"])
-
-            # Initialize as empty list
-            narrower[uri] = []
-            broader[uri] = []
-            related[uri] = []
-
-            # If present, store relationships
-            if "narrower" in element.keys():
-                narrower[uri] = element["narrower"]
-            if "broader" in element.keys():
-                broader[uri] = element["broader"]
-            if "related" in element.keys():
-                related[uri] = element["related"]
-
-        df = pd.DataFrame(data)
+        try:
+            df = pd.DataFrame(data)
+        except Exception as e:
+            import rich
+            rich.print(data.keys())
+            rich.print(f"[orange1]Hey!")
+            for key, value in data.items():
+                rich.print(f"{key}: {len(value)}")
+            raise e
         df = df.rename(columns={"@id": "uri", "dc:identifier": "id"})
         return df, narrower, broader, related
 
