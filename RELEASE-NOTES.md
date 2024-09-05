@@ -1,3 +1,6 @@
+## version 0.4.6 ##
+1. Updating JSON-ld parser to match changes in SeaDataNet vocabs
+
 ## version 0.4.5 ##
 1. Fixing threadify arguments
 2. Fixing erddap_config arguments
