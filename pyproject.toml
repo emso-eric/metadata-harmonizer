@@ -9,7 +9,7 @@ build-backend = "setuptools.build_meta"  # If not defined, then legacy behavior 
 [project]
 
 name = "emso-metadata-harmonizer"  # REQUIRED, is the only field that cannot be marked as dynamic.
-version = "0.4.6"
+version = "0.4.7"
 description = " Toolbox for creating/assessing EMSO-compliant NetCDF datasets and integrate them into ERDDAP services"
 readme = "README.md"
 requires-python = ">=3.8"

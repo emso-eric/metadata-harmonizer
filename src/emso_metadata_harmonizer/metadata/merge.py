@@ -20,7 +20,6 @@ def merge_waterframes(waterframes):
         df = wf.data
         # setting time as the index
         df = df.set_index("TIME")
-        df = df.drop_duplicates(keep="first")
         df = df.sort_index(ascending=True)
         df["SENSOR_ID"] = wf.metadata["$sensor_id"]
 

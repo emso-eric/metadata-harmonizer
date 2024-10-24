@@ -1,3 +1,6 @@
+## version 0.4.7 ##
+1. Fixing errors that silently dropped rows when generating NetCDF files
+
 ## version 0.4.6 ##
 1. Updating JSON-ld parser to match changes in SeaDataNet vocabs
 
