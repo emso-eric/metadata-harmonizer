@@ -119,7 +119,7 @@ def read_nc(path, decode_times=True, time_key="TIME"):
     if decode_times:
         # decode_times in xarray.open_dataset will erase the unit field from TIME, so store it before it is removed
         ds = xr.open_dataset(path, decode_times=False)
-        if time_key in ds.variables and "units" in ds[time_units].attrs.keys():
+        if time_key in ds.variables and "units" in ds[time_key].attrs.keys():
             time_units = ds[time_key].attrs["units"]
         ds.close()
 
