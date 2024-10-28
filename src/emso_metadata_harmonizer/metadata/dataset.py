@@ -374,18 +374,21 @@ def set_multisensor(wf: WaterFrame):
     return wf
 
 
-def export_to_netcdf(wf, filename):
+def export_to_netcdf(wf, filename, multisensor_metadata=False):
     """
     Stores the waterframe to a NetCDF file
     """
     # If only one sensor remove all sensor_id fields
     set_multisensor(wf)
-    if not wf.metadata['$multisensor']:
-        if "SENSOR_ID" in wf.data.columns:
-            del wf.data["SENSOR_ID"]
-        if "SENSOR_ID" in wf.vocabulary.keys():
-            del wf.vocabulary["SENSOR_ID"]
-        dimensions.remove("SENSOR_ID")
+    # If multisensor metadata is set, always keep the SENSOR_ID columns
+
+    if not multisensor_metadata:
+        if not wf.metadata['$multisensor']:
+            if "SENSOR_ID" in wf.data.columns:
+                del wf.data["SENSOR_ID"]
+            if "SENSOR_ID" in wf.vocabulary.keys():
+                del wf.vocabulary["SENSOR_ID"]
+            dimensions.remove("SENSOR_ID")
 
     # Remove internal elements in metadata
     [wf.metadata.pop(key) for key in wf.metadata.copy().keys() if key.startswith("$")]

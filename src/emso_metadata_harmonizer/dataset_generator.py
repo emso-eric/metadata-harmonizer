@@ -102,7 +102,7 @@ def generate_datasets(data_list: list, metadata_list: list, emso_metadata: EmsoM
 
 
 def generate_dataset(data: list, metadata: list, generate: bool = False, autofill: bool = False, output: str = "",
-                     clear: bool = False, emso_metadata=None) -> str:
+                     clear: bool = False, emso_metadata=None, multisensor_metadata=True) -> str:
     wf = None
     if clear:
         rich.print("Clearing downloaded files...", end="")
@@ -143,7 +143,7 @@ def generate_dataset(data: list, metadata: list, generate: bool = False, autofil
         wf = autofill_waterframe(wf)
 
     if output:
-        export_to_netcdf(wf, output)
+        export_to_netcdf(wf, output, multisensor_metadata=multisensor_metadata)
 
     if not wf:
         if len(data) > 1:
