@@ -27,7 +27,8 @@ if __name__ == "__main__":
                            required=False)
     argparser.add_argument("-o", "--output", type=str, help="Output NetCDF file", required=False, default="")
     argparser.add_argument("--clear", action="store_true", help="Clears all downloads", required=False)
+    argparser.add_argument("-M", "--multisensor", action="store_true", help="Keep metadata of all sensors even if they have no data", required=False)
 
     args = argparser.parse_args()
     generate_dataset(args.data, args.metadata, generate=args.generate, autofill=args.autofill, output=args.output,
-                     clear=args.clear)
+                     clear=args.clear, multisensor_metadata=args.multisensor)
