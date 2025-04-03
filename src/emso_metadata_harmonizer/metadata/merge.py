@@ -22,8 +22,8 @@ def merge_waterframes(waterframes):
         df = df.set_index("TIME")
         df = df.sort_index(ascending=True)
         df["SENSOR_ID"] = wf.metadata["$sensor_id"]
-
-        dataframes.append(df)
+        if not df.empty:
+            dataframes.append(df)
         global_attr.append(wf.metadata)
         for varname, varmeta in wf.vocabulary.items():
             if varname not in variables_attr.keys():
