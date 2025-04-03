@@ -50,7 +50,7 @@ def wf_to_multidim_nc(wf: WaterFrame, filename: str, dimensions: list, fill_valu
             if dimension == time_key:
                 # convert timestamp to float
                 index_df[time_key] = pd.to_datetime(index_df[time_key])
-                times = index_df[time_key].dt.to_pydatetime()
+                times = np.array(index_df[time_key].dt.to_pydatetime())
                 values = nc.date2num(times, "seconds since 1970-01-01", calendar="standard")
 
             ncfile.createDimension(dimension, len(values))  # create dimension
