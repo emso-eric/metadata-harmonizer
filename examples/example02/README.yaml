@@ -1,0 +1,6 @@
+CF_featureType: timeSeries
+comment: dataset with two CTDs deployed at different depths
+sensors:
+- SBE16 (CTD) deployed at 10m depth
+- SBE37 (CTD) deployed at 20m depth
+title: Two CTDs at different depths

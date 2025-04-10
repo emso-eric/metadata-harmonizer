@@ -1,0 +1,7 @@
+CF_featureType: timeSeries
+comment: Two CTDs that are deployed in the same place at different times. Common scenario
+  when an instrument is swapped for maintenance
+sensors:
+- SBE16 (CTD) deployed at 20m depth from January to July
+- SBE37 (CTD) deployed at 20m depth from July to December
+title: Two CTDs swapped by time
