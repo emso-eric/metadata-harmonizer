@@ -14,11 +14,13 @@ import pandas as pd
 import numpy as np
 from .constants import fill_value, fill_value_uint8
 import xarray as xr
+import rich
 from .waterframe import WaterFrame
 
 
-def wf_to_multidim_nc(wf: WaterFrame, filename: str, dimensions: list, fill_value=fill_value, time_key="TIME",
-                      join_attr="; ", fill_value_uint8=fill_value_uint8):
+
+def wf_to_multidim_nc(wf: WaterFrame, filename: str, dimensions: list, fill_value=fill_value,
+                      join_attr=" ", fill_value_uint8=fill_value_uint8):
     """
     Creates a multidimensinoal NetCDF-4 file
     :param filename: name of the output file
@@ -27,30 +29,23 @@ def wf_to_multidim_nc(wf: WaterFrame, filename: str, dimensions: list, fill_valu
     :param multiple_sensors
     """
 
-    # Make sure that time is the last entry in the multiindex
-    if time_key in dimensions:
-        dimensions.remove(time_key)
-        dimensions.append(time_key)
+    return wf.to_netcdf(filename)
 
-    df = wf.data  # Access the DataFrame within the waterframe
-    index_df = df[dimensions].copy()  # create a dataframe with only the variables that will be used as indexes
-    multiindex = pd.MultiIndex.from_frame(index_df)  # create a multiindex from the dataframe
+    dimensions = wf.dimensions
 
-    # Arrange other variables into a dict
-    data = {col: df[col].values for col in df.columns if col not in dimensions}
+    rich.print(wf.vocabulary["TEMP_QC"]["flag_values"], f"length {len(wf.vocabulary["TEMP_QC"]["flag_values"])}")
+    rich.print(wf.vocabulary["TEMP_QC"]["flag_meanings"], f"length {len(wf.vocabulary["TEMP_QC"]["flag_meanings"])}")
 
-    # Create a dataframe with multiindex
-    data_df = pd.DataFrame(data, index=multiindex)
-    dimensions = tuple(dimensions)
+    df = wf.data
 
     with nc.Dataset(filename, "w", format="NETCDF4") as ncfile:
         for dimension in dimensions:
-            data = index_df[dimension].values
+            data = df[dimension].values
             values = np.unique(data)  # fixed-length dimension
-            if dimension == time_key:
+            if dimension == "time":
                 # convert timestamp to float
-                index_df[time_key] = pd.to_datetime(index_df[time_key])
-                times = np.array(index_df[time_key].dt.to_pydatetime())
+                df["time"] = pd.to_datetime(df["time"])
+                times = np.array(df["time"].dt.to_pydatetime())
                 values = nc.date2num(times, "seconds since 1970-01-01", calendar="standard")
 
             ncfile.createDimension(dimension, len(values))  # create dimension
@@ -70,8 +65,15 @@ def wf_to_multidim_nc(wf: WaterFrame, filename: str, dimensions: list, fill_valu
                     value = join_attr.join(values)
                 var.setncattr(key, value)
 
-        for varname in data_df.columns:
-            values = data_df[varname].to_numpy()  # assign values to the variable
+        ncfile.createDimension("flags", len(values))  # create dimension
+        var = ncfile.createVariable("flags", 'u1', ("flags",), fill_value=127, zlib=True)
+        print(wf.flag_values)
+        var[:] = wf.flag_values
+
+        for varname in df.columns:
+            if varname in dimensions:
+                continue
+            values = df[varname].to_numpy()  # assign values to the variable
             if varname.endswith("_QC"):
                 # Store Quality Control as unsigned bytes
                 var = ncfile.createVariable(varname, "u1", dimensions, fill_value=fill_value_uint8, zlib=True)
@@ -82,20 +84,25 @@ def wf_to_multidim_nc(wf: WaterFrame, filename: str, dimensions: list, fill_valu
 
             # Adding metadata
             for key, value in wf.vocabulary[varname].items():
-                if type(value) == list:
+                if key == "flag_values":
+                    value = "flags"
+                elif type(value) == list:
                     values = [str(v) for v in value]
                     value = join_attr.join(values)
+
                 var.setncattr(key, value)
 
         # Set global attibutes
         for key, value in wf.metadata.items():
+            if key == "flag_value":
+                value = flags_var
             if type(value) == list:
                 values = [str(v) for v in value]
                 value = join_attr.join(values)
             ncfile.setncattr(key, value)
 
 
-def read_nc(path, decode_times=True, time_key="TIME"):
+def read_nc(path, decode_times=True, time_key="time"):
     """
     Read data form NetCDF file and create a WaterFrame.
 
@@ -107,7 +114,7 @@ def read_nc(path, decode_times=True, time_key="TIME"):
             If True, decode times encoded in the standard NetCDF datetime format
             into datetime objects. Otherwise, leave them encoded as numbers.
         time_key:
-            time variable, defaults to "TIME"
+            time variable, defaults to "time"
 
     Returns
     -------

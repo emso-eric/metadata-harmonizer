@@ -58,7 +58,7 @@ def quality_control_metadata(long_name):
 def dimension_metadata(dim):
 
     __dimension_metadata = {
-        "TIME": {
+        "time": {
             "long_name": "time of measurements",
             # UNIX time: seconds since 1970
             "sdn_parameter_uri": "https://vocab.nerc.ac.uk/collection/P01/current/ELTMEP01/",
@@ -68,28 +68,28 @@ def dimension_metadata(dim):
             "axis": "T",
             "sdn_uom_uri": "http://vocab.nerc.ac.uk/collection/P06/current/UTBB/"
         },
-        "DEPTH": {
+        "depth": {
             "long_name": "depth of measurements",
             "sdn_parameter_uri": "https://vocab.nerc.ac.uk/collection/P01/current/ADEPZZ01",
             "standard_name": "depth",
             "axis": "Z",
             "sdn_uom_uri": "http://vocab.nerc.ac.uk/collection/P06/current/ULAA/"
         },
-        "LATITUDE": {
+        "latitude": {
             "long_name": "latitude of measurements",
             "sdn_parameter_uri": "https://vocab.nerc.ac.uk/collection/P01/current/ALATZZ01",
             "standard_name": "latitude",
             "axis": "Y",
             "sdn_uom_uri": "http://vocab.nerc.ac.uk/collection/P06/current/UAAA/"
         },
-        "LONGITUDE": {
+        "longitude": {
             "long_name": "longitude of measurements",
             "sdn_parameter_uri": "https://vocab.nerc.ac.uk/collection/P01/current/ALONZZ01",
             "standard_name": "longitude",
             "axis": "X",
             "sdn_uom_uri": "http://vocab.nerc.ac.uk/collection/P06/current/UAAA/"
         },
-        "SENSOR_ID": {
+        "sensor_id": {
             "long_name": "Identifier of the sensor that took the measurement"
         }
     }

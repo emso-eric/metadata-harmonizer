@@ -19,9 +19,9 @@ def merge_waterframes(waterframes):
     for wf in waterframes:
         df = wf.data
         # setting time as the index
-        df = df.set_index("TIME")
+        df = df.set_index("time")
         df = df.sort_index(ascending=True)
-        df["SENSOR_ID"] = wf.metadata["$sensor_id"]
+        df["sensor_id"] = wf.metadata["$sensor_id"]
         if not df.empty:
             dataframes.append(df)
         global_attr.append(wf.metadata)

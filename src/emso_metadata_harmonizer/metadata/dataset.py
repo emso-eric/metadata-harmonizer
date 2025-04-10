@@ -18,7 +18,7 @@ import netCDF4 as nc
 
 from .metadata_templates import dimension_metadata, quality_control_metadata
 from .netcdf import wf_to_multidim_nc, read_nc
-from .utils import drop_duplicates, merge_dicts
+from .utils import merge_dicts
 
 
 def get_variables(wf):
@@ -63,7 +63,12 @@ def harmonize_dataframe(df, fill_value=fill_value):
     for time_key in ["time", "timestamp", "datetime", "date time"]:
         for key in df.columns:
             if key.lower() == time_key:
-                df = df.rename(columns={key: "TIME"})
+                df = df.rename(columns={key: "time"})
+
+    # Force dimensions in lower case
+    for col in df.columns:
+        if col.lower() in dimensions:
+            df = df.rename(columns={col:col.lower()})
 
     for var in df.columns:
         skip = False
@@ -109,9 +114,9 @@ def load_csv_data(filename, sep=",") -> (pd.DataFrame, list):
 
     header_lines = csv_detect_header(filename, separator=sep)
     df = pd.read_csv(filename, skiprows=header_lines, sep=sep)
-    df = df_force_upper_case(df)
     wf = df_to_wf(df)
     wf.metadata["$datafile"] = filename  # Add the filename as a special param
+
     return wf
 
 
@@ -122,7 +127,7 @@ def df_to_wf(df: pd.DataFrame) -> WaterFrame:
     df = harmonize_dataframe(df)
     vocabulary = {c: {} for c in df.columns}
     wf = WaterFrame(df, {}, vocabulary)
-    wf.data["TIME"] = pd.to_datetime(wf.data["TIME"])
+    wf.data["time"] = pd.to_datetime(wf.data["time"])
     return wf
 
 
@@ -160,13 +165,6 @@ def wf_force_upper_case(wf: WaterFrame) -> WaterFrame:
     return wf
 
 
-def df_force_upper_case(df: pd.DataFrame) -> pd.DataFrame:
-    # Force upper case in dimensions
-    for key in df.columns:
-        if key.upper() in dimensions and key.upper() != key:
-            df = df.rename(columns={key: key.upper()})
-    return df
-
 
 def load_data(file: str):
     """
@@ -193,7 +191,7 @@ def semicolon_to_list(attr: str):
 
 
 # -------- Load NetCDF data -------- #
-def load_nc_data(filename, drop_duplicates=False, process_lists=True) -> (WaterFrame, list):
+def load_nc_data(filename, drop_duplicates=True, process_lists=True) -> (WaterFrame, list):
     """
     Loads NetCDF data into a waterframe
     """
@@ -212,19 +210,19 @@ def load_nc_data(filename, drop_duplicates=False, process_lists=True) -> (WaterF
         del wf.data["row"]
     wf = wf_force_upper_case(wf)
     df = wf.data
-    units = wf.vocabulary["TIME"]["units"]
+    units = wf.vocabulary["time"]["units"]
     if "since" not in units:  # netcdf library requires that the units fields has the 'since' keyword
-        if "sdn_parameter_urn" in wf.vocabulary["TIME"].keys() and wf.vocabulary["TIME"]["sdn_parameter_urn"] == "SDN:P01::ELTJLD01":
+        if "sdn_parameter_urn" in wf.vocabulary["time"].keys() and wf.vocabulary["time"]["sdn_parameter_urn"] == "SDN:P01::ELTJLD01":
             units = "days since 1950-01-01T00:00:00z"
         else:
             units = "seconds since 1970-01-01T00:00:00z"
-    df["TIME"] = nc.num2date(df["TIME"].values, units, only_use_python_datetimes=True, only_use_cftime_datetimes=False)
-    df["TIME"] = pd.to_datetime((df["TIME"]), utc=True)
+    df["time"] = nc.num2date(df["time"].values, units, only_use_python_datetimes=True, only_use_cftime_datetimes=False)
+    df["time"] = pd.to_datetime((df["time"]), utc=True)
     if drop_duplicates:
-        dups = df[df["TIME"].duplicated()]
+        dups = df[df["time"].duplicated()]
         if len(dups) > 0:
             rich.print(f"[yellow]WARNING! detected {len(dups)} duplicated times!, deleting")
-            df = drop_duplicates(df)
+            df = df.drop_duplicates(keep="first")
 
     wf.data = df  # assign data
     wf.metadata["$datafile"] = filename  # Add the filename as a special param
@@ -242,7 +240,7 @@ def add_coordinates(wf: WaterFrame, latitude, longitude, depth):
     """
     Takes a waterframe and adds nominal lat/lon/depth values
     """
-    coordinates = {"LATITUDE": latitude, "LONGITUDE": longitude, "DEPTH": depth}
+    coordinates = {"latitude": latitude, "longitude": longitude, "depth": depth}
     for name, value in coordinates.items():
         if name not in wf.data.columns:
             wf.data[name] = value
@@ -252,7 +250,7 @@ def add_coordinates(wf: WaterFrame, latitude, longitude, depth):
     return wf
 
 
-def ensure_coordinates(wf, required=["DEPTH", "LATITUDE", "LONGITUDE"]):
+def ensure_coordinates(wf, required=["depth", "latitude", "longitude"]):
     """
     Make sure that depth, lat and lon variables (and their QC) are properly set
     """
@@ -382,17 +380,18 @@ def export_to_netcdf(wf, filename, multisensor_metadata=False):
     set_multisensor(wf)
     # If multisensor metadata is set, always keep the SENSOR_ID columns
 
-    if not multisensor_metadata:
-        if not wf.metadata['$multisensor']:
-            if "SENSOR_ID" in wf.data.columns:
-                del wf.data["SENSOR_ID"]
-            if "SENSOR_ID" in wf.vocabulary.keys():
-                del wf.vocabulary["SENSOR_ID"]
-            dimensions.remove("SENSOR_ID")
+    # if not multisensor_metadata:
+    #     if not wf.metadata['$multisensor']:
+    #         if "sensor_id" in wf.data.columns:
+    #             del wf.data["sensor_id"]
+    #         if "sensor_id" in wf.vocabulary.keys():
+    #             del wf.vocabulary["sensor_id"]
+    #         dimensions.remove("sensor_id")
 
     # Remove internal elements in metadata
     [wf.metadata.pop(key) for key in wf.metadata.copy().keys() if key.startswith("$")]
-    wf_to_multidim_nc(wf, filename, dimensions, fill_value=fill_value, time_key="TIME", join_attr=";")
+    #wf_to_multidim_nc(wf, filename, dimensions, fill_value=fill_value, time_key="time", join_attr=" ")
+    wf.to_netcdf(filename)
 
 
 def extract_netcdf_metadata(wf):

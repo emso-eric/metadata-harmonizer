@@ -571,7 +571,7 @@ class EmsoMetadataTester:
 
     def email(self, value, args) -> (bool, str):
         if len(value) > 7:
-            if re.match("^.+@(\[?)[a-zA-Z0-9-.]+.([a-zA-Z]{2,3}|[0-9]{1,3})(]?)$", value):
+            if re.match(r"^.+@(\[?)[a-zA-Z0-9-.]+.([a-zA-Z]{2,3}|[0-9]{1,3})(]?)$", value):
                 return True, ""
         return False, f"email '{value}' not valid"
 

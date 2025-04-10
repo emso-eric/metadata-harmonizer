@@ -153,6 +153,8 @@ def load_min_meta(wf: WaterFrame, metadata: dict, emso: EmsoMetadata) -> dict:
             json.dump(metadata, f, indent=2)  # update the file, so
         rich.print("[green]done!")
 
+    rich.print(metadata)
+    input("heeeey don't delete SENSOR metadata!")
     # Remove the leading keys
     metadata["global"] = remove_minmeta_keys(metadata["global"])
     metadata["sensor"] = remove_minmeta_keys(metadata["sensor"])

@@ -12,6 +12,7 @@ created: 13/4/23
 
 from argparse import ArgumentParser
 from src.emso_metadata_harmonizer import generate_dataset
+from src.emso_metadata_harmonizer.metadata.utils import setup_log
 
 if __name__ == "__main__":
     argparser = ArgumentParser()
@@ -30,5 +31,6 @@ if __name__ == "__main__":
     argparser.add_argument("-M", "--multisensor", action="store_true", help="Keep metadata of all sensors even if they have no data", required=False)
 
     args = argparser.parse_args()
+    log = setup_log("emh", "log")
     generate_dataset(args.data, args.metadata, generate=args.generate, autofill=args.autofill, output=args.output,
                      clear=args.clear, multisensor_metadata=args.multisensor)

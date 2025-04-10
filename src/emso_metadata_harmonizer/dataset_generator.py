@@ -40,10 +40,9 @@ def generate_metadata(data_files: list, folder):
 
 def generate_datasets(data_list: list, metadata_list: list, emso_metadata: EmsoMetadata):
     """
-    Merge data fiiles and metadata files into a NetCDF dataset according to EMSO specs. If provided, depths, lats and
+    Merge data files and metadata files into a NetCDF dataset according to EMSO specs. If provided, depths, lats and
     longs will be added to the dataset as dimensions.
     """
-
     if emso_metadata:
         emso = emso_metadata
     else:
@@ -83,20 +82,21 @@ def generate_datasets(data_list: list, metadata_list: list, emso_metadata: EmsoM
         metadata = copy.deepcopy(metadata)
         if minimal_metadata:
             minmeta = load_min_meta(wf, metadata, emso)
-
             if "coordinates" in minmeta.keys():
                 lat = minmeta["coordinates"]["latitude"]
                 lon = minmeta["coordinates"]["longitude"]
                 depth = minmeta["coordinates"]["depth"]
                 wf = add_coordinates(wf, lat, lon, depth)
-
-            ensure_coordinates(wf)  # make sure that all coordinates are set
             metadata = expand_minmeta(wf, minmeta, emso)
-
         else:
             rich.print(f"Loading a full metadata file {metadata}...")
             metadata = load_full_meta(wf, metadata)
+        ensure_coordinates(wf)
         wf = update_waterframe_metadata(wf, metadata)
+        rich.print(wf.data)
+        rich.print(wf.metadata)
+        rich.print(wf.vocabulary)
+        input()
         waterframes.append(wf)
     return waterframes
 

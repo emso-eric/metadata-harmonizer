@@ -10,4 +10,4 @@ services:
     volumes:
       - ./conf:/usr/local/tomcat/content/erddap
       - ./erddapData:/erddapData   # bind mount for ERDDAP internal data
-      - ./datasets:/datasets # bind mount for user data files
+      - ./datasets:/datasets:ro # bind mount for user data files

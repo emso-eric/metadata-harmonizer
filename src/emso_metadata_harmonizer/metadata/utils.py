@@ -8,13 +8,29 @@ email: enoc.martinez@upc.edu
 license: MIT
 created: 26/4/23
 """
+from logging.handlers import TimedRotatingFileHandler
+
 import rich
 from rich.progress import Progress
 import urllib
 import concurrent.futures as futures
 import os
 from .constants import dimensions
-import numpy as np
+import logging
+
+
+# Color codes
+GRN = "\x1B[32m"
+RST = "\033[0m"
+BLU = "\x1B[34m"
+YEL = "\x1B[33m"
+RED = "\x1B[31m"
+MAG = "\x1B[35m"
+CYN = "\x1B[36m"
+WHT = "\x1B[37m"
+NRM = "\x1B[0m"
+PRL = "\033[95m"
+RST = "\033[0m"
 
 
 def group_metadata_variables(metadata):
@@ -120,66 +136,6 @@ def download_files(tasks, force_download=False):
     threadify(args, download_file)
 
 
-def drop_duplicates(df, timestamp="time"):
-    """
-    useful for datasets that have duplicated values with consecutive timestamps (e.g. data is generated minutely, but
-    inserted into a database every 20 secs). So the following dataframe:
-
-                                col1      col2    col3
-        timestamp
-        2020-01-01 00:00:00    13.45    475.45    12.7
-        2020-01-01 00:00:00    13.45    475.45    12.7
-        2020-01-01 00:00:00    13.45    475.45    12.7
-        2020-01-01 00:01:00    12.89    324.12    78.8
-        2020-01-01 00:01:00    12.89    324.12    78.8
-        2020-01-01 00:01:00    12.89    324.12    78.8
-        ...
-
-    will be simplified to:
-
-                                col1      col2    col3
-        timestamp
-        2020-01-01 00:00:00    13.45    475.45    12.7
-        2020-01-01 00:01:00    12.89    324.12    78.8
-
-    :param df: input dataframe
-    :return: simplified dataframe
-    """
-    if df.empty:
-        rich.print("[yellow]WARNING empty dataframe")
-        return df
-    columns = [col for col in df.columns if col != timestamp]
-    del_array = np.zeros(len(df))  # create an empty array
-    duplicates = 0
-    with Progress() as progress:  # Use Progress() to show a nice progress bar
-        task = progress.add_task("Detecting duplicates", total=len(df))
-        init = True
-        for index, row in df.iterrows():
-            progress.update(task, advance=1)
-            if init:
-                init = False
-                last_valid_row = row
-                continue
-
-            diff = False  # flag to indicate if the current column is different from the last valid
-            for column in columns:  # compare value by value
-                if row[column] != last_valid_row[column]:
-                    # column is different
-                    last_valid_row = row
-                    diff = True
-
-                    break
-            if not diff:  # there's no difference between columns, so this one needs to be deleted
-                del_array[duplicates] = index
-                duplicates += 1
-
-    print(f"Duplicated lines {duplicates} from {len(df)}, ({100*duplicates/len(df):.02f} %)")
-    del_array = del_array[:duplicates]  # keep only the part of the array that has been filled
-    rich.print("dropping rows...")
-    df.drop(del_array, inplace=True)
-    return df
-
-
 def avoid_filename_collision(filename):
     """
     Takes a filename (e.g. data.txt) and converts it to an available filename (e.g. data(1).txt).
@@ -218,3 +174,96 @@ def get_file_list(dir_name):
         else:
             all_files.append(full_path)
     return all_files
+
+
+class LoggerSuperclass:
+    def __init__(self, logger: logging.Logger, name: str, colour=NRM):
+        """
+        SuperClass that defines logging as class methods adding a heading name
+        """
+        self.__logger_name = name
+        self.__logger = logger
+        if not logger:
+            self.__logger = logging  # if not assign the generic module
+        self.__log_colour = colour
+
+    def warning(self, *args):
+        mystr = YEL + "[%s] " % self.__logger_name + str(*args) + RST
+        self.__logger.warning(mystr)
+
+    def error(self, *args, exception: any = False):
+        mystr = "[%s] " % self.__logger_name + str(*args)
+        self.__logger.error(RED + mystr + RST)
+        if exception:
+            if isinstance(exception(), Exception):
+                raise exception(mystr)
+            else:
+                raise ValueError(mystr)
+
+
+    def debug(self, *args):
+        mystr = self.__log_colour + "[%s] " % self.__logger_name + str(*args) + RST
+        self.__logger.debug(mystr)
+
+    def info(self, *args):
+        mystr = self.__log_colour + "[%s] " % self.__logger_name + str(*args) + RST
+        self.__logger.info(mystr)
+
+    def setLevel(self, level):
+        self.__logger.setLevel(level)
+
+
+def setup_log(name, path="log", log_level="debug"):
+    """
+    Setups the logging module
+    :param name: log name (.log will be appended)
+    :param path: where the logs will be stored
+    :param log_level: log level as string, it can be "debug, "info", "warning" and "error"
+    """
+
+    logging.getLogger("requests").setLevel(logging.WARNING)
+    logging.getLogger("urllib3").setLevel(logging.WARNING)
+
+    # Check arguments
+    if len(name) < 1 or len(path) < 1:
+        raise ValueError("name \"%s\" not valid", name)
+    elif len(path) < 1:
+        raise ValueError("name \"%s\" not valid", name)
+
+    # Convert to logging level
+    if log_level == 'debug':
+        level = logging.DEBUG
+    elif log_level == 'info':
+        level = logging.INFO
+    elif log_level == 'warning':
+        level = logging.WARNING
+    elif log_level == 'error':
+        level = logging.ERROR
+    else:
+        raise ValueError("log level \"%s\" not valid" % log_level)
+
+    if not os.path.exists(path):
+        os.makedirs(path)
+
+    filename = os.path.join(path, name)
+    if not filename.endswith(".log"):
+        filename += ".log"
+    print("Creating log", filename)
+    print("name", name)
+
+    logger = logging.getLogger()
+    logger.setLevel(level)
+    log_formatter = logging.Formatter('%(asctime)s.%(msecs)03d %(levelname)-7s: %(message)s',
+                                      datefmt='%Y/%m/%d %H:%M:%S')
+    handler = TimedRotatingFileHandler(filename, when="midnight", interval=1, backupCount=7)
+    handler.setFormatter(log_formatter)
+    logger.addHandler(handler)
+
+    consoleHandler = logging.StreamHandler()
+    consoleHandler.setFormatter(log_formatter)
+    logger.addHandler(consoleHandler)
+
+    logger.info("")
+    logger.info(f"===== {name} =====")
+
+    return logger

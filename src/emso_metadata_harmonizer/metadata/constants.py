@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-dimensions = ["TIME", "LATITUDE", "LONGITUDE", "DEPTH", "SENSOR_ID"]
+dimensions = ["time", "latitude", "longitude", "depth", "sensor_id"]
 iso_time_format = "%Y-%m-%dT%H:%M:%SZ"
 qc_flags = {
     "unknown": 0,

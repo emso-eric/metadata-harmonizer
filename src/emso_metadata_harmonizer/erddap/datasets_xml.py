@@ -12,9 +12,12 @@ import os
 import shutil
 
 import lxml.etree as etree
+
+from ..metadata.constants import dimensions
 from ..metadata.waterframe import WaterFrame
 from ..metadata.dataset import get_variables, set_multisensor, get_dimensions, get_qc_variables
-from ..metadata.xmlutils import get_element
+from ..metadata.xmlutils import get_element, set_attribute, append_after, append_before
+
 from datetime import datetime
 import rich
 
@@ -27,11 +30,11 @@ def generate_erddap_dataset(wf: WaterFrame, directory, dataset_id):
     :param dataset_id: datsetID to identify the dataset
     returns: a string containing the datasets.xml chunk to setup the dataset
     """
-    dimensions = ["TIME", "LATITUDE", "LONGITUDE", "DEPTH"]  # custom dimensional order
+
     qc_variables = get_qc_variables(wf)
 
     # ERDDAP will force dimensions to be lowercase, so let's create a dict with source dest like:
-    #     { "TIME": "time" }
+
     erddap_dims = {dim: dim.lower() for dim in dimensions}
 
     # To ensure that quality control variables match lowercase dimensions another dict like:
@@ -51,7 +54,7 @@ def generate_erddap_dataset(wf: WaterFrame, directory, dataset_id):
         wf = set_multisensor(wf)
 
     if wf.metadata["$multisensor"]:
-        erddap_dims["SENSOR_ID"] = "sensor_id"
+        erddap_dims["sensor_id"] = "sensor_id"
         subset_vars_str += ", sensor_id"  # manually add as subset variable
 
 
@@ -60,6 +63,14 @@ def generate_erddap_dataset(wf: WaterFrame, directory, dataset_id):
     else:
         info_url = wf.metadata["institution_edmo_uri"]
 
+    cdm_data_type = ""
+    additional_attributes = {}
+    cf_feature_type = wf.metadata["featureType"]
+    if  cf_feature_type == "timeSeries":
+        cdm_data_type = "TimeSeries"
+        additional_attributes["cdm_timeseries_variables"] = "sensor_id,latitude,longitude,depth"
+    else:
+        raise ValueError(f"Uniumplemented CF feature type {cf_feature_type}")
 
     x = f"""
 <dataset type="EDDTableFromMultidimNcFiles" datasetID="{dataset_id}" active="true">
@@ -76,7 +87,7 @@ def generate_erddap_dataset(wf: WaterFrame, directory, dataset_id):
     <fileTableInMemory>false</fileTableInMemory>
     <addAttributes>
         <att name="_NCProperties">null</att>
-        <att name="cdm_data_type">Point</att>
+        <att name="cdm_data_type">{cdm_data_type}</att>
         <att name="infoUrl">{info_url}</att>                
         <att name="sourceUrl">(local files)</att>
         <att name="standard_name_vocabulary">CF Standard Name Table v70</att>
@@ -86,6 +97,13 @@ def generate_erddap_dataset(wf: WaterFrame, directory, dataset_id):
     """
     tree = etree.ElementTree(etree.fromstring(x))
     root = tree.getroot()
+
+    # Add additional global attributes
+    for key, value in additional_attributes.items():
+        new_element = etree.Element("att", attrib={"name": key})
+        add_attributes = get_element(root, "addAttributes")
+        new_element.text = value
+        append_after(add_attributes, "att", new_element)
 
     for source, dest in erddap_dims.items():  # already in lowercase
         datatype = "float"
