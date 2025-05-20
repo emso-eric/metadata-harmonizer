@@ -33,4 +33,4 @@ if __name__ == "__main__":
     args = argparser.parse_args()
     log = setup_log("emh", "log")
     generate_dataset(args.data, args.metadata, generate=args.generate, autofill=args.autofill, output=args.output,
-                     clear=args.clear, multisensor_metadata=args.multisensor)
+                     clear=args.clear)

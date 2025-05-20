@@ -8,16 +8,14 @@ email: enoc.martinez@upc.edu
 license: MIT
 created: 29/4/23
 """
-
+import logging
 from argparse import ArgumentParser
 import json
 import rich
 from . import EmsoMetadata
 from .constants import dimensions, iso_time_format
-from .dataset import get_variables, set_multisensor
 from .metadata_templates import choose_interactively, dimension_metadata, quality_control_metadata
 from .utils import merge_dicts
-from .waterframe import WaterFrame
 
 
 def set_default(m: dict, key: str, value: any):
@@ -73,21 +71,24 @@ def autofill_minmeta(minmeta: dict, emso: EmsoMetadata):
     return minmeta
 
 
-def expand_minmeta(wf: WaterFrame, minmeta: dict, emso: EmsoMetadata) -> dict:
+def expand_minmeta(minmeta: dict, emso: EmsoMetadata, filename) -> dict:
     """
     Expands minimal metadata into full metadata and sotres it within the WaterFrame
     """
+    log = logging.getLogger("emh")
+    log.info("Expanding minimal metadata into full metadata")
     metadata = minmeta.copy()
 
     if "coordinates" in metadata.keys():
         del metadata["coordinates"]
 
     metadata["global"] = autofill_global(metadata["global"], emso)
-    metadata["sensor"] = autofill_sensor(metadata["sensor"], emso)
 
-    # Propagate from global sensor metadata to every variable
-    metadata, sensor_id = propagate_sensor_metadata(metadata)
-    wf.metadata["$sensor_id"] = sensor_id
+    for i, sensor in enumerate(metadata["sensors"]):
+        metadata["sensors"][i] = autofill_sensor(sensor, emso)
+
+    for i, platform in enumerate(metadata["platforms"]):
+        metadata["platforms"][i] = autofill_platform(platform, emso)
 
     # Now, add dimensions info
     for dimname in dimensions:
@@ -103,10 +104,11 @@ def expand_minmeta(wf: WaterFrame, minmeta: dict, emso: EmsoMetadata) -> dict:
         qcmeta = quality_control_metadata(varmeta["long_name"])
         metadata["variables"][varname + "_QC"] = qcmeta
 
-    if "$minmeta" in wf.metadata.keys():
-        full_meta_file = wf.metadata["$minmeta"].replace(".min.json", ".full.json")
+    if filename:
+        full_meta_file = filename.replace(".min.json", ".full.json")
         with open(full_meta_file, "w") as f:
             f.write(json.dumps(metadata, indent=2))
+
     return metadata
 
 
@@ -114,7 +116,6 @@ def autofill_variable(varmeta: dict, emso: EmsoMetadata) -> dict:
     """
     Expands the variable metadata adding uris, uoms and names for variables and units
     """
-
     if "sdn_parameter_uri" in varmeta.keys():
         sdn_parameter_uri = varmeta["sdn_parameter_uri"]
     elif "sdn_parameter_urn" in varmeta.keys():  # find the URI based on the URN
@@ -126,9 +127,10 @@ def autofill_variable(varmeta: dict, emso: EmsoMetadata) -> dict:
     sdn_parameter_uri = emso.harmonize_uri(sdn_parameter_uri)
 
     if "sdn_parameter_uri" not in varmeta.keys():
-        varmeta["sdn_parameter_uri"] = sdn_parameter_uri 
+        varmeta["sdn_parameter_uri"] = sdn_parameter_uri
 
     label = emso.vocab_get("P01", sdn_parameter_uri, "prefLabel")
+    rich.print(f"{sdn_parameter_uri} prefLabel: {label}")
     sdn_id = emso.vocab_get("P01", sdn_parameter_uri, "id")
     varmeta["sdn_parameter_urn"] = sdn_id
     varmeta["sdn_parameter_name"] = label.strip()
@@ -165,7 +167,6 @@ def autofill_global(m: dict, emso: EmsoMetadata) -> dict:
 
 
 def autofill_sensor(s: dict, emso: EmsoMetadata) -> dict:
-
     if "sensor_model_uri" in s.keys():
         sensor_uri = s["sensor_model_uri"]
     elif "sensor_reference" in s.keys():
@@ -200,30 +201,11 @@ def autofill_sensor(s: dict, emso: EmsoMetadata) -> dict:
     return s
 
 
-def autofill_waterframe_coverage(wf: WaterFrame) -> WaterFrame:
-    """
-    Autofills geospatial and time coverage in a WaterFrame
-    """
-    wf.metadata["geospatial_lat_min"] = wf.data["latitude"].min()
-    wf.metadata["geospatial_lat_max"] = wf.data["latitude"].max()
-    wf.metadata["geospatial_lon_min"] = wf.data["longitude"].min()
-    wf.metadata["geospatial_lon_max"] = wf.data["longitude"].min()
-    wf.metadata["geospatial_vertical_min"] = int(wf.data["depth"].min())
-    wf.metadata["geospatial_vertical_max"] = int(wf.data["depth"].min())
-    wf.metadata["time_coverage_start"] = wf.data["time"].min().strftime(iso_time_format)
-    wf.metadata["time_coverage_end"] = wf.data["time"].max().strftime(iso_time_format)
-    return wf
+
+def autofill_platform(p: dict, emso: EmsoMetadata) -> dict:
+    return p
 
 
-def autofill_coordinates(wf: WaterFrame) -> WaterFrame:
-    """
-    Autofills the coordinates section of each variable
-    """
-    vars = get_variables(wf)
-    for varname in vars:
-        varmeta = wf.vocabulary[varname]
-        varmeta["coordinates"] = dimensions
-    return wf
 
 
 def propagate_sensor_metadata(metadata: dict) -> (dict, str):

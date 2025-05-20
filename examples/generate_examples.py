@@ -11,6 +11,7 @@ def to_csv(df, folder, name):
     df["time"].dt.strftime("%Y-%m-%dT%H:%M:%SZ")
     df.to_csv(filename, index=False, float_format="%.4f")
 
+
 def create_info(info: dict, folder):
     os.makedirs(folder, exist_ok=True)
     rich.print(f"[cyan]Creating {folder}")
@@ -105,8 +106,8 @@ info = {
 folder = "example03"
 create_info(info, folder)
 
-times1 = pd.date_range("2024-01-01", "2024-07-01", freq="30min")
-times2 = pd.date_range("2024-07-01", "2025-01-01", freq="30min")
+times1 = pd.date_range("2024-01-01T00:00:00Z", "2024-06-30T23:30:00Z", freq="30min")
+times2 = pd.date_range("2024-07-01T00:00:00Z", "2024-12-31T23:30:00Z", freq="30min")
 t1 = np.arange(0, len(times1)) / len(times1)
 t2 = np.arange(0, len(times2)) / len(times2)
 

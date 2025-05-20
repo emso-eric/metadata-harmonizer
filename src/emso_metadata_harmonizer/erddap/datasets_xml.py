@@ -15,7 +15,7 @@ import lxml.etree as etree
 
 from ..metadata.constants import dimensions
 from ..metadata.waterframe import WaterFrame
-from ..metadata.dataset import get_variables, set_multisensor, get_dimensions, get_qc_variables
+from ..metadata.dataset import get_variables, get_qc_variables
 from ..metadata.xmlutils import get_element, set_attribute, append_after, append_before
 
 from datetime import datetime
@@ -30,11 +30,10 @@ def generate_erddap_dataset(wf: WaterFrame, directory, dataset_id):
     :param dataset_id: datsetID to identify the dataset
     returns: a string containing the datasets.xml chunk to setup the dataset
     """
-
+    assert  isinstance(wf, WaterFrame), f"Expected WaterFrame (got {type(wf)})"
     qc_variables = get_qc_variables(wf)
 
     # ERDDAP will force dimensions to be lowercase, so let's create a dict with source dest like:
-
     erddap_dims = {dim: dim.lower() for dim in dimensions}
 
     # To ensure that quality control variables match lowercase dimensions another dict like:
@@ -50,12 +49,8 @@ def generate_erddap_dataset(wf: WaterFrame, directory, dataset_id):
     # subset variables are QC vars and sensor_id
     subset_vars_str = ", ".join(erddap_qc.values())
 
-    if "$multisensor" not in wf.metadata.keys():
-        wf = set_multisensor(wf)
-
-    if wf.metadata["$multisensor"]:
-        erddap_dims["sensor_id"] = "sensor_id"
-        subset_vars_str += ", sensor_id"  # manually add as subset variable
+    erddap_dims["sensor_id"] = "sensor_id"
+    subset_vars_str += ", sensor_id"  # manually add as subset variable
 
 
     if "infoUrl" in wf.metadata.keys(): # If infoURL not set, use the edmo uri

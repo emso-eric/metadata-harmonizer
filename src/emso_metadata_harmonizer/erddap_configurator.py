@@ -12,7 +12,8 @@ created: 15/5/23
 from .erddap.datasets_xml import generate_erddap_dataset, add_dataset
 import rich
 
-from .metadata.dataset import load_data
+from .metadata.dataset import load_data, load_nc_data
+from .metadata.waterframe import WaterFrame
 
 
 def erddap_config(file: str, dataset_id: str, source_path: str, output: str = "", datasets_xml_file: str = ""):
@@ -23,7 +24,7 @@ def erddap_config(file: str, dataset_id: str, source_path: str, output: str = ""
     :param output: If set, the dataset configuration will be stored in a new XML file
     :param datasets_xml: Path to the datasets.xml file. If set the configuration will be appended.
     """
-    wf = load_data(file)
+    wf = WaterFrame.from_netcdf(file)
     xml_chunk = generate_erddap_dataset(wf, source_path, dataset_id=dataset_id)
 
     if output:

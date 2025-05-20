@@ -30,12 +30,25 @@ def variable_metadata():
         "~standard_name": "",
     }
 
+def platform_metadata():
+    return {
+        "*platform_id": "",
+        "~wmo_number": -1,
+        "*coordinates": {
+            "*latitude": -1.0,
+            "*longitude": -1.0,
+            "*depth": -1.0
+        }
+    }
 
 def sensor_metadata():
     """
     Returns all the metadata required for a sensor
     """
     return {
+        "*sensor_id": "",
+        "*platform_id": "",
+        "~depth": "",
         "*sensor_model_uri": "",
         "*sensor_serial_number": "",
         "$sensor_mount": "",
@@ -63,8 +76,6 @@ def dimension_metadata(dim):
             # UNIX time: seconds since 1970
             "sdn_parameter_uri": "https://vocab.nerc.ac.uk/collection/P01/current/ELTMEP01/",
             "standard_name": "time",
-            # Days since 1950
-            # "sdn_parameter_uri": "https://vocab.nerc.ac.uk/collection/P01/current/ELTJLD01/"
             "axis": "T",
             "sdn_uom_uri": "http://vocab.nerc.ac.uk/collection/P06/current/UTBB/"
         },
@@ -80,14 +91,16 @@ def dimension_metadata(dim):
             "sdn_parameter_uri": "https://vocab.nerc.ac.uk/collection/P01/current/ALATZZ01",
             "standard_name": "latitude",
             "axis": "Y",
-            "sdn_uom_uri": "http://vocab.nerc.ac.uk/collection/P06/current/UAAA/"
+            "sdn_uom_uri": "http://vocab.nerc.ac.uk/collection/P06/current/UAAA/",
+            "units": "degrees_north"
         },
         "longitude": {
             "long_name": "longitude of measurements",
             "sdn_parameter_uri": "https://vocab.nerc.ac.uk/collection/P01/current/ALONZZ01",
             "standard_name": "longitude",
             "axis": "X",
-            "sdn_uom_uri": "http://vocab.nerc.ac.uk/collection/P06/current/UAAA/"
+            "sdn_uom_uri": "http://vocab.nerc.ac.uk/collection/P06/current/UAAA/",
+            "units": "degrees_east"
         },
         "sensor_id": {
             "long_name": "Identifier of the sensor that took the measurement"

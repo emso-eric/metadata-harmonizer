@@ -10,15 +10,14 @@ license: MIT
 created: 13/4/23
 """
 import json
+import logging
 import rich
 import pandas as pd
-from .metadata.autofill import expand_minmeta, autofill_waterframe
-from .metadata.dataset import add_coordinates, ensure_coordinates, update_waterframe_metadata, export_to_netcdf, \
-    load_data, df_to_wf
-from .metadata.merge import merge_waterframes
-from .metadata.minmeta import generate_min_meta_template, load_min_meta, load_full_meta, generate_full_metadata
+from .metadata.autofill import autofill_waterframe
+from .metadata.dataset import load_data
+from .metadata.minmeta import generate_min_meta_template, generate_full_metadata, load_metadata
 from .metadata import EmsoMetadata
-import copy
+from .metadata.waterframe import WaterFrame, merge_waterframes
 
 
 def generate_metadata(data_files: list, folder):
@@ -29,7 +28,6 @@ def generate_metadata(data_files: list, folder):
     for file in data_files:
         rich.print(f"generating minimal metadata template for {file}")
         wf = load_data(file)
-
         if file.endswith(".csv"):  # For CSV always generate a minimal metdata file
             generate_min_meta_template(wf, folder)
         elif file.endswith(".nc"):
@@ -43,72 +41,28 @@ def generate_datasets(data_list: list, metadata_list: list, emso_metadata: EmsoM
     Merge data files and metadata files into a NetCDF dataset according to EMSO specs. If provided, depths, lats and
     longs will be added to the dataset as dimensions.
     """
+
+    assert len(metadata_list) == len(data_list), "Expected the same amount of data and metaadata elements!"
     if emso_metadata:
         emso = emso_metadata
     else:
         emso = EmsoMetadata()
-
     waterframes = []
-    for i in range(len(data_list)):
-        data = data_list[i]
-        metadata = metadata_list[i]
-
-        if type(data) is str:
-            wf = load_data(data)
-        elif type(data) is pd.DataFrame:
-            wf = df_to_wf(data)
-        else:
-            raise ValueError(f"Data must be a file or DataFrame, got '{type(data)}'")
-
-        if type(metadata) not in [str, dict]:
-            raise ValueError(f"Expected str or dict, got '{type(data)}'")
-
-        # If metadata is dict, assume it as minimal
-        if type(metadata) is dict:
-            minimal_metadata = True
-        elif type(metadata) is str and metadata.endswith(".min.json"):
-            minimal_metadata = True
-            wf.metadata["$minmeta"] = metadata
-        elif type(metadata) is str and metadata.endswith(".full.json") or type(metadata):
-            minimal_metadata = False
-        else:
-            raise ValueError("Expected metadata file with extension .full.json or .min.json!")
-
-        if type(metadata) is str:
-            with open(metadata) as f:
-                metadata = json.load(f)
-
-        # Create deep copy of the metadata
-        metadata = copy.deepcopy(metadata)
-        if minimal_metadata:
-            minmeta = load_min_meta(wf, metadata, emso)
-            if "coordinates" in minmeta.keys():
-                lat = minmeta["coordinates"]["latitude"]
-                lon = minmeta["coordinates"]["longitude"]
-                depth = minmeta["coordinates"]["depth"]
-                wf = add_coordinates(wf, lat, lon, depth)
-            metadata = expand_minmeta(wf, minmeta, emso)
-        else:
-            rich.print(f"Loading a full metadata file {metadata}...")
-            metadata = load_full_meta(wf, metadata)
-        ensure_coordinates(wf)
-        wf = update_waterframe_metadata(wf, metadata)
-        rich.print(wf.data)
-        rich.print(wf.metadata)
-        rich.print(wf.vocabulary)
-        input()
+    for data_file, meta_file in zip(data_list, metadata_list):
+        meta = load_metadata(meta_file, emso)
+        df = load_data(data_file)
+        wf = WaterFrame(df, meta)
         waterframes.append(wf)
     return waterframes
 
 
 def generate_dataset(data: list, metadata: list, generate: bool = False, autofill: bool = False, output: str = "",
-                     clear: bool = False, emso_metadata=None, multisensor_metadata=True) -> str:
+                     clear: bool = False, emso_metadata=None) -> str:
     wf = None
+    log = logging.getLogger("emh")
     if clear:
-        rich.print("Clearing downloaded files...", end="")
+        log.info("Clearing downloaded files...")
         EmsoMetadata.clear_downloads()
-        rich.print("[green]done")
-        exit()
 
     if generate and metadata:
         raise ValueError("--metadata and --generate cannot be used at the same time!")
@@ -118,21 +72,15 @@ def generate_dataset(data: list, metadata: list, generate: bool = False, autofil
 
     # If metadata and generate
     if generate:
-        rich.print("[blue]Generating metadata templates...")
+        log.info("Generating metadata templates...")
         generate_metadata(data, generate)
-        exit()
+        return ""
 
     if metadata:
         waterframes = generate_datasets(data, metadata, emso_metadata=emso_metadata)
+        if all([wf.data.empty for wf in waterframes]):
+            raise ValueError("All waterframes are empty!")
 
-        # If ALL water frames are empty we have nothing else to do, just exit
-        some_data = False
-        for wf in waterframes:
-            if not wf.data.empty:
-                some_data = True
-        if not some_data:
-            rich.print("[red]There is not data in the dataframes! exit")
-            exit(0)
         wf = merge_waterframes(waterframes)
 
     if autofill:
@@ -143,7 +91,7 @@ def generate_dataset(data: list, metadata: list, generate: bool = False, autofil
         wf = autofill_waterframe(wf)
 
     if output:
-        export_to_netcdf(wf, output, multisensor_metadata=multisensor_metadata)
+        wf.to_netcdf(output)
 
     if not wf:
         if len(data) > 1:

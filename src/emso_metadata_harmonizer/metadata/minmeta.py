@@ -9,10 +9,12 @@ email: enoc.martinez@upc.edu
 license: MIT
 created: 29/4/23
 """
+import logging
+
 from . import EmsoMetadata
-from .autofill import autofill_minmeta
+from .autofill import autofill_minmeta, expand_minmeta
 from .metadata_templates import global_metadata, sensor_metadata, variable_metadata, user_selectable_attributes, \
-    choose_interactively
+    choose_interactively, platform_metadata
 import rich
 import os
 from .dataset import get_qc_variables, get_variables, extract_netcdf_metadata
@@ -24,7 +26,7 @@ from .waterframe import WaterFrame
 
 def generate_min_meta_template(wf: WaterFrame, folder: str):
     """
-    Takes a data frame and generates the a minimal metadata file from which the rest of the metadata can be derived
+    Takes a data frame and generates a minimal metadata file from which the rest of the metadata can be derived
     """
     os.makedirs(folder, exist_ok=True)
     mfiles = []  # metadata files
@@ -39,12 +41,7 @@ def generate_min_meta_template(wf: WaterFrame, folder: str):
         "global": global_metadata(),
         "variables": {},
         "sensor": sensor_metadata(),
-        "coordinates": {
-            "README": "If the dataset has fixed coordinates, please add them here as floats",
-            "depth": "",
-            "latitude": "",
-            "longitude": ""
-        }
+        "platform": platform_metadata()
     }
 
     for var in variables:
@@ -100,65 +97,75 @@ def remove_minmeta_keys(m):
     return m
 
 
-def load_full_meta(wf: WaterFrame, filename: str):
+def load_metadata(filename: str,  emso: EmsoMetadata) -> dict:
     """
-    Loads a full metadata file
+    Loads metadata. Filename can be a min meta document (*.min.json) or a full metadata doc (*.full.json)
     """
-    wf.metadata["$fullmeta"] = filename
-    with open(filename) as f:
-        metadata = json.load(f)
-
-    sensor_ids = []
-    for varname, varmeta in metadata["variables"].items():
-        if "sensor_serial_number" in varmeta.keys():
-            sensor_ids.append(varmeta['sensor_serial_number'])
-
-    n = len(np.unique(sensor_ids))
-    if n > 1:  # check if we have more than one serial number
-        raise ValueError("Loading metadata a multisensor Dataset not yet implemented!!")
-    elif n < 1:
-        raise ValueError("sensor_serial_number not found!")
-
-    wf.metadata["$sensor_id"] = sensor_ids[0]  # only one value, so get the first one
+    if filename.endswith(".min.json"):
+        metadata = load_min_meta(filename, emso)
+        metadata = expand_minmeta(metadata, emso, filename)
+    elif filename.endswith(".full.json"):
+        metadata = load_full_meta(filename)
+    else:
+        raise ValueError("Filename must be a minimal metadata file (.min.json) or full metadata file (.full.json)")
     return metadata
 
 
-def load_min_meta(wf: WaterFrame, metadata: dict, emso: EmsoMetadata) -> dict:
+def load_full_meta(filename: str) -> dict:
+    """
+    Loads a full metadata file and return it as a dictionary
+    """
+    log = logging.getLogger("emh")
+    log.info(f"Loading full metadata from {filename}")
+    with open(filename) as f:
+        metadata = json.load(f)
+    return metadata
+
+
+def load_min_meta(filename: str, emso: EmsoMetadata) -> dict:
     """
     Loads a minimal metadata file.
     """
-    assert type(metadata) is dict, f"expected dict, got {type(metadata)}"
-    minimal_metadata_file = ""
-    if "$minmeta" in wf.metadata.keys():
-        minimal_metadata_file = wf.metadata["$minmeta"]
+    log = logging.getLogger("emh")
+    log.info(f"Loading minimal metadata from {filename}")
+    with open(filename) as f:
+        metadata = json.load(f)
 
-    metadata["global"] = process_selectable_metadata(metadata["global"], filename=minimal_metadata_file)
-    metadata["sensor"] = process_selectable_metadata(metadata["sensor"], filename=minimal_metadata_file)
-    metadata["coordinates"] = process_selectable_metadata(metadata["coordinates"], filename=minimal_metadata_file)
+    metadata["global"] = process_selectable_metadata(metadata["global"], filename=filename)
+    check_mandatory_fields(metadata["global"])
+
+    for i, sensor in enumerate(metadata["sensors"]):
+        metadata["sensors"][i] = process_selectable_metadata(sensor, filename=filename)
+        check_mandatory_fields(sensor)
+
+    for i, platform in enumerate(metadata["platforms"]):
+        metadata["platforms"][i] = process_selectable_metadata(platform, filename=filename)
+        check_mandatory_fields(platform)
+
     for var, m in metadata["variables"].items():
-        metadata["variables"][var] = process_selectable_metadata(m, filename=minimal_metadata_file)
+        metadata["variables"][var] = process_selectable_metadata(m, filename=filename)
 
     # Make sure that we have all the necessary info
-    check_mandatory_fields(metadata["global"])
-    check_mandatory_fields(metadata["sensor"])
     for var, m in metadata["variables"].items():
         check_mandatory_fields(m)
 
     metadata = metadata.copy()
     metadata = autofill_minmeta(metadata, emso)
 
-    if minimal_metadata_file:
-        rich.print(f"Updating file {minimal_metadata_file} with selected user choices...", end="")
-        with open(minimal_metadata_file, "w") as f:
-            json.dump(metadata, f, indent=2)  # update the file, so
+    if filename:
+        rich.print(f"Updating file {filename} with selected user choices...", end="")
+        with open(filename, "w") as f:
+            f.write(json.dumps(metadata, indent=2))  # update the file, so
         rich.print("[green]done!")
 
-    rich.print(metadata)
-    input("heeeey don't delete SENSOR metadata!")
     # Remove the leading keys
     metadata["global"] = remove_minmeta_keys(metadata["global"])
-    metadata["sensor"] = remove_minmeta_keys(metadata["sensor"])
-    metadata["coordinates"] = remove_minmeta_keys(metadata["coordinates"])
+
+    for i, sensor in enumerate(metadata["sensors"]):
+        metadata["sensors"][i] = remove_minmeta_keys(sensor)
+
+    for i, platform in enumerate(metadata["platforms"]):
+        metadata["platforms"][i] = remove_minmeta_keys(platform)
 
     for var, m in metadata["variables"].items():
         metadata["variables"][var] = remove_minmeta_keys(m)

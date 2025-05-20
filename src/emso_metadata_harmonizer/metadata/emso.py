@@ -167,7 +167,7 @@ def parse_sdn_jsonld(filename):
 
     alias = {  # key-> key to be stored in data dict, value -> all possible keys found in JSON-LD docs
         "definition": ["definition", "skos:definition"],
-        "prefLabel": ["definition", "skos:prefLabel"],
+        "prefLabel": ["prefLabel", "skos:prefLabel"],
         "identifier": ["dc:identifier", "dce:identifier"],
         "uri": ["@id"]
     }
