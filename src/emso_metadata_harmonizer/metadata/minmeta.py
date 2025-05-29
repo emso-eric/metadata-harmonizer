@@ -17,7 +17,7 @@ from .metadata_templates import global_metadata, sensor_metadata, variable_metad
     choose_interactively, platform_metadata
 import rich
 import os
-from .dataset import get_qc_variables, get_variables, extract_netcdf_metadata
+from .dataset import extract_netcdf_metadata
 import json
 import numpy as np
 
@@ -31,7 +31,7 @@ def generate_min_meta_template(wf: WaterFrame, folder: str):
     os.makedirs(folder, exist_ok=True)
     mfiles = []  # metadata files
 
-    variables = get_variables(wf)
+    variables = [varname for varname in wf.vocabulary.keys() if not varname.endswith("_QC")]
     m = {
         "README": {
             "*attr": "Mandatory attributes, must be set",

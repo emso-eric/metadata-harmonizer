@@ -11,8 +11,6 @@ created: 15/5/23
 """
 from .erddap.datasets_xml import generate_erddap_dataset, add_dataset
 import rich
-
-from .metadata.dataset import load_data, load_nc_data
 from .metadata.waterframe import WaterFrame
 
 

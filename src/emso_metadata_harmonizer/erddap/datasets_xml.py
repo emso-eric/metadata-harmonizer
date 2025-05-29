@@ -10,14 +10,10 @@ created: 28/4/23
 """
 import os
 import shutil
-
 import lxml.etree as etree
-
 from ..metadata.constants import dimensions
 from ..metadata.waterframe import WaterFrame
-from ..metadata.dataset import get_variables, get_qc_variables
 from ..metadata.xmlutils import get_element, set_attribute, append_after, append_before
-
 from datetime import datetime
 import rich
 
@@ -31,26 +27,18 @@ def generate_erddap_dataset(wf: WaterFrame, directory, dataset_id):
     returns: a string containing the datasets.xml chunk to setup the dataset
     """
     assert  isinstance(wf, WaterFrame), f"Expected WaterFrame (got {type(wf)})"
-    qc_variables = get_qc_variables(wf)
 
-    # ERDDAP will force dimensions to be lowercase, so let's create a dict with source dest like:
-    erddap_dims = {dim: dim.lower() for dim in dimensions}
+    # dimension_name, data_type, special_attributes
+    erddap_dims = [
+        ("time", "double", {"units": "seconds since 1970-01-01", "time_precision": "1970-01-01T00:00:00Z" }),
+        ("depth", "float", {"units": "m"}),
+        ("latitude", "float", {}),
+        ("longitude", "float", {}),
+        ("platform_id", "String", {}),
+        ("sensor_id", "byte", {})
+    ]
 
-    # To ensure that quality control variables match lowercase dimensions another dict like:
-    #  {"LATITUDE_QC": "latitude_QC"}
-    erddap_qc = {}
-    for qcvar in qc_variables:
-        source = qcvar.replace("_QC", "")
-        if source in dimensions:
-            erddap_qc[qcvar] = source.lower() + "_QC"  # ensure dimension is in lower case
-        else:
-            erddap_qc[qcvar] = qcvar  # do not modify
-
-    # subset variables are QC vars and sensor_id
-    subset_vars_str = ", ".join(erddap_qc.values())
-
-    erddap_dims["sensor_id"] = "sensor_id"
-    subset_vars_str += ", sensor_id"  # manually add as subset variable
+    erddap_qc = [v for v in wf.data.columns if v.endswith("_QC")]
 
 
     if "infoUrl" in wf.metadata.keys(): # If infoURL not set, use the edmo uri
@@ -58,12 +46,19 @@ def generate_erddap_dataset(wf: WaterFrame, directory, dataset_id):
     else:
         info_url = wf.metadata["institution_edmo_uri"]
 
-    cdm_data_type = ""
     additional_attributes = {}
     cf_feature_type = wf.metadata["featureType"]
     if  cf_feature_type == "timeSeries":
         cdm_data_type = "TimeSeries"
-        additional_attributes["cdm_timeseries_variables"] = "sensor_id,latitude,longitude,depth"
+        additional_attributes["cdm_timeseries_variables"] = "platform_id,sensor_id,latitude,longitude,depth"
+        subset_vars_str = ",".join(["platform_id", "sensor_id", "depth"] + erddap_qc)
+
+    elif  cf_feature_type == "timeSeriesProfile":
+        cdm_data_type = "TimeSeriesProfile"
+        additional_attributes["cdm_timeseries_variables"] = "platform_id,latitude,longitude"
+        additional_attributes["cdm_profile_variables"] = "time,sensor_id"
+        subset_vars_str = ",".join(["platform_id", "sensor_id"] + erddap_qc)
+
     else:
         raise ValueError(f"Uniumplemented CF feature type {cf_feature_type}")
 
@@ -100,31 +95,18 @@ def generate_erddap_dataset(wf: WaterFrame, directory, dataset_id):
         new_element.text = value
         append_after(add_attributes, "att", new_element)
 
-    for source, dest in erddap_dims.items():  # already in lowercase
-        datatype = "float"
-        attrs = {}
-        if dest == "time":
-            datatype = "double"
-            attrs = {
-                "units": "seconds since 1970-01-01",
-                "time_precision": "1970-01-01T00:00:00Z"
-            }
-        elif dest == "depth":
-            attrs = {
-                "units": "m",
-            }
-        elif dest == "sensor_id":
-            datatype = "String"
-        add_variable(root, source, dest, datatype, attributes=attrs)
+    for varname, dtype, attrs in erddap_dims:
+        add_variable(root, varname, varname, dtype, attributes=attrs)
+
+    dimension_names = [v[0] for v in erddap_dims]
 
     # Process all data variables
-    for v in get_variables(wf):
+    for v in wf.data.columns:
+        if v in dimension_names:
+            continue
         add_variable(root, v, v, "float", attributes={})
 
-    for source, dest in erddap_qc.items():
-        add_variable(root, source, dest, "byte", attributes={})
     etree.indent(root, space="    ", level=0)  # force indentation
-
     return serialize(tree)
 
 
@@ -172,7 +154,7 @@ def add_variable(root, source, destination, datatype, attributes: dict = {}):
         att.text = value
 
 
-def backup_datsets_file(filename):
+def backup_datasets_file(filename):
     """
     Generates a .datasets.xml.YYYMMDD_HHMMSS backup file of the datasets.xml
     """
@@ -195,7 +177,7 @@ def add_dataset(filename: str, dataset: str):
     assert type(filename) is str, f"expected string, got {type(filename)}"
     assert type(dataset) is str, f"expected string, got {type(dataset)}"
 
-    bckp = backup_datsets_file(filename)
+    backup_datasets_file(filename)
     dataset_tree = etree.ElementTree(etree.fromstring(dataset))
     dataset_root = dataset_tree.getroot()
     dataset_id = dataset_root.attrib["datasetID"]

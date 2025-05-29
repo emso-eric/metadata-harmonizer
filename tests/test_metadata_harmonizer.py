@@ -21,7 +21,7 @@ import yaml
 
 
 try:
-    from src.emso_metadata_harmonizer import generate_dataset, erddap_config
+    from src.emso_metadata_harmonizer import generate_dataset, erddap_config, WaterFrame
     from src.emso_metadata_harmonizer.metadata.dataset import load_data
 except ModuleNotFoundError:
     # Get the directory of the current script
@@ -30,7 +30,7 @@ except ModuleNotFoundError:
     parent_dir = os.path.abspath(os.path.join(current_dir, os.pardir))
     # Add the parent directory to the sys.path
     sys.path.insert(0, parent_dir)
-    from src.emso_metadata_harmonizer import generate_dataset, erddap_config
+    from src.emso_metadata_harmonizer import generate_dataset, erddap_config, WaterFrame
     from src.emso_metadata_harmonizer.metadata.dataset import load_data
     from src.emso_metadata_harmonizer.metadata.emso import EmsoMetadata
 
@@ -88,6 +88,15 @@ class MetadataHarmonizerTester(unittest.TestCase):
 
         os.makedirs("erddapData", exist_ok=True)
         os.makedirs("datasets", exist_ok=True)
+
+        rich.print("Removing previous datasets...")
+        for folder in [os.path.join("datasets", d) for d in os.listdir("datasets")]:
+            files = [os.path.join(folder, f) for f in os.listdir(folder)]
+            for f in files:
+                os.remove(f)
+            os.rmdir(folder)
+
+
         rich.print("Starting erddap docker container...")
         run_subprocess("docker compose up -d")
 
@@ -150,7 +159,7 @@ class MetadataHarmonizerTester(unittest.TestCase):
 
             while os.path.exists(dataset_hard_flag):
                 time.sleep(1)
-                rich.print("waiting for erddap to load the dataset...")
+                rich.print(f"waiting for erddap to load dataset {dataset_id}...")
 
             time.sleep(3)
             dataset_url = self.erddap_url + "/tabledap/" + dataset_id + ".html"
@@ -161,9 +170,9 @@ class MetadataHarmonizerTester(unittest.TestCase):
 
             # now try to acess the data
             dataset_url = self.erddap_url + "/tabledap/" + dataset_id + ".nc"
-            nc_file = "test.nc"
+            nc_file = "mytest.nc"
             urllib.request.urlretrieve(dataset_url, nc_file)
-            wf = load_data(nc_file)
+            wf = WaterFrame.from_netcdf(nc_file)
             df = wf.data
             rich.print("Dataset opened as NetCDF!")
 

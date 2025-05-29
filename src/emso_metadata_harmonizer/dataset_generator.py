@@ -41,7 +41,6 @@ def generate_datasets(data_list: list, metadata_list: list, emso_metadata: EmsoM
     Merge data files and metadata files into a NetCDF dataset according to EMSO specs. If provided, depths, lats and
     longs will be added to the dataset as dimensions.
     """
-
     assert len(metadata_list) == len(data_list), "Expected the same amount of data and metaadata elements!"
     if emso_metadata:
         emso = emso_metadata
@@ -54,7 +53,6 @@ def generate_datasets(data_list: list, metadata_list: list, emso_metadata: EmsoM
         wf = WaterFrame(df, meta)
         waterframes.append(wf)
     return waterframes
-
 
 def generate_dataset(data: list, metadata: list, generate: bool = False, autofill: bool = False, output: str = "",
                      clear: bool = False, emso_metadata=None) -> str:

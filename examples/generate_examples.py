@@ -71,12 +71,12 @@ info = {
 folder = "example02"
 create_info(info, folder)
 
-temp1 = 20 + 8 * np.sin(2*np.pi*t)
+temp1 = 20 + 5 * np.sin(2*np.pi*t)
 cndc1 = 5 + np.sin(2*np.pi*t)
 pres1 = 10 + 2 * np.sin(365*2*np.pi*t)
 
 temp2 = 15 + 5 * np.sin(2*np.pi*t)
-cndc2 = 4.5 + np.sin(2*np.pi*t)
+cndc2 = 5 + np.sin(2*np.pi*t)
 pres2 = 20 + 2 * np.sin(365*2*np.pi*t)
 
 df1 = pd.DataFrame({
@@ -115,8 +115,8 @@ temp1 = 20 + 8 * np.sin(2*np.pi*t1)
 cndc1 = 5 + np.sin(2*np.pi*t1)
 pres1 = 10 + 2 * np.sin(365*2*np.pi*t1)
 
-temp2 = 15 + 5 * np.sin(2*np.pi*t2)
-cndc2 = 4.5 + np.sin(2*np.pi*t2)
+temp2 = 20 + 5 * np.sin(2*np.pi*t2)
+cndc2 = 5 + np.sin(2*np.pi*t2)
 pres2 = 20 + 2 * np.sin(365*2*np.pi*t2)
 
 qc_flags1 = np.zeros(len(t1)) + 1
@@ -138,4 +138,111 @@ df2 = pd.DataFrame({
 
 to_csv(df1, folder, "SBE16.csv")
 to_csv(df2, folder, "SBE37.csv")
+guess_command(folder)
+
+# ============ Example 4: 4 CTDs at different depths + surface weather station ============ #
+info = {
+    "title": "Four CTDs in mooring line and a surface weather station",
+    "comment": "dataset with four CTDs deployed in the same mooring line and a surface weather station",
+    "sensors": [f"SBE37 at {depth} meters depth" for depth in [100, 200, 300, 400]]
+             + ["Surface weather station"],
+    "CF_featureType": "timeSeries"
+}
+folder = "example04"
+create_info(info, folder)
+
+times1 = pd.date_range("2024-01-01T00:00:00Z", "2024-12-31T23:59:59Z", freq="30min")
+
+
+t1 = np.arange(0, len(times1)) / len(times1)
+
+temp1 = 25 + 5 * np.sin(2*np.pi*t1)
+cndc1 = 5 + np.sin(2*np.pi*t1)
+pres1 = 100 + 2 * np.sin(365*2*np.pi*t1)
+
+temp2 = 20 + 5 * np.sin(2*np.pi*t1)
+cndc2 = 4 + np.sin(2*np.pi*t1)
+pres2 = 200 + 2 * np.sin(365*2*np.pi*t1)
+
+temp3 = 15 + 5 * np.sin(2*np.pi*t1)
+cndc3 = 3 + np.sin(2*np.pi*t1)
+pres3 = 300 + 2 * np.sin(365*2*np.pi*t1)
+
+temp4 = 10 + 5 * np.sin(2*np.pi*t1)
+cndc4 = 2 + np.sin(2*np.pi*t1)
+pres4 = 400 + 2 * np.sin(365*2*np.pi*t1)
+
+
+qc_flags = np.zeros(len(t1)) + 1
+
+
+data = [
+    (100, temp1, cndc1, pres1),
+    (200, temp2, cndc2, pres2),
+    (300, temp3, cndc3, pres3),
+    (400, temp4, cndc4, pres4)
+]
+
+for (depth, temp, cndc, pres) in data:
+    df = pd.DataFrame({
+        "time": times1,
+        "TEMP": temp, "TEMP_QC": qc_flags,
+        "CNDC": cndc, "CNDC_QC": qc_flags,
+        "PRES": temp, "PRES_QC": qc_flags
+    })
+    to_csv(df, folder, f"SBE37_{depth}m.csv")
+
+# Create weather station with another time frame
+times2 = pd.date_range("2024-01-01T00:00:00Z", "2024-12-31T23:59:59Z", freq="47min")
+t2 = np.arange(0, len(times2)) / len(times2)
+
+airt = 30 + 10 * np.sin(2*np.pi*t2)
+wspd = 10 + np.sin(2*np.pi*t2)
+wdir = 180 + 180 * np.sin(5*2*np.pi*t2)
+qc_flags = np.zeros(len(t2)) + 1
+
+
+df = pd.DataFrame({
+    "time": times2,
+    "AIRT": airt, "WSPD": wspd, "WDIR": wdir,
+    "AIRT_QC": qc_flags, "WSPD_QC": qc_flags, "WDIR_QC": qc_flags
+})
+to_csv(df, folder, "AimarWeatherStation.csv")
+
+guess_command(folder)
+
+
+# ============ Example 5: Current Profile with an ADCP  ============ #
+info = {
+    "title": "Current data",
+    "comment": "timeSeriesProfile from an ADCP",
+    "sensors": ["AWAC"],
+    "CF_featureType": "timeSeriesProfile"
+}
+folder = "example05"
+create_info(info, folder)
+
+times1 = pd.date_range("2024-01-01T00:00:00Z", "2024-12-31T23:59:00Z", freq="30min")
+t1 = np.arange(0, len(times1)) / len(times1)
+
+array_by_depth = []
+
+for depth in range(10, 100, 10):
+    cspd = 3 * np.sin(2*np.pi*t1  +  depth/100*2*np.pi)
+    cdir = 180 + 180 * np.sin(2*np.pi*t1  +  depth/100*2*np.pi)
+    array_by_depth.append((depth, cspd, cdir))
+
+dataframes = []
+for depth, cspd, cdir in array_by_depth:
+    df = pd.DataFrame({
+        "time": times1,
+        "depth": np.zeros(len(t1)) + depth,
+        "CSPD": cspd,
+        "CDIR": cdir
+    })
+    dataframes.append(df)
+
+df = pd.concat(dataframes)
+
+to_csv(df, folder, "AWAC.csv")
 guess_command(folder)
