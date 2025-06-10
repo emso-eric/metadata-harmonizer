@@ -30,9 +30,6 @@ def guess_command(folder):
     rich.print(f"[grey42]python3 generator.py  --data {' '.join(csv_files)} --metadata {' '.join(min_meta)} --output {output}")
 
 
-# Time variable and time vector
-times = pd.date_range("2024-01-01", "2025-01-01", freq="30min")
-t = np.arange(0, len(times))/len(times)
 
 # ============ Example 1: A single CTD ============ #
 info = {
@@ -43,6 +40,11 @@ info = {
 }
 folder = "example01"
 create_info(info, folder)
+
+# Time variable and time vector
+times = pd.date_range("2024-01-01", "2025-01-01", freq="30min")
+t = np.arange(0, len(times))/len(times)
+
 
 # data variables
 temp = 20 + 8 * np.sin(2*np.pi*t)
@@ -73,24 +75,24 @@ create_info(info, folder)
 
 temp1 = 20 + 5 * np.sin(2*np.pi*t)
 cndc1 = 5 + np.sin(2*np.pi*t)
-pres1 = 10 + 2 * np.sin(365*2*np.pi*t)
+psal1 = 37 + np.sin(2*np.pi*t)
 
 temp2 = 15 + 5 * np.sin(2*np.pi*t)
 cndc2 = 5 + np.sin(2*np.pi*t)
-pres2 = 20 + 2 * np.sin(365*2*np.pi*t)
+psal2 = 36 + np.sin(2*np.pi*t)
 
 df1 = pd.DataFrame({
     "time": times,
     "TEMP": temp1, "TEMP_QC": qc_flags,
     "CNDC": cndc1, "CNDC_QC": qc_flags,
-    "PSAL": temp1, "PSAL_QC": qc_flags
+    "PSAL": psal1, "PSAL_QC": qc_flags
 })
 
 df2 = pd.DataFrame({
     "time": times,
     "TEMP": temp2, "TEMP_QC": qc_flags,
     "CNDC": cndc2, "CNDC_QC": qc_flags,
-    "PSAL": pres2, "PSAL_QC": qc_flags
+    "PSAL": psal2, "PSAL_QC": qc_flags
 })
 to_csv(df1, folder, "SBE16.csv")
 to_csv(df2, folder, "SBE37.csv")
@@ -227,7 +229,7 @@ t1 = np.arange(0, len(times1)) / len(times1)
 
 array_by_depth = []
 
-for depth in range(10, 100, 10):
+for depth in range(10, 101, 10):
     cspd = 3 * np.sin(2*np.pi*t1  +  depth/100*2*np.pi)
     cdir = 180 + 180 * np.sin(2*np.pi*t1  +  depth/100*2*np.pi)
     array_by_depth.append((depth, cspd, cdir))
@@ -245,4 +247,80 @@ for depth, cspd, cdir in array_by_depth:
 df = pd.concat(dataframes)
 
 to_csv(df, folder, "AWAC.csv")
+guess_command(folder)
+
+
+# ============ Example 6: Two ADCPs at different depths  ============ #
+info = {
+    "title": "Two ADCPs at different depths",
+    "comment": "timeSeriesProfile from two ADCPs",
+    "sensors": ["AWAC-AST-1", "AWAC-AST-2"],
+    "CF_featureType": "timeSeriesProfile"
+}
+folder = "example06"
+create_info(info, folder)
+
+times1 = pd.date_range("2024-01-01T00:00:00Z", "2024-12-31T23:59:00Z", freq="30min")
+t1 = np.arange(0, len(times1)) / len(times1)
+
+array_by_depth = []
+
+for depth in range(10, 101, 10):
+    cspd = 3 * np.sin(2*np.pi*t1  +  depth/100*2*np.pi)
+    cdir = 180 + 180 * np.sin(2*np.pi*t1  +  depth/100*2*np.pi)
+    array_by_depth.append((depth, cspd, cdir))
+
+dataframes = []
+for depth, cspd, cdir in array_by_depth:
+    df = pd.DataFrame({
+        "time": times1,
+        "depth": np.zeros(len(t1)) + depth,
+        "CSPD": cspd,
+        "CDIR": cdir
+    })
+    dataframes.append(df)
+
+df = pd.concat(dataframes)
+
+to_csv(df, folder, "AWAC_AST_1.csv")
+df["depth"] = df["depth"] + 100
+to_csv(df, folder, "AWAC_AST_2.csv")
+
+guess_command(folder)
+
+# ============ Example 7: CTD in a AUV  ============ #
+info = {
+    "title": "AUV equipped with a CTD",
+    "comment": "AUV trajectory equipped with a CTD",
+    "sensors": ["SBE37"],
+    "CF_featureType": "trajectory"
+}
+folder = "example07"
+create_info(info, folder)
+
+# Time variable and time vector
+times = pd.date_range("2024-01-01T00:00:00Z", "2024-01-02T00:00:00Z", freq="1min")
+t = np.arange(0, len(times))/len(times)
+
+# data variables
+# 41.205286885526746, 1.729306054662221
+temp = 20 + 8 * np.sin(2*np.pi*t)
+cndc = 5 + np.sin(2*np.pi*t)
+pres = 4 + np.sin(10*2*np.pi*t)
+depth = pres
+latitude = 41.206253  - 0.1*t - 0.01*np.sin(10*2*np.pi*t)
+longitude = 1.7324103 + 0.1*t # + np.abs(np.sin(10*2*np.pi*t))
+
+qc_flags = np.zeros(len(t)).astype(np.int8) + 1
+
+df = pd.DataFrame({
+    "time": times,
+    "depth": depth,
+    "latitude": latitude,
+    "longitude": longitude,
+    "TEMP": temp, "TEMP_QC": qc_flags,
+    "CNDC": cndc, "CNDC_QC": qc_flags,
+    "PRES": pres, "PRES_QC": qc_flags
+})
+to_csv(df, folder, "AUV.csv")
 guess_command(folder)

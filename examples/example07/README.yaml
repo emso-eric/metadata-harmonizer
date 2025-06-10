@@ -1,0 +1,5 @@
+CF_featureType: trajectory
+comment: AUV trajectory equipped with a CTD
+sensors:
+- SBE37
+title: AUV equipped with a CTD

@@ -1,0 +1,10 @@
+CF_featureType: timeSeries
+comment: dataset with four CTDs deployed in the same mooring line and a surface weather
+  station
+sensors:
+- SBE37 at 100 meters depth
+- SBE37 at 200 meters depth
+- SBE37 at 300 meters depth
+- SBE37 at 400 meters depth
+- Surface weather station
+title: Four CTDs in mooring line and a surface weather station

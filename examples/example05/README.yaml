@@ -1,0 +1,5 @@
+CF_featureType: timeSeriesProfile
+comment: timeSeriesProfile from an ADCP
+sensors:
+- AWAC
+title: Current data
