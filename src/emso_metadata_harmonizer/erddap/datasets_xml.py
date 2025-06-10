@@ -11,11 +11,13 @@ created: 28/4/23
 import os
 import shutil
 import lxml.etree as etree
+import pandas as pd
 from ..metadata.constants import dimensions
 from ..metadata.waterframe import WaterFrame
 from ..metadata.xmlutils import get_element, set_attribute, append_after, append_before
 from datetime import datetime
 import rich
+import numpy as np
 
 
 def generate_erddap_dataset(wf: WaterFrame, directory, dataset_id):
@@ -28,14 +30,16 @@ def generate_erddap_dataset(wf: WaterFrame, directory, dataset_id):
     """
     assert  isinstance(wf, WaterFrame), f"Expected WaterFrame (got {type(wf)})"
 
+
+
     # dimension_name, data_type, special_attributes
     erddap_dims = [
         ("time", "double", {"units": "seconds since 1970-01-01", "time_precision": "1970-01-01T00:00:00Z" }),
         ("depth", "float", {"units": "m"}),
         ("latitude", "float", {}),
-        ("longitude", "float", {}),
-        ("platform_id", "String", {}),
-        ("sensor_id", "byte", {})
+        ("longitude", "float", {})
+        # ("platform_id", "String", {}),
+        # ("sensor_id", "byte", {})
     ]
 
     erddap_qc = [v for v in wf.data.columns if v.endswith("_QC")]
@@ -48,7 +52,11 @@ def generate_erddap_dataset(wf: WaterFrame, directory, dataset_id):
 
     additional_attributes = {}
     cf_feature_type = wf.metadata["featureType"]
+    rich.print(f"[red]FORCING CF_TYPE = Timeseries")
+    cf_feature_type = "timeSeries"
+
     if  cf_feature_type == "timeSeries":
+        rich.print(f"[cyan]Processing as timeSeries!")
         cdm_data_type = "TimeSeries"
         additional_attributes["cdm_timeseries_variables"] = "platform_id,sensor_id,latitude,longitude,depth"
         subset_vars_str = ",".join(["platform_id", "sensor_id", "depth"] + erddap_qc)
@@ -59,8 +67,12 @@ def generate_erddap_dataset(wf: WaterFrame, directory, dataset_id):
         additional_attributes["cdm_profile_variables"] = "time,sensor_id"
         subset_vars_str = ",".join(["platform_id", "sensor_id"] + erddap_qc)
 
+    elif  cf_feature_type == "trajectory":
+        cdm_data_type = "trajectory"
+        additional_attributes["cdm_trajectory_variables"] = "platform_id"
+        subset_vars_str = ",".join(["platform_id", "sensor_id"] + erddap_qc)
     else:
-        raise ValueError(f"Uniumplemented CF feature type {cf_feature_type}")
+        raise ValueError(f"Unimplemented CF feature type {cf_feature_type}")
 
     x = f"""
 <dataset type="EDDTableFromMultidimNcFiles" datasetID="{dataset_id}" active="true">
@@ -100,11 +112,25 @@ def generate_erddap_dataset(wf: WaterFrame, directory, dataset_id):
 
     dimension_names = [v[0] for v in erddap_dims]
 
-    # Process all data variables
+    # Convert from Pandas dtype to ERDDAP dtype
     for v in wf.data.columns:
         if v in dimension_names:
             continue
-        add_variable(root, v, v, "float", attributes={})
+        if pd.api.types.is_float_dtype(wf.data[v].dtype):
+            dtype = "float"
+        elif pd.api.types.is_integer_dtype(wf.data[v].dtype):
+            dtype = "int"
+        elif pd.api.types.is_string_dtype(wf.data[v].dtype):
+            dtype = "String"
+        else:
+            raise ValueError(f"Unimplemented data type {wf.data[v].dtype}")
+
+        add_variable(root, v, v, dtype, attributes={})
+
+    for sensor in wf.sensors:
+        name = sensor["sensor_name"]
+        add_variable(root, name, name, "String", attributes={})
+
 
     etree.indent(root, space="    ", level=0)  # force indentation
     return serialize(tree)

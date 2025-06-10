@@ -59,7 +59,6 @@ def run_subprocess(cmd):
         raise ValueError(f"subprocess failed: {cmd_list}")
 
 
-
 class MetadataHarmonizerTester(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -76,8 +75,7 @@ class MetadataHarmonizerTester(unittest.TestCase):
             min_meta_files = [f for f in files if f.endswith(".min.json")]
             with open(os.path.join(example, "README.yaml")) as f:
                 info = yaml.safe_load(f)
-                title = info["title"]
-            dataset_id = os.path.basename(example) + "_" + title.replace(" ", "_")
+            dataset_id = os.path.basename(example)
 
             cls.example_datasets.append({
                 "data": csv_files,
@@ -96,7 +94,6 @@ class MetadataHarmonizerTester(unittest.TestCase):
                 os.remove(f)
             os.rmdir(folder)
 
-
         rich.print("Starting erddap docker container...")
         run_subprocess("docker compose up -d")
 
@@ -104,7 +101,6 @@ class MetadataHarmonizerTester(unittest.TestCase):
         cls.datasets_xml = os.path.join("conf", "datasets.xml")
         shutil.copy2(cls.datasets_default_xml, cls.datasets_xml)
 
-        rich.print(cls.example_datasets)
         cls.erddap_url = "http://localhost:8080/erddap"
         erddap_up = False
         while not erddap_up:

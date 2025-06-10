@@ -61,7 +61,7 @@ def df_to_numpy_timeseries_string(df: pd.DataFrame, variable, strlen) -> np.ndar
         d = depth_index[row['depth']]
         for i in range(strlen):
             temp_array[t, d, i] = row[variable][i]
-    return temp_array
+        return temp_array
 
 class WaterFrame(LoggerSuperclass):
     def __init__(self, df: pd.DataFrame, metadata: dict):
@@ -71,9 +71,9 @@ class WaterFrame(LoggerSuperclass):
 
         The metadata dict is
         """
+        assert "index" not in df.columns
         logger = logging.getLogger("emh")
         LoggerSuperclass.__init__(self, logger,"WF", colour=CYN)
-
         assert type(df) is pd.DataFrame
         assert type(metadata) is dict
         # Metadata should have at least 4 keys: global, sensor, platform and variables
@@ -101,6 +101,13 @@ class WaterFrame(LoggerSuperclass):
         self.metadata = metadata.pop("global")
         self.sensors = metadata.pop("sensors")
         self.platforms = metadata.pop("platforms")
+
+        for sensor in self.sensors:
+            old_sensor_id = sensor["sensor_id"]
+            new_sensor_id = old_sensor_id.replace(" ", "_").replace("-", "_")
+            sensor["sensor_id"] = new_sensor_id
+            if "sensor_id" in df.columns and old_sensor_id in df["sensor_id"].unique():
+                df.loc[df["sensor_id"] == old_sensor_id, "sensor_id"] = new_sensor_id
 
         def platform_metadata_to_column(df: pd.DataFrame, variable: str) -> pd.DataFrame:
             if variable not in df.columns:
@@ -139,10 +146,6 @@ class WaterFrame(LoggerSuperclass):
         metadata["variables"]["platform_id"] = {"long_name": "platform where the sensor was deployed"}
 
         # Create a sensor_dict to convert from strings to ints
-        self.sensor_dict = {name: count + 1 for count, name in enumerate([s["sensor_id"] for s in self.sensors])}
-        for sensor_name, sensor_id in self.sensor_dict.items():
-            df.loc[df["sensor_id"] == sensor_name, "sensor_id"] = sensor_id
-
 
         self.data = df
         self.vocabulary = metadata["variables"]
@@ -166,8 +169,8 @@ class WaterFrame(LoggerSuperclass):
 
         self.cf_data_type = ""
         self.cf_alignment()
-
-        self.data["sensor_id"] = self.data["sensor_id"].astype(np.uint8)
+        self.sort()
+        self.sensor_dict = {s["sensor_id"]: s for s in self.sensors}
 
     def determine_strlen(self) -> int:
         """
@@ -187,33 +190,44 @@ class WaterFrame(LoggerSuperclass):
         platform_ids = max([len(s["platform_id"]) for s in self.platforms])
         return max(strlen, sensors_ids, platform_ids)
 
-    def get_cf_type(self, sensor_id) -> str:
+    def get_cf_type(self) -> str:
         """
         Gets the Climate and Forecast Discrete Sampling Geometry data type based on the data of a single sensor.
         DSG type is usually timeSeries or timeSeriesProfile
         """
 
         dsgs = []
-
         for sensor_id in self.data["sensor_id"].unique():
-            sensor_name = ""
-            for name, iden in self.sensor_dict.items():
-                if iden == sensor_id:
-                    sensor_name = name
-
             df = self.data
             df = df[df["sensor_id"] == sensor_id]
 
+            # timeSeries should have a fixed
             n_lat = len(np.unique(df["latitude"]))
             n_lon = len(np.unique(df["longitude"]))
             n_depth = len(np.unique(df["depth"]))
             if n_depth == n_lon == n_lat == 1:
+                # If we only have one lat/lon/depth it is clearly a timeSeries
                 cf_data_type = "timeSeries"
             elif n_lon == n_lat == 1 and n_depth > 1:
-                cf_data_type = "timeSeriesProfile"
+                # If we have multiple depths it can be a redeployed sensor. To check it it shou
+                cf_data_type = "timeSeries"
+                df = df.set_index(["time", "depth"])
+                df = df.sort_index()
+                df = df.reset_index()
+
+                for i, time in enumerate(df["time"]):
+                    if len(df.loc[df["time"] == time, "depth"]) > 1:
+                        # if we have multiple depths at the same time instant it is a profile
+                        cf_data_type = "timeSeriesProfile"
+                        break
+                    elif i > 100:
+                        # 100 time points should be enough to determine profile or timeseries
+                        break
+            elif n_lon > 1 and n_lat > 1 and len(df) > 1:
+                cf_data_type = "trajectory"
             else:
-                raise ValueError(f"Unimplemented CF data type for sensor {sensor_id}")
-            rich.print(f"Sensor {sensor_id} has dsg type = {cf_data_type}")
+                raise ValueError(f"Unimplemented CF data type for sensor {sensor_id} with {n_lat} latitudes, {n_lon} longitudes, {n_depth} depths")
+
             dsgs.append(cf_data_type)
 
         if all([dsg == "timeSeries" for dsg in dsgs]):
@@ -222,6 +236,8 @@ class WaterFrame(LoggerSuperclass):
 
         elif  all([dsg in ["timeSeries", "timeSeriesProfile"] for dsg in dsgs]):
             cf_data_type = "timeSeriesProfile"
+        elif all([dsg == "trajectory" for dsg in dsgs]):
+            cf_data_type = "trajectory"
         else:
             raise ValueError(f"Cannot create a NetCDF file that mixes different Discrete Sampling Geometries: {dsgs}")
 
@@ -254,37 +270,21 @@ class WaterFrame(LoggerSuperclass):
 
         # Split dataframe by sensors
         self.debug("Guessing CF discrete sampling geometry type...")
-        cf_dsg_types = []
-        if "sensor_id" not in df.columns:
-            if len(self.data["sensor_id"].unique()) == 1:
-                self.data["sensor_id"] = 1
-            else:
-                raise ValueError("several sensors detected, but no sensor_id column provided!")
-            df = self.data
-
-        for sensor_id in np.unique(df["sensor_id"].values):
-            self.info(f"   Getting CF type for sensor: {sensor_id}")
-            dsg = self.get_cf_type(sensor_id)
-            self.debug(f"    {sensor_id} has {dsg} CF type")
-            cf_dsg_types.append(dsg)
-
-        if len(np.unique(cf_dsg_types)) != 1:
-            raise ValueError(f"Cannot create a NetCDF file that mixes different Discrete Sampling Geometries: {cf_dsg_types}")
-
-        self.cf_data_type = cf_dsg_types[0]  # All are the same, so get the first one
-
+        self.cf_data_type = self.get_cf_type()
+        self.sort()
         self.info(f"CF Data Type: {self.cf_data_type}")
 
         # Add metadata to Align with ERDDAP CDM data types
         if self.cf_data_type == "timeSeries":
             self.metadata["featureType"] = "timeSeries"
-            # self.metadata["cdm_timeseries_variables"] = "depth,latitude,longitude,sensor_id"
 
         elif self.cf_data_type == "timeSeriesProfile":
             self.metadata["featureType"] = "timeSeriesProfile"
-            # self.metadata["cdm_profile_variables"] = "time,sensor_id"
-            # self.metadata["cdm_timeseries_variables"] = "depth,latitude,longitude"
             self.vocabulary["time"]["cf_role"] = "profile_id"
+
+        elif self.cf_data_type == "trajectory":
+            self.metadata["featureType"] = "trajectory"
+
         for var in self.vocabulary.keys():
             if var.endswith("_QC"):
                 continue
@@ -294,6 +294,16 @@ class WaterFrame(LoggerSuperclass):
         if "CF-1.8" not in self.metadata["Conventions"]:
             self.metadata["Conventions"] += ["CF-1.8"]
 
+    def sort(self):
+        df = self.data
+        if self.cf_data_type in ["timeSeries", "timeSeriesProfile", "trajectory"]:
+            df = df.set_index(["time", "depth"])
+            df = df.sort_index()
+        else:
+            raise ValueError(f"Unimplemented CF type '{self.cf_data_type}'")
+        df = df.reset_index()
+        assert "index" not in df.columns
+        self.data = df
 
     def to_netcdf(self, filename):
         """
@@ -303,6 +313,8 @@ class WaterFrame(LoggerSuperclass):
             self.to_timeseries_netcdf(filename)
         elif self.cf_data_type == "timeSeriesProfile":
             self.to_timeseries_profile_netcdf(filename)
+        elif self.cf_data_type == "trajectory":
+            self.to_trajectory_netcdf(filename)
         else:
             raise ValueError(f"Unimplemented CF type {self.cf_data_type}")
 
@@ -390,9 +402,20 @@ class WaterFrame(LoggerSuperclass):
         platform_id = str(df["platform_id"].unique()[0])
         var[:] = np.array([c for c in platform_id.ljust(strlen)])
         self.populate_var_metadata("platform_id", var)
-        var.setncattr("cf_role", "timeseries_id")
+        if self.cf_data_type == "timeSeries":
+            var.setncattr("cf_role", "timeseries_id")
+        elif self.cf_data_type == "trajectory":
+            var.setncattr("cf_role", "trajectory_id")
 
     def nc_add_sensor_id_dimension(self, ncfile, df):
+
+        # Assign numbers to sensors
+        sensor_dict = {name: count + 1 for count, name in enumerate([s["sensor_id"] for s in self.sensors])}
+        for sensor_name, sensor_id in sensor_dict.items():
+            df.loc[df["sensor_id"] == sensor_name, "sensor_id"] = sensor_id
+
+        df["sensor_id"] = df["sensor_id"].astype(np.uint8)
+
         # Assign the sensor_id as a code
         ncfile.createDimension("sensor_id", len(df["sensor_id"].unique()))  # create dimension
         nc_dtype, nc_fill, zlib = self.nc_data_types(df["sensor_id"].dtype)
@@ -405,7 +428,7 @@ class WaterFrame(LoggerSuperclass):
 
         for sensor in self.sensors:
             sensor_name = sensor["sensor_id"]
-            sensor_code = self.sensor_dict[sensor_name]
+            sensor_code = sensor_dict[sensor_name]
             self.info(f"Creating variable to store '{sensor_name}' metadata with value {sensor_code}")
             var = ncfile.createVariable(sensor_name, "u1")
             var.assignValue(sensor_code)
@@ -421,35 +444,44 @@ class WaterFrame(LoggerSuperclass):
                 value = " ".join(values)
             ncfile.setncattr(key, value)
 
+
     def to_timeseries_netcdf(self, filename, double_fill=-9999.99, u1_fill=255):
         """
         Creates a NetCDF file for the time series dataset following CF-1.12 format.
         """
         df = self.data
-        dimensions = ["time", "depth", "latitude", "longitude", "sensor_id", "platform_id"]
-        variables = [str(c) for c in df.columns if c not in dimensions]
+        #dimensions = ["time", "depth", "latitude", "longitude", "sensor_id", "platform_id"]
+        dimensions = ["time", "depth", "latitude", "longitude"]
+        print(df)
+
         df["platform_id"] = [s.replace("-", "_") for s in df["platform_id"].values]
+        variables = [str(c) for c in df.columns if c not in dimensions]
 
         with nc.Dataset(filename, "w", format="NETCDF4") as ncfile:
             self.nc_add_time_dimension(df, ncfile, double_fill=double_fill)
             self.nc_add_depth_dimension(df, ncfile, double_fill=double_fill)
-            self.nc_add_platform_id(ncfile, df)
+            #self.nc_add_platform_id(ncfile, df)
             self.nc_add_fixed_latitude_longitude(ncfile, df)
-            self.nc_add_sensor_id_dimension(ncfile, df)
+            # self.nc_add_sensor_id_dimension(ncfile, df)
 
             variables_qc = [varname + "_QC" for varname in variables if varname + "_QC" in df.columns]
             all_varnames = variables + variables_qc
-            arrays = self.df_to_3d_array(df, all_varnames)
+            #arrays = self.df_to_3d_array(df, all_varnames)
+            arrays = self.df_to_2d_array(df, all_varnames)
             for varname in variables:
                 dtype = df[varname].dtype
                 nc_dtype, nc_fill_value, zlib = self.nc_data_types(dtype)
-                rich.print(f"===> [cyan] Variable {varname} with pandas dtype '{dtype}' [green] nc_type='{nc_dtype}' fill='{nc_fill_value}'")
-                var = ncfile.createVariable(varname, nc_dtype, ("time", "depth", "sensor_id"), zlib=True)
+                #var = ncfile.createVariable(varname, nc_dtype, ("time", "depth", "sensor_id"), zlib=True)
+                var = ncfile.createVariable(varname, nc_dtype, ("time", "depth"), zlib=True)
                 var[:] = arrays[varname]
                 self.populate_var_metadata(varname, var)
                 var.setncattr("coordinates", "time depth latitude longitude platform_id")
+                if varname == "platform_id":
+                    var.setncattr("cf_role", "timeseries_id")
 
             self.nc_set_global_attributes(ncfile)
+
+
 
     def to_timeseries_profile_netcdf(self, filename, double_fill=-9999.99, u1_fill=255):
         """
@@ -485,6 +517,39 @@ class WaterFrame(LoggerSuperclass):
 
             self.nc_set_global_attributes(ncfile)
 
+    def to_trajectory_netcdf(self, filename, double_fill=-9999.99):
+        """
+        Creates a NetCDF file for the time series dataset following CF-1.12 format.
+        """
+        df = self.data
+        dimensions = ["time", "sensor_id", "platform_id"]
+        # dimensions = ["time", "depth", "latitude", "longitude", "platform_id"]
+
+        variables = [str(c) for c in df.columns if c not in dimensions]
+        df["platform_id"] = [s.replace("-", "_") for s in df["platform_id"].values]
+
+        with nc.Dataset(filename, "w", format="NETCDF4") as ncfile:
+            self.nc_add_time_dimension(df, ncfile, double_fill=double_fill)
+            self.nc_add_platform_id(ncfile, df)
+            self.nc_add_sensor_id_dimension(ncfile, df)
+
+
+            variables_qc = [varname + "_QC" for varname in variables if varname + "_QC" in df.columns]
+            all_varnames = variables + variables_qc
+            arrays = self.df_to_2d_array(df, all_varnames, column="sensor_id")
+
+            # arrays = self.df_to_2d_array(df, all_varnames)
+            for varname in variables:
+                dtype = df[varname].dtype
+                nc_dtype, nc_fill_value, zlib = self.nc_data_types(dtype)
+                var = ncfile.createVariable(varname, nc_dtype, ("time", "sensor_id"), zlib=True)
+                #var = ncfile.createVariable(varname, nc_dtype, ("time", "depth"), zlib=True)
+
+                var[:] = arrays[varname]
+                self.populate_var_metadata(varname, var)
+                var.setncattr("coordinates", "time depth latitude longitude platform_id")
+
+            self.nc_set_global_attributes(ncfile)
 
     def nc_data_types(self, dtype):
         """
@@ -499,6 +564,8 @@ class WaterFrame(LoggerSuperclass):
             return "i4", -9999.99, True
         elif dtype in [np.uint8]:
             return "u1", 255, True
+        elif pd.api.types.is_string_dtype(dtype):
+            return "S1", "", True
         else:
             raise ValueError(f"Cannot convert dtype '{dtype}' to NetCDF data type!")
 
@@ -549,7 +616,7 @@ class WaterFrame(LoggerSuperclass):
 
         return arrays
 
-    def df_to_2d_array(self, df: pd.DataFrame, varnames):
+    def df_to_2d_array(self, df: pd.DataFrame, varnames, column="depth"):
         assert isinstance(varnames, list)
         for v in varnames:
             assert isinstance(v, str)
@@ -558,7 +625,7 @@ class WaterFrame(LoggerSuperclass):
 
         arrays = {}
         for varname in varnames:
-          arrays[varname] = df.pivot(index="time", columns="depth", values=varname).to_numpy()
+          arrays[varname] = df.pivot(index="time", columns=column, values=varname).to_numpy()
 
         return arrays
 
@@ -578,10 +645,10 @@ class WaterFrame(LoggerSuperclass):
 
         df = ds.to_dataframe()
 
+
         if "time" not in df.columns:
             df = df.reset_index()
             assert "time" in df.columns, "Could not find time column in the dataset!"
-
         for variable in ds.variables:
             metadata["variables"][variable] = dict(ds[variable].attrs)
 
@@ -590,6 +657,26 @@ class WaterFrame(LoggerSuperclass):
 
         metadata["sensors"] = collect_sensor_metadata(metadata, df)
         metadata["platforms"] = collect_platform_metadata(df)
+
+        # Convert sensor_id from number to text for easier manipulation
+        if df["sensor_id"].dtype in [int, np.uint8, np.int8, float, np.float32, np.float64]:
+            for sensor_code in df["sensor_id"].unique():
+                # look for a variable with "sensor_id" = sensor_code
+                sensor_code = int(sensor_code)
+                for sensor in metadata["sensors"]:
+                    if int(sensor["sensor_id"]) == sensor_code:
+                        df.loc[df["sensor_id"] == sensor_code, "sensor_id"] = sensor["sensor_name"]
+                        break
+        # Convert from sensor_id to string with sensor_name
+        for sensor in metadata["sensors"]:
+            sensor["sensor_id"] = sensor["sensor_name"]
+
+        # Keep only columns with relevant data
+        dimensions = ["time", "depth", "latitude", "longitude", "sensor_id", "platform_id"]
+        sensor_names = [s["sensor_name"] for s in metadata["sensors"]]
+        variables = [v for v in df.columns if v not in dimensions and not v.endswith("_QC") and v not in sensor_names]
+        df = df.dropna(subset=variables)
+
         return WaterFrame(df, metadata)
 
 
@@ -607,6 +694,31 @@ def all_equal(values: list):
             break
     return equals
 
+def __merge_timeseries_waterframes(waterframes: [WaterFrame, ]) -> pd.DataFrame:
+    dataframes = []
+    for wf in waterframes:
+        assert isinstance(wf, WaterFrame)
+        assert wf.cf_data_type in ["timeSeries"]
+        wf.sort()
+        dataframes.append(wf.data)
+    df = pd.concat(dataframes)
+    return df
+
+
+def __merge_timeseries_profile_waterframes(waterframes: [WaterFrame, ])  -> pd.DataFrame:
+    dataframes = []
+    for wf in waterframes:
+        assert isinstance(wf, WaterFrame)
+        assert wf.cf_data_type in ["timeSeries", "timeSeriesProfile"]
+        wf.sort()
+        dataframes.append(wf.data)
+
+    df = pd.concat(dataframes)
+    # if "time" not in df.columns:
+    #     df = df.reset_index()
+    return df
+
+
 
 def merge_waterframes(waterframes):
     """
@@ -616,17 +728,14 @@ def merge_waterframes(waterframes):
         return waterframes[0]
 
     # Create the same index for all waterframes
-    for wf in waterframes:
-        if wf.cf_data_type == "timeSeries":
-            wf.data = wf.data.set_index("time")
-            wf.data = wf.data.sort_index()
-        else:
-            raise ValueError("Unimplemented data type")
-
-    # Avoid empty waterframes
+    dsg_types = [wf.cf_data_type for wf in waterframes]
+    if all([dsg == "timeSeries" for dsg in dsg_types]):
+        df = __merge_timeseries_waterframes(waterframes)
+    elif all([dsg in ["timeSeries", "timeSeriesProfile"] for dsg in dsg_types]) and any([dsg == "timeSeriesProfile" for dsg in dsg_types ]):
+        df = __merge_timeseries_profile_waterframes(waterframes)
+    else:
+        raise ValueError(f"Could not merge waterframes with the following types! {dsg_types}")    # Avoid empty waterframes
     waterframes = [wf for wf in waterframes if not wf.data.empty]
-
-    dataframes = [wf.data for wf in waterframes]  # list of dataframes
 
     metadata = {
         "global": {},
@@ -655,9 +764,6 @@ def merge_waterframes(waterframes):
             elif key not in metadata["variables"].keys():
                 metadata["variables"][key] = var
 
-    df = pd.concat(dataframes)  # Consolidate data in a single dataframe
-    df = df.sort_index(ascending=True)  # sort by date
-    df = df.reset_index()  # get back to numerical index
     wf = WaterFrame(df, metadata)
     wf.autofill_coverage()  # update the coordinates max/min in metadata
 
