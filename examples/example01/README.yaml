@@ -1,5 +1,0 @@
-CF_featureType: timeSeries
-comment: simple dataset with only one CTD at a fixed depth
-sensors:
-- SBE37 (CTD) deployed at 20m depth
-title: Fixed-point CTD data

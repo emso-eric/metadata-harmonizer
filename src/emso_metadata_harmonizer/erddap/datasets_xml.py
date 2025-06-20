@@ -12,12 +12,10 @@ import os
 import shutil
 import lxml.etree as etree
 import pandas as pd
-from ..metadata.constants import dimensions
 from ..metadata.waterframe import WaterFrame
-from ..metadata.xmlutils import get_element, set_attribute, append_after, append_before
+from ..metadata.xmlutils import get_element, append_after
 from datetime import datetime
 import rich
-import numpy as np
 
 
 def generate_erddap_dataset(wf: WaterFrame, directory, dataset_id):
@@ -29,9 +27,6 @@ def generate_erddap_dataset(wf: WaterFrame, directory, dataset_id):
     returns: a string containing the datasets.xml chunk to setup the dataset
     """
     assert  isinstance(wf, WaterFrame), f"Expected WaterFrame (got {type(wf)})"
-
-
-
     # dimension_name, data_type, special_attributes
     erddap_dims = [
         ("time", "double", {"units": "seconds since 1970-01-01", "time_precision": "1970-01-01T00:00:00Z" }),
@@ -47,30 +42,39 @@ def generate_erddap_dataset(wf: WaterFrame, directory, dataset_id):
 
     if "infoUrl" in wf.metadata.keys(): # If infoURL not set, use the edmo uri
         info_url = wf.metadata["infoUrl"]
-    else:
+    elif "institution_edmo_uri" in wf.metadata.keys():
         info_url = wf.metadata["institution_edmo_uri"]
+    else:
+        info_url = "https://edmo.seadatanet.org/report/" + str(wf.metadata["institution_edmo_code"])
 
     additional_attributes = {}
     cf_feature_type = wf.metadata["featureType"]
-    rich.print(f"[red]FORCING CF_TYPE = Timeseries")
-    cf_feature_type = "timeSeries"
 
     if  cf_feature_type == "timeSeries":
-        rich.print(f"[cyan]Processing as timeSeries!")
-        cdm_data_type = "TimeSeries"
+        cdm_data_type = "timeSeries"
         additional_attributes["cdm_timeseries_variables"] = "platform_id,sensor_id,latitude,longitude,depth"
-        subset_vars_str = ",".join(["platform_id", "sensor_id", "depth"] + erddap_qc)
+        position_vars = []
+        if "precise_latitude" in wf.data.columns and "precise_longitude" in wf.data.columns:
+            position_vars = ["precise_latitude", "precise_longitude"]
+
+        subset_vars_str = ",".join(["platform_id", "sensor_id", "depth"] + erddap_qc + position_vars)
+
 
     elif  cf_feature_type == "timeSeriesProfile":
-        cdm_data_type = "TimeSeriesProfile"
+        cdm_data_type = "timeSeriesProfile"
         additional_attributes["cdm_timeseries_variables"] = "platform_id,latitude,longitude"
         additional_attributes["cdm_profile_variables"] = "time,sensor_id"
-        subset_vars_str = ",".join(["platform_id", "sensor_id"] + erddap_qc)
+        subset_vars_str = ",".join(["platform_id", "sensor_id", "depth"] + erddap_qc)
 
     elif  cf_feature_type == "trajectory":
         cdm_data_type = "trajectory"
         additional_attributes["cdm_trajectory_variables"] = "platform_id"
         subset_vars_str = ",".join(["platform_id", "sensor_id"] + erddap_qc)
+    elif  cf_feature_type == "trajectoryProfile":
+        cdm_data_type = "trajectory"
+        additional_attributes["cdm_trajectory_variables"] = "platform_id"
+        subset_vars_str = ",".join(["platform_id", "sensor_id"] + erddap_qc)
+
     else:
         raise ValueError(f"Unimplemented CF feature type {cf_feature_type}")
 
@@ -116,7 +120,9 @@ def generate_erddap_dataset(wf: WaterFrame, directory, dataset_id):
     for v in wf.data.columns:
         if v in dimension_names:
             continue
-        if pd.api.types.is_float_dtype(wf.data[v].dtype):
+        if v.endswith("_QC"):
+            dtype = "ubyte"
+        elif pd.api.types.is_float_dtype(wf.data[v].dtype):
             dtype = "float"
         elif pd.api.types.is_integer_dtype(wf.data[v].dtype):
             dtype = "int"
@@ -127,10 +133,13 @@ def generate_erddap_dataset(wf: WaterFrame, directory, dataset_id):
 
         add_variable(root, v, v, dtype, attributes={})
 
-    for sensor in wf.sensors:
-        name = sensor["sensor_name"]
+    for sensor in wf.sensors.values():
+        name = sensor["sensor_id"]
         add_variable(root, name, name, "String", attributes={})
 
+    for platform in wf.platforms.values():
+        name = platform["platform_id"]
+        add_variable(root, name, name, "String", attributes={})
 
     etree.indent(root, space="    ", level=0)  # force indentation
     return serialize(tree)
@@ -164,7 +173,7 @@ def add_variable(root, source, destination, datatype, attributes: dict = {}):
     Adds a variable to an ERDDAP dataset
     """
 
-    __valid_data_types = ["int", "byte", "double", "float", "String"]
+    __valid_data_types = ["int", "ubyte", "byte", "double", "float", "String"]
 
     if datatype not in __valid_data_types:
         raise ValueError(f"Data type '{datatype}' not valid!")

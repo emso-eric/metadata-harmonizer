@@ -5,6 +5,8 @@ services:
     image: axiom/docker-erddap:2.24-jdk21-openjdk
     restart: unless-stopped
     hostname: dummy-erddap
+    environment:
+      - "ERDDAP_adminInstitution=EMSO ERIC"
     ports:
       - 8080:8080
     volumes:

@@ -120,7 +120,7 @@ def autofill_variable(varmeta: dict, emso: EmsoMetadata) -> dict:
         sdn_parameter_uri = varmeta["sdn_parameter_uri"]
     elif "sdn_parameter_urn" in varmeta.keys():  # find the URI based on the URN
         urn = varmeta["sdn_parameter_urn"]
-        sdn_parameter_uri = emso.vocab_get_by_urn("P01", urn, "uri")
+        sdn_parameter_uri = emso.vocab_get("P01", urn, "uri")
     else:
         raise LookupError("URN nor URI present in variable!")
 
@@ -130,7 +130,6 @@ def autofill_variable(varmeta: dict, emso: EmsoMetadata) -> dict:
         varmeta["sdn_parameter_uri"] = sdn_parameter_uri
 
     label = emso.vocab_get("P01", sdn_parameter_uri, "prefLabel")
-    rich.print(f"{sdn_parameter_uri} prefLabel: {label}")
     sdn_id = emso.vocab_get("P01", sdn_parameter_uri, "id")
     varmeta["sdn_parameter_urn"] = sdn_id
     varmeta["sdn_parameter_name"] = label.strip()
@@ -146,7 +145,7 @@ def autofill_variable(varmeta: dict, emso: EmsoMetadata) -> dict:
     varmeta["sdn_uom_uri"] = sdn_uom_uri
     varmeta["sdn_uom_urn"] = iden
     varmeta["sdn_uom_name"] = label.strip()
-    varmeta["units"] = label
+    varmeta["units"] = label.lower()
     return varmeta
 
 

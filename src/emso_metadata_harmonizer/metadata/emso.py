@@ -42,6 +42,8 @@ spdx_licenses_github = "https://raw.githubusercontent.com/spdx/license-list-data
 # Copernicus INS TAC Parameter list v3.2
 copernicus_param_list = "https://archimer.ifremer.fr/doc/00422/53381/108480.xlsx"
 
+cf_standard_name_units_url = "https://cfconventions.org/Data/cf-standard-names/90/src/cf-standard-name-table.xml"
+
 
 def process_markdown_file(file) -> (dict, dict):
     """
@@ -162,13 +164,15 @@ def parse_sdn_jsonld(filename):
         "uri": [],
         "identifier": [],
         "prefLabel": [],
-        "definition": []
+        "definition": [],
+        "altLabel": []
     }
 
     alias = {  # key-> key to be stored in data dict, value -> all possible keys found in JSON-LD docs
         "definition": ["definition", "skos:definition"],
         "prefLabel": ["prefLabel", "skos:prefLabel"],
         "identifier": ["dc:identifier", "dce:identifier"],
+        "altLabel": ["altLabel", "skos:altLabel"],
         "uri": ["@id"]
     }
 
@@ -189,7 +193,6 @@ def parse_sdn_jsonld(filename):
         uri = element["@id"]
         if element["@type"] != "skos:Concept":
             continue
-
         for key in data.keys():
             value = get_value_by_alias(element, key)
             if type(value) == type(None):
@@ -197,6 +200,9 @@ def parse_sdn_jsonld(filename):
                 continue
             if type(value) is dict:
                 value = value["@value"]
+            elif type(value) is list:
+                value = value[0]
+
             data[key].append(value)
 
         # Initialize as empty list
@@ -267,6 +273,8 @@ class EmsoMetadata:
         edmo_codes_jsonld = os.path.join(".emso", "edmo_codes.json")
         spdx_licenses_file = os.path.join(".emso", "spdx_licenses.md")
         copernicus_params_file = os.path.join(".emso", "copernicus_param_list.xlsx")
+        cf_std_name_units_file = os.path.join(".emso", "standard_name_units.xml")
+
 
         tasks = [
             [emso_metadata_url, emso_metadata_file, "EMSO metadata"],
@@ -282,7 +290,8 @@ class EmsoMetadata:
             [sdn_vocab_l35, sdn_vocab_l35_file, "SDN Vocab L35"],
             [edmo_codes, edmo_codes_jsonld, "EDMO codes"],
             [spdx_licenses_github, spdx_licenses_file, "spdx licenses"],
-            [copernicus_param_list, copernicus_params_file, "spdx licenses"]
+            [copernicus_param_list, copernicus_params_file, "spdx licenses"],
+            [cf_standard_name_units_url, cf_std_name_units_file, "CF units"]
         ]
 
         download_files(tasks)
@@ -354,7 +363,6 @@ class EmsoMetadata:
                         json.dump(values, f)
             # for vocab, df in self.sdn_vocabs.items():
                 # Storing to CSV to make it easier to search
-                df = df[["id", "uri", "prefLabel", "definition"]]
                 filename = os.path.join(".emso", f"{vocab}.csv")
                 df.to_csv(filename, index=False)
 
@@ -387,7 +395,6 @@ class EmsoMetadata:
         variables = [v.split(" (")[0] for v in variables]  # remove citations
         variables = [v for v in variables if len(v) > 1]   # remove empty lines
         self.copernicus_variables = variables
-
 
     @staticmethod
     def clear_downloads():
@@ -427,7 +434,7 @@ class EmsoMetadata:
         Search in vocab <vocab_id> for the element with matching uri and return element identified by key
         """
         uri = self.harmonize_uri(uri)
-        __allowed_keys = ["prefLabel", "id", "definition"]
+        __allowed_keys = ["prefLabel", "id", "definition", "altLabel"]
         if key not in __allowed_keys:
             raise ValueError(f"Key '{key}' not valid, allowed keys: {__allowed_keys}")
 
@@ -436,7 +443,8 @@ class EmsoMetadata:
         if row.empty:
             #raise LookupError(f"Could not get {key} for '{uri}' in vocab {vocab_id}")
             rich.print(f"[red]Could not get {key} for '{uri}' in vocab {vocab_id}")
-            return ""
+            return
+
         return row[key].values[0]
 
     def vocab_get_by_urn(self, vocab_id, urn, key):

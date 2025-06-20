@@ -1,0 +1,14 @@
+sensors:
+  SBE37SMP_SN47472_5496:
+    long_name: "Sea-Bird Scientific SBE37 SMP CTD Sensor"  # human-readable name
+    sensor_serial_number: "37SMP47472-5496"
+    sensor_mount: "mounted_on_seafloor_structure"  # mounting from a controlled list
+    sensor_orientation: "upward"  # (optional) only relevant for ADCPs
+    sensor_model: "Sea-Bird SBE 37 MicroCat SMP-CTP (submersible) CTD sensor"
+    sensor_model_uri: "https://vocab.nerc.ac.uk/collection/L22/current/TOOL1457"
+    sensor_SeaVoX_L22_code: "SDN:L22::TOOL1457"  # L22 URN (for compatibility with SeaDataNet and OceanSITES)
+    sensor_manufacturer_uri: "http://vocab.nerc.ac.uk/collection/L35/current/MAN0013/"
+    sensor_manufacturer_urn: "SDN:L35::MAN0013"
+    sensor_manufacturer: "Sea-Bird Scientific"
+    sensor_reference: "https://vocab.nerc.ac.uk/collection/L22/current/TOOL1457"
+

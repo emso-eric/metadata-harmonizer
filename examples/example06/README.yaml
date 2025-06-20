@@ -1,6 +1,0 @@
-CF_featureType: timeSeriesProfile
-comment: timeSeriesProfile from two ADCPs
-sensors:
-- AWAC-AST-1
-- AWAC-AST-2
-title: Two ADCPs at different depths

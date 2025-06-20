@@ -1,0 +1,83 @@
+global:
+  title: "Example 11: Fish detections from underwater pictures, compatible with Darwin Core"
+  summary: "Fish detections from an underwater pictures analyzed through an object detection and classification algorithm trained to classify fish"
+  Conventions: "OceanSITES EMSO CF-1.8 DwC" # adding Darwin Core??
+  institution: "UPC - Universitat Politècnica de Catalunya"
+  institution_edmo_code: "2150"
+  update_interval: "void"
+  site_code: "OBSEA"
+  emso_facility: "OBSEA"
+  source: "mooring"
+  data_type: "OceanSITES profile data"
+  format_version: "1.4"
+  network: "EMSO"
+  data_mode: "D"
+  project: ""
+  principal_investigator: "Homer Simpson"
+  principal_investigator_email: "homer.simpson@fake.com"
+  license: "CC-BY-4.0"
+
+platforms:
+  OBSEA:
+    long_name: "OBSEA Seafloor Observatory"  # human-readable long name of the platform
+    wmo_number: "6103565"  # (optional) World Meteorological Organization platform number
+    emso_ontology_uri: ""  # link to the OSO ontology
+    platform_type: "mooring"  # Platform type from the L06 vocabulary
+    platform_type_uri: "http://vocab.nerc.ac.uk/collection/L06/current/48/"  # Link to an instance of the L06 vocabulary
+    info_url: "https://obsea.es"  # (optional) uri where more information can be obtained
+    # (optional) other relevant information
+    comment: "OBSEA seafloor observatory is a multiparametric cabled observatory located at NW mediterranean sea"
+
+    # Nominal coordinates, deployment variables or real-time GPS coordinates can be provided in the data with the
+    # precise_latitude/precise_longitude variable, (standard name: deployment_latitude, P01 code: ALATGP01).
+    latitude: 41.18212  # nominal latitude
+    longitude: 1.75257  # nominal longitude
+
+sensors:
+  IPC608_SN0001:
+    long_name: "IPC608 underwater camera"  # human-readable name
+    sensor_serial_number: "0001"
+    sensor_mount: "mounted_on_seafloor_structure"  # mounting from a controlled list
+    sensor_orientation: "horizontal"   # may be relevant for the camera
+    sensor_model: "IPC608UW underwater camera"
+    sensor_model_uri: ""  # Not found L22
+    sensor_manufacturer: "Linovision"
+    sensor_manufacturer_uri: ""  # Not found in L35
+
+variables:
+  associatedMedia:
+    long_name: "underwater photography"
+    dwc_term_uri: "http://rs.tdwg.org/dwc/terms/associatedMedia"
+    variable_type: "biological"
+
+  scientificName:
+    long_name: "identified species scientific name"
+    dwc_term_uri: "http://rs.tdwg.org/dwc/terms/scientificName"
+    variable_type: "biological"
+
+  scientificNameID:
+    long_name: "identified species aphia ID"
+    dwc_term_uri: "http://rs.tdwg.org/dwc/terms/scientificNameID"
+    variable_type: "biological"
+
+  confidence:
+    long_name: "detection algorithm confidence"
+    comment: "Confidence represents a score assigned by a model to its prediction, indicating how certain the model is about that specific output. For tasks like object detection or image classification, each detected object or assigned class label comes with a confidence score, typically ranging from 0 to 1 (or 0% to 100%). This score helps users gauge the reliability of individual predictions made by models such as Ultralytics YOLO. A higher score suggests the model is more certain about its prediction based on the patterns learned during training. "
+    variable_type: "technical"
+
+  bbox:
+    long_name: "detection bounding box"
+    comment: "XYXY normalized bounding box for each detection, provided as a string composed of 4 floats separated by space"
+    variable_type: "technical"
+
+  identificationVerificationStatus:
+    long_name: "categorical indicator of the extent to which the taxonomic identification has been verified to be correct"
+    dwc_term_uri: "http://rs.tdwg.org/dwc/terms/identificationVerificationStatus"
+    variable_type: "biological"
+
+  basisOfRecord:
+    long_name: "The specific nature of the data record"
+    dwc_term_uri: "http://rs.tdwg.org/dwc/terms/basisOfRecord"
+    variable_type: "biological"
+
+

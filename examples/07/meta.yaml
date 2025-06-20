@@ -1,0 +1,63 @@
+global:
+  title: "Example 07: Two ADCPs, one mounted in a seabed station and another in a buoy"
+  summary: "Two ADCPs, one mounted in a seabed station and another in a buoy"
+  Conventions: "OceanSITES EMSO CF-1.8"
+  institution: "UPC - Universitat Politècnica de Catalunya"
+  institution_edmo_code: "2150"
+  update_interval: "void"
+  site_code: "OBSEA"
+  emso_facility: "OBSEA"
+  source: "mooring"
+  data_type: "OceanSITES profile data"
+  format_version: "1.4"
+  network: "EMSO"
+  data_mode: "D"
+  project: ""
+  principal_investigator: "Homer Simpson"
+  principal_investigator_email: "homer.simpson@fake.com"
+  license: "CC-BY-4.0"
+
+platforms:
+  OBSEA:
+    long_name: "OBSEA Seafloor Observatory"  # human-readable long name of the platform
+    wmo_number: "6103565"  # (optional) World Meteorological Organization platform number
+    emso_ontology_uri: ""  # link to the OSO ontology
+    platform_type: "mooring"  # Platform type from the L06 vocabulary
+    platform_type_uri: "http://vocab.nerc.ac.uk/collection/L06/current/48/"  # Link to an instance of the L06 vocabulary
+    info_url: "https://obsea.es"  # (optional) uri where more information can be obtained
+    # (optional) other relevant information
+    comment: "OBSEA seafloor observatory is a multiparametric cabled observatory located at NW mediterranean sea"
+
+    # Nominal coordinates, deployment variables or real-time GPS coordinates can be provided in the data with the
+    # precise_latitude/precise_longitude variable, (standard name: deployment_latitude, P01 code: ALATGP01).
+    latitude: 41.18212  # nominal latitude
+    longitude: 1.75257  # nominal longitude
+
+sensors:
+  AWAC_SN0001:
+    long_name: "AWAC-AST 1MHz 0001"  # human-readable name
+    sensor_serial_number: "0001"
+    sensor_mount: "mounted_on_seafloor_structure"  # mounting from a controlled list
+    sensor_orientation: "upward"  # (optional) only relevant for ADCPs
+    sensor_model_uri: "https://vocab.nerc.ac.uk/collection/L22/current/TOOL0897"
+    sensor_manufacturer_uri: "http://vocab.nerc.ac.uk/collection/B75/current/ORG00333/"
+  AWAC_SN0002:
+    long_name: "AWAC-AST 1MHz 0002"  # human-readable name
+    sensor_serial_number: "0002"
+    sensor_mount: "mounted_on_surface_buoy"  # mounting from a controlled list
+    sensor_orientation: "downward"  # (optional) only relevant for ADCPs
+    sensor_model_uri: "https://vocab.nerc.ac.uk/collection/L22/current/TOOL0897"
+    sensor_manufacturer_uri: "http://vocab.nerc.ac.uk/collection/B75/current/ORG00333/"
+
+variables:
+  CSPD:
+    long_name: "sea water speed"
+    sdn_parameter_uri: "http://vocab.nerc.ac.uk/collection/P01/current/LCSAZZ01"
+    sdn_uom_uri: "http://vocab.nerc.ac.uk/collection/P06/current/UVBB/"
+    standard_name: "sea_water_speed"
+
+  CDIR:
+    long_name: "sea water direction"
+    sdn_parameter_uri: "http://vocab.nerc.ac.uk/collection/P01/current/LCDAAP01"
+    sdn_uom_uri: "http://vocab.nerc.ac.uk/collection/P06/current/DEGN/"
+    standard_name: "sea_water_velocity_to_direction"

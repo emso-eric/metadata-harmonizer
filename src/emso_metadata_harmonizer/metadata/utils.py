@@ -267,3 +267,80 @@ def setup_log(name, path="log", log_level="debug"):
     logger.info(f"===== {name} =====")
 
     return logger
+
+
+def assert_dict(conf: dict, required_keys: dict, verbose=False):
+    """
+    Checks if all the expected keys in a dictionary are there. The expected format is field name as key and type as
+    value:
+        { "name": str, "importantNumber": int}
+
+    One level of nesting is supported:
+    value:
+        { "someData/nestedData": str}
+    expects something like
+        {
+        "someData": {
+            "nestedData": "hi"
+            }
+        }
+
+    :param conf: dict with configuration to be checked
+    :param required_keys: dictionary with required keys
+    :raises: AssertionError if the input does not match required_keys
+    """
+    for key, expected_type in required_keys.items():
+        if "/" in key:
+            pass
+        elif key not in conf.keys():
+            raise AssertionError(f"Required key \"{key}\" not found in configuration")
+
+        # Check for nested dicts
+        if "/" in key:
+            parent, son = key.split("/")
+            if parent not in conf.keys():
+                msg =f"Required key \"{parent}\" not found!"
+                if verbose:
+                    rich.print(f"[red]{msg}")
+                raise AssertionError(msg)
+
+            if type(conf[parent]) != dict:
+                msg = f"Value for key \"{parent}\" wrong type, expected type dict, but got {type(conf[parent])}"
+                if verbose:
+                    rich.print(f"[red]{msg}")
+                raise AssertionError(msg)
+            if son not in conf[parent].keys():
+                msg =f"Required key \"{son}\" not found in configuration/{parent}"
+                if verbose:
+                    rich.print(f"[red]{msg}")
+                raise AssertionError(msg)
+            value = conf[parent][son]
+        else:
+            value = conf[key]
+
+        if type(value) != expected_type:
+            msg = f"Value for key \"{key}\" wrong type, expected type {expected_type}, but got '{type(value)}'"
+            if verbose:
+                rich.print(f"[red]{msg}")
+            raise AssertionError(msg)
+
+
+def assert_type(obj, valid_type):
+    """
+    Asserts that obj is of type <valid_type>
+    :param obj:  any object
+    :param valid_type:  any type
+    """
+    assert isinstance(obj, valid_type), f"Expected {valid_type}, but got {type(obj)} instead"
+
+
+def assert_types(obj, valid_types: list):
+    """
+    Asserts that obj is of type <valid_type>
+    :param obj:  any object
+    :param valid_types:  list of types
+    """
+    assert isinstance(valid_types, list), "valid_types should be a list of types!"
+    valid_string = ", ".join([str(t) for t in valid_types])
+    valid_string = valid_string.replace("<class ", "").replace(">", "")
+    assert type(obj) in valid_types, f"Expected on of {valid_string}, but got {type(obj)} instead"
