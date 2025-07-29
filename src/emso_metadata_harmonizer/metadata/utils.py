@@ -100,7 +100,13 @@ def download_file(url, file):
     wrapper for urllib.error.HTTPError
     """
     try:
-        return urllib.request.urlretrieve(url, file)
+        req = urllib.request.Request(
+            url,
+            headers={"User-Agent": "Mozilla/5.0"}
+        )
+        with urllib.request.urlopen(req) as response, open(file, 'wb') as out_file:
+            out_file.write(response.read())
+
     except urllib.error.HTTPError as e:
         rich.print(f"[red]{str(e)}")
         rich.print(f"[red]Could not download from {url} to file {file}")

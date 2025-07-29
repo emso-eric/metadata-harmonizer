@@ -305,7 +305,7 @@ class EmsoMetadata:
         self.emso_sites = list(tables["EMSO Sites"]["EMSO Site"].values)
 
         tables = process_markdown_file(spdx_licenses_file)
-        t = tables["Licenses with Short Idenifiers"]
+        t = tables["Licenses with Short Identifiers"]
         # remove extra '[' ']' in license identifiers
         new_ids = [value.replace("[", "").replace("]", "") for value in t["Short Identifier"]]
         self.spdx_license_names = new_ids
