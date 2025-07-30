@@ -167,7 +167,7 @@ def parse_sdn_jsonld(filename):
 
     alias = {  # key-> key to be stored in data dict, value -> all possible keys found in JSON-LD docs
         "definition": ["definition", "skos:definition"],
-        "prefLabel": ["definition", "skos:prefLabel"],
+        "prefLabel": ["prefLabel", "skos:prefLabel"],
         "identifier": ["dc:identifier", "dce:identifier"],
         "uri": ["@id"]
     }
@@ -305,7 +305,7 @@ class EmsoMetadata:
         self.emso_sites = list(tables["EMSO Sites"]["EMSO Site"].values)
 
         tables = process_markdown_file(spdx_licenses_file)
-        t = tables["Licenses with Short Idenifiers"]
+        t = tables["Licenses with Short Identifiers"]
         # remove extra '[' ']' in license identifiers
         new_ids = [value.replace("[", "").replace("]", "") for value in t["Short Identifier"]]
         self.spdx_license_names = new_ids
