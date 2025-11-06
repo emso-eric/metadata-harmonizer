@@ -81,7 +81,7 @@ def nc_to_dataframe(filename: str) -> pd.DataFrame:
 
 # -------- Load NetCDF data -------- #
 def load_nc_dataset(filename) -> WaterFrame:
-    WaterFrame.from_netcdf(filename)
+    return WaterFrame.from_netcdf(filename)
 
 
 def extract_netcdf_metadata(wf):

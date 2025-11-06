@@ -9,6 +9,7 @@ email: enoc.martinez@upc.edu
 license: MIT
 created: 6/6/24
 """
+import datetime
 import logging
 from typing import assert_type
 import numpy as np
@@ -17,6 +18,8 @@ import netCDF4 as nc
 import xarray as xr
 import rich
 import warnings
+
+from sympy.parsing.maxima import var_name
 
 from src.emso_metadata_harmonizer.metadata import EmsoMetadata
 from src.emso_metadata_harmonizer.metadata.constants import iso_time_format
@@ -58,7 +61,7 @@ class WaterFrame(LoggerSuperclass):
         assert type(df) is pd.DataFrame
         assert type(metadata) is dict
         assert "time" in df.columns, "Missing time column in dataframe"
-        assert "depth" in df.columns, "Missing depth column in dataframe"
+        
 
         for m in ["global", "variables", "sensors", "platforms"]:
             assert m in metadata.keys(), f"section {m} not in metadata document!"
@@ -93,6 +96,13 @@ class WaterFrame(LoggerSuperclass):
         sensors = metadata["sensors"]
         platforms = metadata["platforms"]
 
+        # Add sensors and platforms!
+        for key, value in sensors.items():
+            sensors[key]["sensor_id"] = key
+
+        for key, value in platforms.items():
+            platforms[key]["platform_id"] = key
+
         sensors, df = self.process_identifiers(sensors, df, "sensor_id")
         platforms, df = self.process_identifiers(platforms, df, "platform_id")
 
@@ -102,9 +112,6 @@ class WaterFrame(LoggerSuperclass):
 
         for key, value in platforms.items():
             platforms[key]["platform_id"] = key
-
-        self.sensors = sensors
-        self.platforms = platforms
 
         for var in df.columns:
             # If not defined by the user, use the default coordinate metadata
@@ -121,6 +128,7 @@ class WaterFrame(LoggerSuperclass):
             # Convert metadata into columns if not defined
             if variable not in df.columns:
                 if len(platforms) == 1:
+                    self.info(f"Adding '{variable}' to columns from metadata")
                     df = platform_metadata_to_column(df, variable, list(platforms.values()))
                     self.vocabulary[variable] = dimension_metadata(variable)
                 else:
@@ -134,8 +142,8 @@ class WaterFrame(LoggerSuperclass):
         elif "sensor_id" not in df.columns and len(sensors) == 1:
             df["sensor_id"] = list(sensors.keys())[0]
 
-
-        self.vocabulary["sensor_id"] = dimension_metadata("sensor_id")
+        if "sensor_id" not in self.vocabulary.keys():
+            self.vocabulary["sensor_id"] = dimension_metadata("sensor_id")
 
         # If we do not have a platform_id column, we should have exactly one platform
         if len(platforms) == 0:
@@ -153,6 +161,19 @@ class WaterFrame(LoggerSuperclass):
                 self.info(f"Deleting extra key '{key}' form metadata vocabulary")
                 self.vocabulary.pop(key)
 
+        for name, meta in sensors.items():
+            meta["variable_type"] = "sensor"
+            meta["sensor_id"] = name
+            self.vocabulary[name] = meta
+
+        for name, meta in platforms.items():
+            meta["variable_type"] = "platform"
+            meta["platform_id"] = name
+            self.vocabulary[name] = meta
+
+        self.sensors = sensors
+        self.platforms = platforms
+
         self.set_variable_types()
 
         # Now make sure that all variables have an entry in the metadata (variables, sensors and platforms)
@@ -163,7 +184,6 @@ class WaterFrame(LoggerSuperclass):
 
         self.cf_data_type = ""
         self.cf_alignment()
-        self.autofill_metadata()
         self.sort()
         self.__nc_dimensions = {}
 
@@ -211,11 +231,7 @@ class WaterFrame(LoggerSuperclass):
         if errors > 0:
             raise ValueError("Incomplete metadata")
 
-        for s in self.sensors.values():
-            s["variable_type"] = "sensor"
 
-        for p in self.platforms.values():
-            p["variable_type"] = "platform"
 
     def autofill_metadata(self):
         for varname, var in self.vocabulary.items():
@@ -227,6 +243,125 @@ class WaterFrame(LoggerSuperclass):
                 units = self.emso.vocab_get("P06", var["sdn_uom_uri"], "altLabel")
                 self.vocabulary[varname]["units"] = units
 
+        # date_created
+        meta = self.metadata
+        if "date_created" not in meta.keys():
+            self.debug("Derivating date_created")
+            self.metadata["date_created"] = datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%d")
+
+        # EDMO codes
+        if "institution_edmo_code" in meta.keys() and "institution_edmo_uri" not in meta.keys():
+            self.debug("Derivating institution_edmo_code")
+            meta["institution_edmo_uri"] = "https://edmo.seadatanet.org/report/" + str(meta["institution_edmo_code"])
+
+        if "institution_edmo_uri" in meta.keys() and "institution_edmo_code" not in meta.keys():
+            self.debug("Derivating institution_edmo_code")
+            meta["institution_edmo_code"] = meta["institution_edmo_uri"].split("/")[-1]
+
+        # SPDX license
+        if "license_uri" not in meta.keys() and "license" in meta.keys():
+            meta["license_uri"] = "https://spdx.org/licenses/" + meta["license"]
+        if "license" not in meta.keys() and "license_uri" in meta.keys():
+            meta["license"] = meta["license"].split("/")[-1]
+
+        # Fill partially defined vocabularies
+        for varname, variable in self.vocabulary.items():
+            if variable["variable_type"] == "coordinate":
+                self.autofill_vocab(variable, "sdn_parameter", "P01")
+                self.autofill_vocab(variable, "sdn_uom", "P06")
+
+
+        for varname, variable in self.vocabulary.items():
+            if variable["variable_type"] == "environmental":
+                self.autofill_vocab(variable, "sdn_parameter", "P01")
+                self.autofill_vocab(variable, "sdn_uom", "P06")
+
+        for varname, variable in self.vocabulary.items():
+            if variable["variable_type"] == "sensor":
+                self.autofill_vocab(variable, "sdn_instrument", "L22")
+                self.autofill_vocab(variable, "sensor_manufacturer", "L35")
+                self.autofill_vocab(variable, "sensor_type", "L05")
+
+                # Autofill sensor_SeaVoX_L22_code
+                if "sensor_SeaVoX_L22_code" not in variable.keys() and "sdn_instrument_urn" in variable.keys():
+                    variable["sensor_SeaVoX_L22_code"] = variable["sdn_instrument_urn"]
+
+        for varname, variable in self.vocabulary.items():
+            if variable["variable_type"] == "platform":
+                self.autofill_vocab(variable, "platform_type", "L06")
+
+        # Fill coordinate metadata from default table
+        df = self.emso.valid_coordinates
+        variables = df["coordinate name"].to_list()
+        for varname in variables:
+            if varname not in self.vocabulary.keys():
+                continue
+            variable = self.vocabulary[varname]
+            if "sdn_parameter_uri" not in variable.keys() and "sdn_parameter_urn" not in variable.keys():
+                self.info(f"Using default P01 for {varname}")
+                uri = df[df["coordinate name"] == varname]["P01 recommended code"].values[0]
+                uri = uri.split("(")[1].split(")")[0]  # remove the Markdown syntax
+                variable["sdn_parameter_uri"] = uri
+                self.autofill_vocab(variable, "sdn_parameter", "P01")
+
+            if "standard_name" not in variable.keys():
+                std_name = df[df["coordinate name"] == varname]["CF standard_name"].values[0]
+                if std_name.lower() not in ["n/a", "na", "null"]:
+                    variable["standard_name"] = std_name
+
+            self.vocabulary[varname] = variable
+
+        coordinates = [c for c, v in self.vocabulary.items() if v["variable_type"] == "coordinate"]
+        coordinates = " ".join(coordinates)
+
+        for varname, variable in self.vocabulary.items():
+            if variable["variable_type"] in ["environmental", "biological", "technical"]:
+                if  "coordinates" not in variable.keys():
+                    variable["coordinates"] = coordinates
+
+        if not self.data.empty:
+            self.autofill_coverage()
+
+
+    def autofill_vocab(self, meta, prefix, vocab_id, exception=False):
+        """
+        tries to autofill the name, uri and urn for a specific NERC vocabulary.
+
+        Following the specs, any vocabulary should contain the uri, urn and name. For instance
+
+        autofill_vocab(meta, "sdn_units", "P06")
+            will force:
+            "sdn_units_uri": "http://vocab.nerc.ac.uk/collection/P06/current/UTBB/",
+            "sdn_units_urn": "SDN::P06:UTBB"
+            "sdn_units_name": "Decibars"
+        """
+        uri_key = prefix + "_uri"
+        urn_key = prefix + "_urn"
+        name_key = prefix + "_name"
+
+        if uri_key in meta.keys():
+            try:
+                uri, urn, preflabel, _ = self.emso.get_vocab_by_uri(vocab_id, meta[uri_key])
+            except LookupError:
+                return
+        elif urn_key in meta.keys():
+            try:
+                uri, urn, preflabel, _ = self.emso.get_vocab_by_urn(vocab_id, meta[urn_key])
+            except LookupError:
+                return
+        elif exception:
+            self.error(f"Could not autofill metadata attribute {prefix} from {vocab_id}", exception=LookupError)
+        else:
+            return
+
+        if uri_key not in meta.keys():
+            meta[uri_key] = uri
+
+        if urn_key not in meta.keys():
+            meta[urn_key] = urn
+
+        if name_key not in meta.keys():
+            meta[name_key] = preflabel
 
     def process_identifiers(self, meta, df, key) -> (dict, pd.DataFrame):
         """
@@ -419,13 +554,9 @@ class WaterFrame(LoggerSuperclass):
         df = self.data
         # # Arrange variables as coordinates, data variables, qcs
         coordinates = ["time", "depth", "latitude", "longitude", "sensor_id", "platform_id"]
-        # variables = coordinates.copy()
-        # vars = [str(v) for v in df.columns if v not in coordinates and not v.endswith("_QC")]
-        # variables += vars  # append data variables
-        # vars = [str(v) for v in df.columns if v not in coordinates and v.endswith("_QC")]
-        # variables += vars  # append quality control
-        variables = self.data.columns
         self.info(f"Creating NetCDF {filename}")
+        self.autofill_metadata()
+
         with nc.Dataset(filename, "w", format="NETCDF4") as ncfile:
             ncfile.createDimension("obs", len(df))  # create row dimension
             self.__nc_dimensions["obs"] = len(df)
@@ -435,7 +566,6 @@ class WaterFrame(LoggerSuperclass):
                 var = ncfile.createVariable(varname, nc_dtype, dimensions, zlib=zlib, fill_value=nc_fill_value)
                 var[:] = values
                 self.populate_var_metadata(varname, var)
-
                 if varname not in coordinates and not varname.endswith("_QC"):
                     if "precise_latitude" not in df.columns:
                         var.setncattr("coordinates", "time depth latitude longitude platform_id sensor_id")
@@ -449,14 +579,15 @@ class WaterFrame(LoggerSuperclass):
 
                 if varname.endswith("_QC"):
                     var.setncattr("flag_values", self.flag_values)
-
-            for sensor_id, sensor in self.sensors.items():
+            sensors = {name: s for name, s in self.vocabulary.items() if s["variable_type"] == "sensor"}
+            for sensor_id, sensor in sensors.items():
                 self.info(f"Creating dummy variable to store '{sensor_id}' metadata")
                 var = ncfile.createVariable(sensor_id, "S1", fill_value=" ")
                 var.assignValue(" ")
                 self.__metadata_from_dict(var, sensor)
 
-            for platform_id, platform in self.platforms.items():
+            platforms = {name: s for name, s in self.vocabulary.items() if s["variable_type"] == "platform"}
+            for platform_id, platform in platforms.items():
                 self.info(f"Creating dummy variable to store '{platform_id}' metadata")
                 var = ncfile.createVariable(platform_id, "S1", fill_value=" ")
                 var.assignValue(" ")
@@ -468,7 +599,10 @@ class WaterFrame(LoggerSuperclass):
     def __nc_compatible_string(series: pd.Series) -> (np.ndarray, int):
         assert_type(series, pd.Series)
         assert pd.api.types.is_string_dtype(series), f"Series '{series.name}' is not a string!"
-        strlen = max(series.str.len())
+        if series.empty:
+            strlen = 2
+        else:
+            strlen = max(series.str.len())
         padded_strings = np.array([list(s.ljust(strlen, "\0")) for s in series.values], 'S1')
         return padded_strings, strlen
 
@@ -486,7 +620,6 @@ class WaterFrame(LoggerSuperclass):
 
         # Floats
         if str(series.name).endswith("_QC"):
-
             series = series.copy()  # copy to avoid SettingWithCopy warning
             series[series.isna()] = 9
             series = series.astype("u1")
@@ -544,37 +677,27 @@ class WaterFrame(LoggerSuperclass):
             ds = xr.open_dataset(filename, decode_times=False)
             if "time" in ds.variables and "units" in ds["time"].attrs.keys():
                 time_units = ds["time"].attrs["units"]
+
             ds.close()
 
-        ds = xr.open_dataset(filename, decode_times=decode_times) # Open file with xarray
+        ds = xr.open_dataset(filename, decode_times=decode_times, decode_cf=True ) # Open file with xarray
+
         # Save ds into a WaterFrame
         metadata = {"global": dict(ds.attrs), "variables": {}, "sensors": {}, "platforms": {}}
-
         df = ds.to_dataframe()
 
-        if "time" not in df.columns:
+        if "time" not in df.columns and "TIME" not in df.columns:
             df = df.reset_index()
-            assert "time" in df.columns, "Could not find time column in the dataset!"
+            assert "time" in df.columns or "TIME" in df.columns, "Could not find time column in the dataset!"
         for variable in ds.variables:
             metadata["variables"][variable] = dict(ds[variable].attrs)
+
 
         if time_units:
             metadata["variables"]["time"]["units"] = time_units
 
         metadata["sensors"] = collect_sensor_metadata(metadata, df)
         metadata["platforms"] = collect_platform_metadata(metadata, df)
-
-        # Convert sensor_id from number to text for easier manipulation
-        if df["sensor_id"].dtype in [int, np.uint8, np.int8, float, np.float32, np.float64]:
-            for sensor_code in df["sensor_id"].unique():
-                # look for a variable with "sensor_id" = sensor_code
-                sensor_code = int(sensor_code)
-                for sensor in metadata["sensors"]:
-                    if int(sensor["sensor_id"]) == sensor_code:
-                        df.loc[df["sensor_id"] == sensor_code, "sensor_id"] = sensor["sensor_name"]
-                        break
-
-
         # Keep only columns with relevant data
         dimensions = ["time", "depth", "latitude", "longitude", "sensor_id", "platform_id"]
         sensor_names = list(metadata["sensors"].keys())
@@ -683,7 +806,6 @@ def __collect_metadata(metadata:dict, df: pd.DataFrame, key) -> dict:
             if varname in df.columns:  # Delete dummy variable with sensor metadata
                 del df[varname]
     return my_meta
-
 
 
 def collect_sensor_metadata(metadata:dict, df: pd.DataFrame) -> dict:

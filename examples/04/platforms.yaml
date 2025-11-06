@@ -2,7 +2,7 @@ platforms:
   W1M3A:
     long_name: "W1M3A"  # human-readable long name of the platform
     wmo_number: ""  # (optional) World Meteorological Organization platform number
-    emso_ontology_uri: ""  # link to the OSO ontology
+    emso_platform: "W1M3A"  # link to the OSO ontology
     platform_type: "mooring"  # Platform type from the L06 vocabulary
     platform_type_uri: "http://vocab.nerc.ac.uk/collection/L06/current/48/"  # Link to an instance of the L06 vocabulary
     info_url: "http://www.w1m3a.cnr.it"  # (optional) uri where more information can be obtained

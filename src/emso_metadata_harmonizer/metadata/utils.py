@@ -9,7 +9,7 @@ license: MIT
 created: 26/4/23
 """
 from logging.handlers import TimedRotatingFileHandler
-
+import requests
 import rich
 from rich.progress import Progress
 import urllib
@@ -17,7 +17,6 @@ import concurrent.futures as futures
 import os
 from .constants import dimensions
 import logging
-
 
 # Color codes
 GRN = "\x1B[32m"
@@ -35,42 +34,46 @@ RST = "\033[0m"
 
 def group_metadata_variables(metadata):
     """
-    Takes a dictionary with all the variables in the "variable" and groups them into "variables", "qualityControl" and
-    "dimensions"
+    Takes a dictionary with all the variables and groups them according to their variable_type attribute
     """
 
     m = metadata.copy()
 
-    vars = list(m["variables"].keys())
+    d = {
+        "global": {"global": m["global"]},  # add an additional global level to keep the same structure
+        "coordinate": {},
+        "environmental": {},
+        "biological": {},
+        "quality_control": {},
+        "technical": {},
+        "platform": {},
+        "sensor": {},
 
-    qcs = {key: m["variables"].pop(key) for key in vars if key.upper().endswith("_QC")}
-    stds = {key: m["variables"].pop(key) for key in vars if key.upper().endswith("_STD")}
-    dims = {key: m["variables"].pop(key) for key in vars if key.upper() in dimensions}
-
-    technical = {}
-    for key in vars:
-        try:
-            if "technical_data" in m["variables"][key].keys():
-                rich.print(f"variable {key} is 'technical'")
-                technical[key] = m["variables"].pop(key)
-        except KeyError:
-            rich.print(f"variable {key} is 'scientific'")
-
-    m = {
-        "global": m["global"],
-        "variables": m["variables"],
-        "qc": qcs,
-        "dimensions": dims,
-        "std": stds,
-        "technical": technical
+        "unclassified": {},  # Unclassified variables are ALL errors!
     }
-    return m
+
+    for varname, var in m["variables"].items():
+        if "variable_type" not in var.keys():
+            d["unclassified"][varname] = var
+
+        vartype = var["variable_type"]
+
+        if vartype not in d.keys():
+            d["unclassified"][varname] = var
+        else:
+            d[vartype][varname] = var
+
+    for section in d.keys():
+        for varname in d[section].keys():
+            d[section][varname]["$name"] = varname
+
+    return d
 
 
 def __threadify_index_handler(index, handler, args):
     """
     This function adds the index to the return of the handler function. Useful to sort the results of a
-    multi-threaded operation
+    multithreaded operation
     :param index: index to be returned
     :param handler: function handler to be called
     :param args: list with arguments of the function handler
@@ -344,3 +347,19 @@ def assert_types(obj, valid_types: list):
     valid_string = ", ".join([str(t) for t in valid_types])
     valid_string = valid_string.replace("<class ", "").replace(">", "")
     assert type(obj) in valid_types, f"Expected on of {valid_string}, but got {type(obj)} instead"
+
+
+def check_url(url):
+    """
+    Checks if a URL is reachable without downloading its contents
+    """
+    assert type(url) is str, f"Expected string got {type(url)}"
+    try:
+        response = requests.head(url)
+        if response.status_code == 200:
+            return True
+        else:
+            return False
+    except requests.ConnectionError:
+        return False
+

@@ -1,12 +1,13 @@
 global:
-  title: "Example 06: ADCP in a seabed station"
-  summary: "Time series profile with an ADCP in a seabed station, an ADCP cell every 10 metres"
+  title: "Example 12: Acoustic recordings from a Hydrophone"
+  summary: "Example of a list of recordings from a hydrophone at OBSEA"
   Conventions: "OceanSITES EMSO CF-1.8"
   institution: "UPC - Universitat Politècnica de Catalunya"
   institution_edmo_code: "2150"
   update_interval: "void"
+  site_code: "OBSEA"
   emso_site: "OBSEA"
-  emso_regional_facility: "OBSEA"
+  emso_regional_facility: "Balearic Sea"
   source: "mooring"
   data_type: "OceanSITES profile data"
   format_version: "1.4"
@@ -18,10 +19,10 @@ global:
   license: "CC-BY-4.0"
 
 platforms:
-  OBSEA:
+  OBSEA_seabed_station:
     long_name: "OBSEA Seafloor Observatory"  # human-readable long name of the platform
-    wmo_number: "6103565"  # (optional) World Meteorological Organization platform number
-    emso_ontology_uri: ""  # link to the OSO ontology
+    wmo_platform_code: "6103565"  # (optional) World Meteorological Organization platform number
+    emso_platform: "OBSEA seabed station"  # link to the OSO ontology
     platform_type: "mooring"  # Platform type from the L06 vocabulary
     platform_type_uri: "http://vocab.nerc.ac.uk/collection/L06/current/48/"  # Link to an instance of the L06 vocabulary
     info_url: "https://obsea.es"  # (optional) uri where more information can be obtained
@@ -32,25 +33,28 @@ platforms:
     # precise_latitude/precise_longitude variable, (standard name: deployment_latitude, P01 code: ALATGP01).
     latitude: 41.18212  # nominal latitude
     longitude: 1.75257  # nominal longitude
+    depth: 20
 
 sensors:
-  AWAC_SN123456:
-    long_name: "AWAC-AST 1MHz"  # human-readable name
-    sensor_serial_number: "123456"
+  NAXYS_SN0010:
+    long_name: "Bjørge-NAXYS Ethernet 02345 Hydrophone"  # human-readable name
+    sensor_serial_number: "0010"
     sensor_mount: "mounted_on_seafloor_structure"  # mounting from a controlled list
     sensor_orientation: "upward"  # (optional) only relevant for ADCPs
-    sensor_model_uri: "https://vocab.nerc.ac.uk/collection/L22/current/TOOL0897"
-    sensor_manufacturer_uri: "http://vocab.nerc.ac.uk/collection/B75/current/ORG00333/"
+    sdn_instrument_uri: "https://vocab.nerc.ac.uk/collection/L22/current/TOOL1593"
+    sensor_manufacturer_uri: "http://vocab.nerc.ac.uk/collection/L35/current/MAN0144/"
+    sensor_type_uri: "http://vocab.nerc.ac.uk/collection/L05/current/369/"
+    sensor_reference: ""
 
 variables:
-  CSPD:
-    long_name: "sea water speed"
-    sdn_parameter_uri: "http://vocab.nerc.ac.uk/collection/P01/current/LCSAZZ01"
-    sdn_uom_uri: "http://vocab.nerc.ac.uk/collection/P06/current/UVBB/"
-    standard_name: "sea_water_speed"
+  NOYS:
+    long_name: "acoustics as flac files"
+    comment: "acoustic recordings stored as FLAC files"
+    sdn_parameter_uri: "https://vocab.nerc.ac.uk/collection/P01/current/AMBNSPL1"
+    bits: "16"
+    adc_reference_voltage: "+/- 2.5 V"
+    sensitivity: "-192 dB re 1 uPa"
+    preamplifier_gain: "20 dB"
+    variable_type: "technical"
 
-  CDIR:
-    long_name: "sea water direction"
-    sdn_parameter_uri: "http://vocab.nerc.ac.uk/collection/P01/current/LCDAAP01"
-    sdn_uom_uri: "http://vocab.nerc.ac.uk/collection/P06/current/DEGN/"
-    standard_name: "sea_water_velocity_to_direction"
+

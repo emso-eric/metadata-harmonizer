@@ -12,7 +12,6 @@ import os
 import shutil
 import urllib
 import warnings
-
 import rich
 import unittest
 import subprocess
@@ -20,7 +19,6 @@ import sys
 import time
 import inspect
 import logging
-
 from cfchecker.cfchecks import CFChecker
 
 try:

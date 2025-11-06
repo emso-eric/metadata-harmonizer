@@ -15,47 +15,12 @@ import rich
 import pandas as pd
 import yaml
 
-from .metadata.autofill import autofill_waterframe
 from .metadata.dataset import load_data
-from .metadata.minmeta import generate_min_meta_template, generate_full_metadata, load_metadata
 from .metadata import EmsoMetadata
 from .metadata.utils import assert_type, LoggerSuperclass
 from .metadata.waterframe import WaterFrame, merge_waterframes
 
 
-def generate_metadata(data_files: list, folder):
-    """
-    Generate the metadata templates for the input file in the target folder
-    """
-    # If metadata and generate
-    for file in data_files:
-        rich.print(f"generating minimal metadata template for {file}")
-        wf = load_data(file)
-        if file.endswith(".csv"):  # For CSV always generate a minimal metdata file
-            generate_min_meta_template(wf, folder)
-        elif file.endswith(".nc"):
-            generate_full_metadata(wf, folder)
-
-    rich.print(f"[green]Please edit the following files and run the generator with the -m option!")
-
-
-def generate_datasets(data_list: list, metadata_list: list, emso_metadata: EmsoMetadata):
-    """
-    Merge data files and metadata files into a NetCDF dataset according to EMSO specs. If provided, depths, lats and
-    longs will be added to the dataset as dimensions.
-    """
-    assert len(metadata_list) == len(data_list), "Expected the same amount of data and metaadata elements!"
-    if emso_metadata:
-        emso = emso_metadata
-    else:
-        emso = EmsoMetadata()
-    waterframes = []
-    for data_file, meta_file in zip(data_list, metadata_list):
-        meta = load_metadata(meta_file, emso)
-        df = load_data(data_file)
-        wf = WaterFrame(df, meta)
-        waterframes.append(wf)
-    return waterframes
 
 
 global_elements = (
@@ -66,8 +31,8 @@ global_elements = (
     ("institution_edmo_code", str, False),
     ("Conventions", str, False),
     ("update_interval", str, True),
-    ("site_code", str, True),
-    ("emso_facility", str, False),
+    ("emso_site", str, True),
+    ("emso_regional_facility", str, False),
     ("source", str, True),
     ("data_type", str, True),
     ("format_version", str, True),
@@ -82,7 +47,7 @@ global_elements = (
 platform_elements = (
     ("long_name", str, True),
     ("wmo_number", str, False),
-    ("emso_ontology_uri", str, False),
+    ("emso_platform", str, False),
     ("platform_type", str, False),
     ("platform_type_uri", str, True),
     ("info_url", str, True),
@@ -96,12 +61,15 @@ sensor_elements = (
     ("sensor_serial_number", str, True),
     ("sensor_mount", str, False),
     ("sensor_orientation", str, False),
-    ("sensor_model", str, False),
-    ("sensor_model_uri", str, True),
-    ("sensor_SeaVoX_L22_code", str, False),
-    ("sensor_manufacturer_uri", str, True),
+    ("sdn_instrument_uri", str, False),
+    ("sdn_instrument_urn", str, False),
+    ("sdn_instrument_name", str, False),
+    ("sensor_manufacturer_uri", str, False),
     ("sensor_manufacturer_urn", str, False),
-    ("sensor_manufacturer", str, False),
+    ("sensor_manufacturer_name", str, False),
+    ("sensor_type_uri", str, False),
+    ("sensor_type_urn", str, False),
+    ("sensor_type_name", str, False),
     ("sensor_reference", str, False),
 )
 
@@ -128,9 +96,6 @@ technical_variable_elements = (
     ("comment", str, True),
     ("units", str, False),
 )
-
-
-
 
 DEBUG_TESTS = False
 
@@ -171,36 +136,56 @@ def validate_metadata(metadata: dict, section: str, rules: tuple, errors: list, 
                 continue
             debug_metadata_tests(f"[green]success")
 
-def generate_dataset(data_files: list, metadata_files: list, output: str, log: logging.Logger):
-    """
-    Generates an EMSO-compliant NetCDF dataset from the input data and metadata
-    """
-    log.info(f"Generating NetCDF dataset {output}")
-    log.debug("Checking arguments...")
-    assert_type(data_files, list)
-    [assert_type(f, str) for f in data_files]
-    [assert_type(f, str) for f in metadata_files]
-    assert len(data_files) > 0, "Expected at least one data file!"
+def consolidate_metadata(metadata_files: list):
     assert len(metadata_files) > 0, "Expected at least one metadata file!"
-
-
     metadata = {}
     for meta_file in metadata_files:
         with open(meta_file) as f:
             contents = yaml.safe_load(f)
         metadata.update(contents)
-
-    assert_type(metadata, dict)
     assert "sensors" in metadata.keys()
     assert "platforms" in metadata.keys()
     assert "global" in metadata.keys()
     assert "variables" in metadata.keys()
+    return metadata
 
+
+def generate_dataset(data_files: list, metadata_files: list, output: str, log: logging.Logger, meta_only=False):
+    """
+    Generates an EMSO-compliant NetCDF dataset from the input data and metadata
+    """
     log = LoggerSuperclass(log, "VLD")
+
+    log.info(f"Generating NetCDF dataset {output}")
+    log.debug("Checking arguments...")
+    assert_type(data_files, list)
+    [assert_type(f, str) for f in data_files]
+    [assert_type(f, str) for f in metadata_files]
+    assert len(metadata_files) > 0, "Expected at least one metadata file!"
+
+    metadata = consolidate_metadata(metadata_files)
+
+    if len(data_files) > 0:
+        dataframes = [load_data(d) for d in data_files]
+        df = pd.concat(dataframes)
+        pass
+    else:
+        columns = {
+            "time": pd.Series(dtype='datetime64[ns]'),
+            "depth": pd.Series(dtype='float'),
+            "sensor_id": pd.Series(dtype='str'),
+            "platform_id": pd.Series(dtype='str')
+        }
+        for name in metadata["variables"].keys():
+            columns[name] = pd.Series(dtype='float')
+
+        df = pd.DataFrame(columns)
+
+
+    log.info("Validating metadata...")
     errors = []
     warnings = []
 
-    log.info("Validating metadata...")
     # Validate that all sensors, platforms and variables are compliant with the schemas
     validate_metadata(metadata, "global", global_elements, errors, warnings)
     validate_metadata(metadata, "sensors", sensor_elements, errors, warnings)
@@ -211,14 +196,12 @@ def generate_dataset(data_files: list, metadata_files: list, output: str, log: l
             vartype = "environmental"
         else:
             vartype = variable["variable_type"]
-
         if vartype == "environmental":
             validate_metadata(metadata, "variables", environmental_variable_elements, errors, warnings, key=key)
         elif vartype == "biological":
             validate_metadata(metadata, "variables", biological_variable_elements, errors, warnings, key=key)
         elif vartype == "technical":
             validate_metadata(metadata, "variables", technical_variable_elements, errors, warnings, key=key)
-
         else:
             raise ValueError(f"Variable type '{vartype}' not supported")
 
@@ -233,10 +216,5 @@ def generate_dataset(data_files: list, metadata_files: list, output: str, log: l
     if len(errors) > 0:
         log.error("Got errors in dataset generation", exception=ValueError)
 
-
-
-    dataframes = [load_data(d) for d in data_files]
-    df = pd.concat(dataframes)
     wf = WaterFrame(df, metadata)
     wf.to_netcdf(output)
-

@@ -18,7 +18,7 @@ from datetime import datetime
 import rich
 
 
-def generate_erddap_dataset(wf: WaterFrame, directory, dataset_id):
+def generate_erddap_dataset(wf: WaterFrame, directory, dataset_id, file_access=True):
     """
     Generates a XML chunk to add it into ERDDAP's datasets.xml
     :param wf: waterframe with data and metadata
@@ -78,6 +78,11 @@ def generate_erddap_dataset(wf: WaterFrame, directory, dataset_id):
     else:
         raise ValueError(f"Unimplemented CF feature type {cf_feature_type}")
 
+    if file_access:
+        file_access_str = "true"
+    else:
+        file_access_str = "false"
+
     x = f"""
 <dataset type="EDDTableFromMultidimNcFiles" datasetID="{dataset_id}" active="true">
     <reloadEveryNMinutes>10080</reloadEveryNMinutes>
@@ -87,8 +92,10 @@ def generate_erddap_dataset(wf: WaterFrame, directory, dataset_id):
     <recursive>true</recursive>    
     <pathRegex>.*</pathRegex>
     <metadataFrom>last</metadataFrom>
+    <metadataFrom>last</metadataFrom>
     <standardizeWhat>0</standardizeWhat>
     <removeMVRows>true</removeMVRows>
+    <accessibleViaFiles>{file_access_str}</accessibleViaFiles>
     <sortFilesBySourceNames></sortFilesBySourceNames>
     <fileTableInMemory>false</fileTableInMemory>
     <addAttributes>
