@@ -39,7 +39,7 @@ variables:
     long_name: "wind speed"
     sdn_parameter_uri: "https://vocab.nerc.ac.uk/collection/P01/current/EWDASS01"
     sdn_uom_uri: "https://vocab.nerc.ac.uk/collection/P06/current/UVAA/"
-    standard_name: "sea_water_temperature"
+    standard_name: "wind_speed"
 
   WDIR:
     long_name: "wind direction"

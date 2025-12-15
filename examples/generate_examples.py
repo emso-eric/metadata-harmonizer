@@ -5,10 +5,10 @@ import os
 import yaml
 
 
-def to_csv(df, folder, name):
+def to_csv(df, folder, name, _time="time"):
     filename = os.path.join(folder, name)
-    df["time"] = pd.to_datetime(df["time"])
-    df["time"].dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+    df[_time] = pd.to_datetime(df[_time])
+    df[_time].dt.strftime("%Y-%m-%dT%H:%M:%SZ")
     df.to_csv(filename, index=False, float_format="%.4f")
 
 
@@ -30,13 +30,11 @@ def guess_command(folder):
     rich.print(f"[grey42]python3 generator.py  --data {' '.join(csv_files)} --metadata {' '.join(min_meta)} --output {output}")
 
 
-
 # ============ Example 1: A single CTD ============ #
-
 folder = "01"
 
 # Time variable and time vector
-times = pd.date_range("2024-01-01", "2025-01-01", freq="30min")
+times = pd.date_range("2024-01-01", "2024-01-02", freq="30min")
 t = np.arange(0, len(times))/len(times)
 
 
@@ -58,9 +56,7 @@ df = pd.DataFrame({
 to_csv(df, folder, "SBE37.csv")
 guess_command(folder)
 
-
 # ============ Example 2: Two CTDs at different depths ============ #
-
 folder = "02"
 
 temp1 = 20 + 5 * np.sin(2*np.pi*t)
@@ -429,8 +425,6 @@ df = pd.DataFrame({
 to_csv(df, folder, "AUV_SN0002.csv")
 guess_command(folder)
 
-
-
 # ============ ASV with an ADCP ============ #
 folder = "10"
 times = pd.date_range("2024-01-01T00:00:00Z", "2024-03-31T23:59:00Z", freq="30min")
@@ -464,3 +458,39 @@ df = pd.concat(dataframes)
 to_csv(df, folder, "ADCP_on_ASV.csv")
 guess_command(folder)
 
+
+# ============ Example 13: A single CTD with Copernicus-like style. ============ #
+folder = "13"
+
+# Time variable and time vector
+times = pd.date_range("2024-01-01", "2024-01-02", freq="30min")
+t = np.arange(0, len(times))/len(times)
+
+
+# data variables
+temp = 20 + 8 * np.sin(2*np.pi*t)
+cndc = 5 + np.sin(2*np.pi*t)
+pres = 20 + 2 * np.sin(365*2*np.pi*t)
+psal = 36 + 2 * np.sin(365*2*np.pi*t)
+
+latitude = 41.18212 + 0.01 * np.sin(365*2*np.pi*t)
+longitude = 1.75257  + 0.01 * np.sin(365*2*np.pi*t)
+
+df = pd.DataFrame({
+    "TIME": times,
+    "DEPTH": np.zeros(len(times)) + 20,
+    "SENSOR_ID": np.zeros(len(times), dtype=str),
+    "DEPTH_QC": 1,
+    "TIME_QC": 1,
+    "LATITUDE": latitude,
+    "LONGITUDE": longitude,
+    "POSITION_QC": 1,
+    "TEMP": temp, "TEMP_QC": 1,
+    "CNDC": cndc, "CNDC_QC": 1,
+    "PRES": pres, "PRES_QC": 1,
+    "PSAL": psal, "PSAL_QC": 1,
+})
+
+df["SENSOR_ID"] = "SBE16_SN57353_6479"
+to_csv(df, folder, "SBE16.csv", _time="TIME")
+guess_command(folder)

@@ -20,11 +20,12 @@ import time
 import inspect
 import logging
 from cfchecker.cfchecks import CFChecker
+import numpy as np
 
 try:
     from src.emso_metadata_harmonizer import generate_dataset, erddap_config, WaterFrame
     from src.emso_metadata_harmonizer.metadata.dataset import load_data
-    from src.emso_metadata_harmonizer.metadata.utils import setup_log
+    from src.emso_metadata_harmonizer.metadata.utils import setup_log, get_file_list, get_dir_list
 
 except ModuleNotFoundError:
     # Get the directory of the current script
@@ -37,7 +38,7 @@ except ModuleNotFoundError:
     from src.emso_metadata_harmonizer.metadata.dataset import load_data
     from src.emso_metadata_harmonizer.metadata.emso import EmsoMetadata
     from src.emso_metadata_harmonizer.metadata import setup_log
-
+    from src.emso_metadata_harmonizer.metadata.utils import setup_log, get_file_list, get_dir_list
 
 def run_subprocess(cmd):
     """
@@ -76,29 +77,50 @@ class MetadataHarmonizerTester(unittest.TestCase):
         examples = [d for d in examples if os.path.isdir(d)]  # keep only directories
 
         for example in examples:
-            files = [os.path.join(example, f) for f in os.listdir(example)]
-            files = sorted(files)
+            files = get_file_list(example)
             csv_files = [f for f in files if f.endswith(".csv")]
-            min_meta_files = [f for f in files if f.endswith(".yaml")]
+            yaml_files = [f for f in files if f.endswith(".yaml")]
+            nc_files = [f for f in files if f.endswith(".nc")]
 
             dataset_id = os.path.basename(example)
-
-            cls.example_datasets.append({
+            dataset_conf = {
                 "data": csv_files,
-                "metadata": min_meta_files,
-                "folder": os.path.basename(example),
-                "dataset_id": dataset_id
-            })
+                "metadata": yaml_files,
+                "erddap_folder": os.path.basename(example),
+                "nc_folder": os.path.basename(example), # By default nc_folder is the same as erddap
+                "dataset_id": dataset_id,
+                "keep": False,
+                "NcML": "",    # By default, do not use NcML configuration files
+                "mapping": "", # By default, do not use mapping.yaml files
+                "nc_files": nc_files # if csv files are provided, we will attempt to configure it from source NetCDF
+            }
+
+            for f in files:
+                # mapping files are expected to be named exactly "mapping.yaml"
+                if f.endswith("mapping.yaml"):
+                    dataset_conf["mapping"] = f
+
+                if f.endswith(".ncml"):
+                    # If we use NcML, all NetCDF files should go inside the data folder
+                    dataset_conf["NcML"] = f
+                    dataset_conf["nc_folder"] = os.path.join(dataset_conf["erddap_folder"], "netcdfs")
+
+            cls.example_datasets.append(dataset_conf)
+
+        # Example 13 requires to use the keep-names option
+        cls.example_datasets[12]["keep"] = True
 
         os.makedirs("erddapData", exist_ok=True)
         os.makedirs("datasets", exist_ok=True)
 
         rich.print("Removing previous datasets...")
-        for folder in [os.path.join("datasets", d) for d in os.listdir("datasets")]:
-            files = [os.path.join(folder, f) for f in os.listdir(folder)]
-            for f in files:
-                os.remove(f)
-            os.rmdir(folder)
+        files = get_file_list("datasets")
+        dirs = get_dir_list("datasets")
+        for f in files:
+            os.remove(f)
+        for d in dirs:
+            os.rmdir(d)
+
 
         rich.print("Starting erddap docker container...")
         run_subprocess("docker compose up -d")
@@ -126,17 +148,26 @@ class MetadataHarmonizerTester(unittest.TestCase):
 
         # Get a list of all example datasets
         for dataset in self.example_datasets:
-            erddap_dataset_folder = os.path.join("datasets", dataset["folder"])
-            os.makedirs(erddap_dataset_folder, exist_ok=True)
-            dataset_nc = os.path.join(erddap_dataset_folder, dataset["dataset_id"] + ".nc")
-            generate_dataset(dataset["data"], dataset["metadata"], dataset_nc, self.log)
-            dataset["file"] = dataset_nc
+            if len(dataset["data"]) == 0:
+                self.log.info("skipping dataset generation for {dataset['dataset_id']}")
+                continue
+
+            self.log.info(f"==== Creating dataset {dataset['dataset_id']} ====")
+            nc_folder = os.path.join("datasets", dataset["nc_folder"])
+            os.makedirs(nc_folder, exist_ok=True)
+            dataset_nc = os.path.join(nc_folder, dataset["dataset_id"] + ".nc")
+            generate_dataset(dataset["data"], dataset["metadata"], dataset_nc, self.log, keep_names=dataset["keep"])
+            dataset["nc_files"] = [dataset_nc]  # overwrite any existing nc files
 
     def test_02_cf_compliance(self):
         rich.print(f"Checking CF compliance")
         for dataset in self.example_datasets:
             cf = CFChecker(silent=True)
-            file = dataset["file"]
+            try:
+                file = dataset["file"]
+            except KeyError:
+                rich.print(f"[yellow]Dataset {dataset['dataset_id']} has no file, skipping CF checker")
+                continue
             rich.print(f"\n==== Checking CF compliance of {dataset["dataset_id"]} ====")
             errors = 0
             warns = 0
@@ -164,13 +195,31 @@ class MetadataHarmonizerTester(unittest.TestCase):
         rich.print(f"[purple]Running test {inspect.currentframe().f_code.co_name}")
         for dataset in self.example_datasets:
             dataset_id = dataset["dataset_id"]
-            erddap_dataset_folder = os.path.join("datasets", dataset["folder"])
+
+            nc_dataset = dataset["nc_files"][0]
+
+            # Create
+            dataset_dir = os.path.join("datasets", dataset_id)
+            os.makedirs(dataset_dir, exist_ok=True)
+
+            if dataset["NcML"]:
+                rich.print(f"[cyan]Adding NcML file!")
+                dest_ncml = os.path.join("datasets", dataset["erddap_folder"], os.path.basename(dataset["NcML"]))
+                shutil.copy2(dataset["NcML"], dest_ncml)
+
+                for f in dataset["nc_files"]:
+                    nc_dataset = os.path.join("datasets", dataset["erddap_folder"], "netcdfs", os.path.basename(f))
+                    if f != nc_dataset:
+                        os.makedirs(os.path.dirname(nc_dataset), exist_ok=True)
+                        shutil.copy2(f, nc_dataset)
+
             # Convert current path to ERDDAP docker path
-            erddap_container_path = f"/datasets/{os.path.basename(erddap_dataset_folder)}"  # Convert real path to conatiner path
+            erddap_container_path = f"/datasets/{dataset['erddap_folder']}"  # Convert real path to conatiner path
             erddap_config(
-                dataset["file"],
+                nc_dataset,
                 dataset_id,
                 erddap_container_path,
+                mapping=dataset["mapping"],
                 datasets_xml_file=self.datasets_xml
             )
             rich.print("Creating a hardFlag to force reload")
@@ -192,15 +241,21 @@ class MetadataHarmonizerTester(unittest.TestCase):
             init = time.time()
             dataset_url = self.erddap_url + "/tabledap/" + dataset_id + ".html"
             rich.print(dataset_url)
-            urllib.request.urlretrieve(dataset_url)
             downloaded = False
+
+            timeout = 30
             while time.time() - init < 60:
                 try:
                     urllib.request.urlretrieve(dataset_url)
                     downloaded = True
                     break
                 except urllib.error.HTTPError:
-                    time.sleep(1)
+                    time.sleep(0.5)
+                    dt = time.time() - init
+                    rich.print(f"waiting for erddap to load dataset {dataset_id} {dt:.01f} seconds...      ", end="\r")
+                    if dt > timeout:
+                        raise TimeoutError(f"Dataset {dataset_id} took more than {timeout} seconds to load!")
+
 
             if not downloaded:
                 raise ValueError(f"Could not download {dataset_url}")

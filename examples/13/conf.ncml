@@ -1,0 +1,45 @@
+
+<!--
+ NcML (Network Common Data Form Markup Language) is an XML-based standard as a complementary layer to NetCDF data
+ format; it allows users to describe, aggregate, modify, and augment NetCDF datasets through a plain-text representation
+ without altering the original data files. By providing an abstract "virtual" view of the data, NcML enables operations
+ such as adding or renaming metadata attributes, defining new variables, and logically merging multiple files into a
+ single, coherent dataset, thereby enhancing data discovery, interoperability, and server-side processing within
+ scientific data systems and services like ERDDAP.
+ -->
+
+<netcdf xmlns="http://www.unidata.ucar.edu/namespaces/netcdf/ncml-2.2">
+
+  <!-- Scan all NetCDF files in a certain folder -->
+  <aggregation type="union">
+    <scan location="file:/datasets/13/netcdfs/" suffix=".nc"/>
+  </aggregation>
+
+  <!-- Add a variable 'nominal_latitude' with 'obs' dimension and a constant value -->
+  <variable name="nominal_latitude" type="double" shape="obs">
+
+
+<!--    "long_name": "longitude of measurements",-->
+<!--    "sdn_parameter_uri": "https://vocab.nerc.ac.uk/collection/P01/current/ALONZZ01",-->
+<!--    "standard_name": "longitude",-->
+<!--    "sdn_uom_uri": "http://vocab.nerc.ac.uk/collection/P06/current/UAAA/",-->
+<!--    "units": "degrees_east",-->
+<!--    "variable_type": "coordinate" -->
+
+    <attribute name="long_name" type="string" value="Nominal platform latitude"/>
+    <attribute name="units" type="string" value="degrees_north"/>
+    <attribute name="variable_type" type="string" value="coordinate"/>
+    <attribute name="description" type="string" value="Nominal latitude configured from NcML file"/>
+   <values start="41.18212" increment="0" />
+
+  <!-- Add a variable 'nominal_longitude' with 'obs' dimension and a constant value -->
+  </variable>
+    <variable name="nominal_longitude" type="double" shape="obs">
+    <attribute name="long_name" type="string" value="Nominal longitude"/>
+    <attribute name="units" type="string" value="degrees_north"/>
+    <attribute name="variable_type" type="string" value="coordinate"/>
+    <attribute name="description" type="string" value="Nominal latitude configured from NcML file"/>
+   <values start="1.75257" increment="0" />
+  </variable>
+
+</netcdf>

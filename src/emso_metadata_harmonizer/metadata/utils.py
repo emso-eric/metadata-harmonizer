@@ -11,11 +11,9 @@ created: 26/4/23
 from logging.handlers import TimedRotatingFileHandler
 import requests
 import rich
-from rich.progress import Progress
 import urllib
 import concurrent.futures as futures
 import os
-from .constants import dimensions
 import logging
 
 # Color codes
@@ -55,7 +53,8 @@ def group_metadata_variables(metadata):
     for varname, var in m["variables"].items():
         if "variable_type" not in var.keys():
             d["unclassified"][varname] = var
-
+        if "variable_type" not in var.keys():
+            raise ValueError(f"Variable '{varname}' does not have variable_type attribute")
         vartype = var["variable_type"]
 
         if vartype not in d.keys():
@@ -177,6 +176,23 @@ def get_file_list(dir_name):
         else:
             all_files.append(full_path)
     return all_files
+
+def get_dir_list(dir_name):
+    """
+     create a list of file and sub directories names in the given directory
+     :param dir_name: directory name
+     :returns: list of all files with relative path
+     """
+    file_list = os.listdir(dir_name)
+    all_dirs = list()
+    for entry in file_list:
+        full_path = os.path.join(dir_name, entry)
+        if os.path.isdir(full_path):
+            all_dirs.append(full_path)
+            all_dirs = all_dirs + get_dir_list(full_path)
+
+    all_dirs = sorted(all_dirs, reverse=True)
+    return all_dirs
 
 
 class LoggerSuperclass:

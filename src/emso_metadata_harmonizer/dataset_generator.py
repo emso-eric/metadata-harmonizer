@@ -18,10 +18,7 @@ import yaml
 from .metadata.dataset import load_data
 from .metadata import EmsoMetadata
 from .metadata.utils import assert_type, LoggerSuperclass
-from .metadata.waterframe import WaterFrame, merge_waterframes
-
-
-
+from .metadata.waterframe import WaterFrame, merge_waterframes, get_coordinates_from_dataframe
 
 global_elements = (
     # Array with attribute_name, type, mandatory (True, False), additional_checks
@@ -97,6 +94,12 @@ technical_variable_elements = (
     ("units", str, False),
 )
 
+coordinate_variable_elements= (
+    ("sdn_parameter_uri", str, True),
+    ("standard_name", str, True),
+    ("sdn_uom_uri", str, True)
+)
+
 DEBUG_TESTS = False
 
 def debug_metadata_tests(string, end="\n"):
@@ -117,6 +120,10 @@ def validate_metadata(metadata: dict, section: str, rules: tuple, errors: list, 
     if key:
         # Test only the element with matching key
         under_test = {key: metadata[section][key]}
+
+    if not under_test:
+        warnings.append(f"{section} is empty!")
+        return
 
     for element_id, data in under_test.items():
         for key, data_type, mandatory in rules:
@@ -150,7 +157,7 @@ def consolidate_metadata(metadata_files: list):
     return metadata
 
 
-def generate_dataset(data_files: list, metadata_files: list, output: str, log: logging.Logger, meta_only=False):
+def generate_dataset(data_files: list, metadata_files: list, output: str, log: logging.Logger, keep_names=False):
     """
     Generates an EMSO-compliant NetCDF dataset from the input data and metadata
     """
@@ -162,6 +169,7 @@ def generate_dataset(data_files: list, metadata_files: list, output: str, log: l
     [assert_type(f, str) for f in data_files]
     [assert_type(f, str) for f in metadata_files]
     assert len(metadata_files) > 0, "Expected at least one metadata file!"
+
 
     metadata = consolidate_metadata(metadata_files)
 
@@ -179,8 +187,13 @@ def generate_dataset(data_files: list, metadata_files: list, output: str, log: l
         for name in metadata["variables"].keys():
             columns[name] = pd.Series(dtype='float')
 
+        if "TIME" in metadata["variables"].keys():
+            # Avoid duplicated times
+            del columns["time"]
+
         df = pd.DataFrame(columns)
 
+    _time, _depth, _latitude, _longitude, _sensor_id, _platform_id = get_coordinates_from_dataframe(df)
 
     log.info("Validating metadata...")
     errors = []
@@ -202,6 +215,8 @@ def generate_dataset(data_files: list, metadata_files: list, output: str, log: l
             validate_metadata(metadata, "variables", biological_variable_elements, errors, warnings, key=key)
         elif vartype == "technical":
             validate_metadata(metadata, "variables", technical_variable_elements, errors, warnings, key=key)
+        elif vartype == "coordinate":
+            validate_metadata(metadata, "variables", technical_variable_elements, errors, warnings, key=key)
         else:
             raise ValueError(f"Variable type '{vartype}' not supported")
 
@@ -217,4 +232,4 @@ def generate_dataset(data_files: list, metadata_files: list, output: str, log: l
         log.error("Got errors in dataset generation", exception=ValueError)
 
     wf = WaterFrame(df, metadata)
-    wf.to_netcdf(output)
+    wf.to_netcdf(output, keep_names=keep_names)

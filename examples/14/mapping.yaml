@@ -1,0 +1,132 @@
+mapping:
+  attributes:
+    title: "Example 14: Setup a EMSO-compliant dataset from Copernicus-like files"
+    summary: "Example 14: Setup a EMSO-compliant dataset from Copernicus-like files. Source files from W1M3A have been slightly modified to convert the sensor_id to a string (instead of a numerical variable) and some variables have been removed"
+    treatDimensionsAs: "LATITUDE,LONGITUDE,TIME"  # required for NetCDF files not compliant with CF, depends on your dimensions
+
+  variables:
+  # Use the mapping file to edit the source / destinations of the ERDDAP configuration. The structure is as follows:
+  # source: variable name from NetCDF files
+  # destination: variable name at ERDDAP
+  # attributes: (optional)
+  #   key: value
+
+    - source: LATITUDE
+      destination: precise_latitude
+      attributes:
+        standard_name: deployment_latitude
+        variable_type: "coordinate"
+
+    - source: LONGITUDE
+      destination: precise_longitude
+      attributes:
+        standard_name: deployment_longitude
+        variable_type: "coordinate"
+
+
+    - source: nominal_latitude
+      destination: latitude
+      dataType: "float"
+      attributes:
+        standard_name: latitude
+        variable_type: "coordinate"
+
+    - source: nominal_longitude
+      destination: longitude
+      dataType: "float"
+      attributes:
+        standard_name: longitude
+        variable_type: "coordinate"
+
+
+    - source: platform_id
+      destination: platform_id
+      dataType: "String"
+      attributes:
+        cf_role: timeseries_id
+        long_name: "Platform where the sensors were deployed"
+
+    # ==== The following are all Sensor Metadata ==== #
+    - source: "Vaisala_HMP155_SNR0230167"
+      destination: "Vaisala_HMP155_SNR0230167"
+      dataType: "String"
+      attributes:
+        variable_type: "sensor"
+        sensor_model: "Vaisala HMP155 hygrometer series"
+        sensor_manufacturer: "Vaisala"
+        sensor_manufacturer_uri: "http://vocab.nerc.ac.uk/collection/L35/current/MAN0025/"
+        sensor_manufacturer_urn: "SDN:L35::MAN0025"
+        sensor_mount: "mounted_on_surface_buoy"
+        sensor_reference: "http://vocab.nerc.ac.uk/collection/L22/current/TOOL1673/"
+        serial_number: "R0230167"
+
+    - source: "SBE37sm_SN37_1234"
+      destination: "SBE37sm_SN37_1234"
+      dataType: "String"
+      attributes:
+        variable_type: "sensor"
+        sensor_model: "Sea-Bird SBE 37 MicroCat CTP (submersible) CTD sensor series"
+        sensor_manufacturer: "Sea-Bird Scientific"
+        sensor_manufacturer_uri: "http://vocab.nerc.ac.uk/collection/L35/current/MAN0013/"
+        sensor_manufacturer_urn: "SDN:L35::MAN0013"
+        sensor_mount: "mounted_on_surface_buoy"
+        sensor_reference: "http://vocab.nerc.ac.uk/collection/L22/current/TOOL1393/"
+        serial_number: "37-1234"
+
+    - source: "SBE16plusv2_SN16_50265"
+      destination: "SBE16plusv2_SN16_50265"
+      dataType: "String"
+      attributes:
+        variable_type: "sensor"
+        sensor_model: "Sea-Bird SBE 16Plus V2 SEACAT C-T Recorder"
+        sensor_manufacturer: "Sea-Bird Scientific"
+        sensor_manufacturer_uri: "http://vocab.nerc.ac.uk/collection/L35/current/MAN0013/"
+        sensor_manufacturer_urn: "SDN:L35::MAN0013"
+        sensor_mount: "mounted_on_surface_buoy"
+        sensor_reference: "http://vocab.nerc.ac.uk/collection/L22/current/TOOL0870/"
+        serial_number: "16-50265"
+
+    - source: "SBE37sm_SN37_5669"
+      destination: "SBE37sm_SN37_5669"
+      dataType: "String"
+      attributes:
+        variable_type: "sensor"
+        sensor_model: "Sea-Bird SBE 37 MicroCat CTP (submersible) CTD sensor series"
+        sensor_manufacturer: "Sea-Bird Scientific"
+        sensor_manufacturer_uri: "http://vocab.nerc.ac.uk/collection/L35/current/MAN0013/"
+        sensor_manufacturer_urn: "SDN:L35::MAN0013"
+        sensor_mount: "mounted_on_surface_buoy"
+        sensor_reference: "http://vocab.nerc.ac.uk/collection/L22/current/TOOL1393/"
+        serial_number: "37-5669"
+
+    - source: "SBE37sm_SN37_22592"
+      destination: "SBE37sm_SN37_22592"
+      dataType: "String"
+      attributes:
+        variable_type: "sensor"
+        sensor_model: "Sea-Bird SBE 37 MicroCat CTP (submersible) CTD sensor series"
+        sensor_manufacturer: "Sea-Bird Scientific"
+        sensor_manufacturer_uri: "http://vocab.nerc.ac.uk/collection/L35/current/MAN0013/"
+        sensor_manufacturer_urn: "SDN:L35::MAN0013"
+        sensor_mount: "mounted_on_surface_buoy"
+        sensor_reference: "http://vocab.nerc.ac.uk/collection/L22/current/TOOL1393/"
+        serial_number: "37-22592"
+
+
+
+    # ==== The following is platform metadata ==== #
+    - source: W1M3A
+      destination: W1M3A
+      dataType: "String"
+      attributes:
+        variable_type: "platform"
+        sensor_model: "Sea-Bird SBE 37 MicroCat CTP (submersible) CTD sensor series"
+        sensor_manufacturer: "Sea-Bird Scientific"
+        sensor_manufacturer_uri: "http://vocab.nerc.ac.uk/collection/L35/current/MAN0013/"
+        sensor_manufacturer_urn: "SDN:L35::MAN0013"
+        sensor_mount: "mounted_on_surface_buoy"
+        sensor_reference: "http://vocab.nerc.ac.uk/collection/L22/current/TOOL1393/"
+        serial_number: "37-5669"
+
+
+

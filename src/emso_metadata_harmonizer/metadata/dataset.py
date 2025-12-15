@@ -7,6 +7,7 @@ email: enoc.martinez@upc.edu
 license: MIT
 created: 29/4/23
 """
+from .metadata_templates import time_valid_names
 from .waterframe import WaterFrame
 import pandas as pd
 from .constants import dimensions
@@ -60,8 +61,12 @@ def load_data(file: str) -> pd.DataFrame:
     else:
         raise ValueError("Unimplemented file format for data!")
 
-    df["time"] = pd.to_datetime(df["time"])
-    return df
+    # Get any valid time key
+    for _time in time_valid_names:
+        if _time in df.columns:
+            df[_time] = pd.to_datetime(df[_time])
+            return df
+    raise ValueError(f"Could not find valid time key! Column names: {list(df.columns)}")
 
 
 def semicolon_to_list(attr: str):

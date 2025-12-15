@@ -1,0 +1,41 @@
+<!--
+ NcML (Network Common Data Form Markup Language) is an XML-based standard as a complementary layer to NetCDF data
+ format; it allows users to describe, aggregate, modify, and augment NetCDF datasets through a plain-text representation
+ without altering the original data files. By providing an abstract "virtual" view of the data, NcML enables operations
+ such as adding or renaming metadata attributes, defining new variables, and logically merging multiple files into a
+ single, coherent dataset, thereby enhancing data discovery, interoperability, and server-side processing within
+ scientific data systems and services like ERDDAP.
+ -->
+
+
+<netcdf xmlns="http://www.unidata.ucar.edu/namespaces/netcdf/ncml-2.2">
+
+  <!-- Scan all NetCDF files in a certain folder -->
+  <aggregation type="union">
+    <scan location="file:/datasets/14/netcdfs/" suffix=".nc"/>
+  </aggregation>
+
+  <!-- Add a variable 'nominal_latitude' with 'TIME DEPTH' dimensions and a constant value -->
+  <variable name="nominal_latitude" type="double" shape="TIME DEPTH">
+    <attribute name="long_name" type="string" value="Latitude"/>
+    <attribute name="units" type="string" value="degrees_north"/>
+      <attribute name="variable_type" type="string" value="coordinate"/>
+    <attribute name="description" type="string" value="Nominal latitude configured from NcML file"/>
+   <values start="41.18212" increment="0" />
+
+  <!-- Add a variable 'nominal_longitude' with 'TIME DEPTH' dimensions and a constant value -->
+  </variable>
+    <variable name="nominal_longitude" type="double" shape="TIME DEPTH">
+    <attribute name="long_name" type="string" value="Nominal longitude"/>
+    <attribute name="units" type="string" value="degrees_north"/>
+    <attribute name="variable_type" type="string" value="coordinate"/>
+    <attribute name="description" type="string" value="Nominal latitude configured from NcML file"/>
+   <values start="1.75257" increment="0" />
+  </variable>
+
+  <!-- Add a variable 'platform_id' with 'W1M3A' constant value -->
+  <variable name="platform_id" type="string">
+    <values>W1M3A</values>>
+  </variable>
+
+</netcdf>

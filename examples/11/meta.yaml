@@ -64,6 +64,8 @@ variables:
     long_name: "detection algorithm confidence"
     comment: "Confidence represents a score assigned by a model to its prediction, indicating how certain the model is about that specific output. For tasks like object detection or image classification, each detected object or assigned class label comes with a confidence score, typically ranging from 0 to 1 (or 0% to 100%). This score helps users gauge the reliability of individual predictions made by models such as Ultralytics YOLO. A higher score suggests the model is more certain about its prediction based on the patterns learned during training. "
     variable_type: "technical"
+    units: "1"
+
 
   bbox:
     long_name: "detection bounding box"

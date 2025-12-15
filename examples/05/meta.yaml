@@ -31,7 +31,7 @@ platforms:
     # Nominal coordinates, deployment variables or real-time GPS coordinates can be provided in the data with the
     # precise_latitude/precise_longitude variable, (standard name: deployment_latitude, P01 code: ALATGP01).
     latitude: 43.8419  # nominal latitude
-    longitude: 9.1339  # nominal longitude
+    longitude: 9.1339  # nominal longitudezz
 sensors:
   Airmar_200WX_SN0001:
     long_name: "Airmar 200WX weather station"  # human-readable name
@@ -138,7 +138,7 @@ variables:
     long_name: "wind speed"
     sdn_parameter_uri: "https://vocab.nerc.ac.uk/collection/P01/current/EWDASS01"
     sdn_uom_uri: "https://vocab.nerc.ac.uk/collection/P06/current/UVAA/"
-    standard_name: "sea_water_temperature"
+    standard_name: "wind_speed"
 
   WDIR:
     long_name: "wind direction"
