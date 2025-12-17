@@ -4,6 +4,7 @@ variables:
     sdn_parameter_uri: "http://vocab.nerc.ac.uk/collection/P01/current/TEMPST01"
     sdn_uom_uri: "http://vocab.nerc.ac.uk/collection/P06/current/UPAA/"
     standard_name: "sea_water_temperature"
+    reference_scale: "ITS-90"
 
   CNDC:
     long_name: "sea water electrical conductivity"

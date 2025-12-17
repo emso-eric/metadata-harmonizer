@@ -1,13 +1,13 @@
 platforms:
   OBSEA_seabed_station:
-    long_name: "OBSEA Seafloor Observatory"  # human-readable long name of the platform
+    long_name: "OBSEA seabed station"  # human-readable long name of the platform
     wmo_platform_code: "6103565"  # (optional) World Meteorological Organization platform number
-    emso_platform: "OBSEA seabed station"  # link to the OSO ontology
-    platform_type: "mooring"  # Platform type from the L06 vocabulary
+    emso_platform_name: "OBSEA seabed station"  # link to the OSO ontology
+    platform_type_name: "mooring"  # Platform type from the L06 vocabulary
     platform_type_uri: "http://vocab.nerc.ac.uk/collection/L06/current/48/"  # Link to an instance of the L06 vocabulary
-    info_url: "https://obsea.es"  # (optional) uri where more information can be obtained
+    platform_reference: "https://obsea.es"  # (optional) uri where more information can be obtained
     # (optional) other relevant information
-    comment: "OBSEA seafloor observatory is a multiparametric cabled observatory located at NW mediterranean sea"
+    comment: "The seafloor section of the OBSEA multiparametric cabled observatory seafloor observatory, located at NW mediterranean sea"
 
     # Nominal coordinates, deployment variables or real-time GPS coordinates can be provided in the data with the
     # precise_latitude/precise_longitude variable, (standard name: deployment_latitude, P01 code: ALATGP01).

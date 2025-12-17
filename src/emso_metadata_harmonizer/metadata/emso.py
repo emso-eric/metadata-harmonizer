@@ -26,6 +26,7 @@ emso_version = "feature/v1.0"
 emso_metadata_url = f"https://raw.githubusercontent.com/emso-eric/emso-metadata-specifications/{emso_version}/EMSO_metadata.md"
 oceansites_codes_url = f"https://raw.githubusercontent.com/emso-eric/emso-metadata-specifications/{emso_version}/OceanSites_codes.md"
 emso_codes_url = f"https://raw.githubusercontent.com/emso-eric/emso-metadata-specifications/{emso_version}/EMSO_codes.md"
+datacite_codes_url = f"https://raw.githubusercontent.com/emso-eric/emso-metadata-specifications/{emso_version}/DataCite_codes.md"
 
 sdn_vocab_p01 = "https://vocab.nerc.ac.uk/downloads/publish/P01.json"
 sdn_vocab_p02 = "https://vocab.nerc.ac.uk/collection/P02/current/?_profile=nvs&_mediatype=application/ld+json"
@@ -76,11 +77,12 @@ def process_markdown_file(file) -> (dict, dict):
             table = {}
             headers = line.strip().split("|")
             headers = [h.strip() for h in headers][1:-1]
+            headers += ["annotations"]
 
             for header in headers:
                 table[header] = []
-
             in_table = True
+
 
         elif in_table and not line.startswith("|"):  # end of the table
             in_table = False
@@ -93,6 +95,16 @@ def process_markdown_file(file) -> (dict, dict):
             if not line.endswith("|"):
                 line += "|"  # fix tables not properly formatted
             fields = [f.strip() for f in line.split("|")[1:-1]]
+
+            # If there's an annotation store its value  "contributors<sup>1</sup>" -> ("contributors", 1)
+            if "<sup>" in fields[0]:
+                a = fields[0].replace("</sup>", "")
+                field, annotation = a.split("<sup>")
+                annotation = int(annotation)
+                fields[0] = field
+            else:
+                annotation = 0
+
             fields = [f.split("<")[0] for f in fields]  # remove annotations like <sup>1</sup>
             for i in range(len(fields)):
                 if fields[i] in ["false", "False"]:
@@ -101,6 +113,8 @@ def process_markdown_file(file) -> (dict, dict):
                     table[headers[i]].append(True)
                 else:
                     table[headers[i]].append(fields[i])
+            table[headers[i+1]].append(annotation)
+
     return tables
 
 
@@ -260,54 +274,75 @@ def parse_sdn_jsonld(filename):
 class OSO:
     def __init__(self, ttl_file):
         self.graph = Graph().parse(ttl_file)
-        self.platform_uri = "http://www.w3.org/ns/sosa/Platform"
-        self.site_uri = "http://example.org/ontology#SI"
-        self.rf_uri = "http://example.org/ontology#RF"
+        self.platforms = self.get_instances_as_dataframe("https://w3id.org/earthsemantics/OSO#Platform")
+        self.sites = self.get_instances_as_dataframe("https://w3id.org/earthsemantics/OSO#Site")
+        self.rfs = self.get_instances_as_dataframe("https://w3id.org/earthsemantics/OSO#RegionalFacility")
+        self.platforms.drop_duplicates(keep="first", inplace=True)
+        self.sites.drop_duplicates(keep="first", inplace=True)
+        self.rfs.drop_duplicates(keep="first", inplace=True)
 
-    def get_uri(self, label):
+    def get_instances_as_dataframe(self, class_uri):
+        query = f"""
+            SELECT ?instance ?label
+            WHERE {{
+                ?instance a <{class_uri}> .
+                OPTIONAL {{
+                    ?instance rdfs:label ?label .
+                }}
+            }}
         """
-        Gets a URI by label, regardless of the type
-        """
-        q = prepareQuery(f"""
-            SELECT ?s ?type WHERE {{
-              ?s skos:prefLabel ?label .
-              ?s a ?type .
-              FILTER (str(?label) = ?target && ?type != owl:NamedIndividual)
-            }}            
-            """, initNs={"skos": SKOS, "rdf": RDF, "owl": OWL})
+        results = self.graph.query(query)
+        data = [{"uri": str(row.instance), "label": str(row.label)} for row in results]
+        return pd.DataFrame(data)
 
-        results = self.graph.query(q, initBindings={"target": Literal(label)})
-        if len(results) == 0:
-            raise LookupError(f"No results for {label}")
+    def __check_element(self, df, label, column):
+        assert column in ["uri", "label"], f"OSO DataFrame does not have column '{column}'"
+        return label in df[column].values
 
-        for result in results:
-            if not result.type:
-                pass
-            else:
-                return str(result.s), str(result.type)
+    def check_platform(self, this, column):
+        return self.__check_element(self.platforms, this, column)
 
-    def check_element(self, label, element):
+    def check_site(self, this, column):
+        return self.__check_element(self.sites, this, column)
+
+    def check_rf(self, this, column):
+        return self.__check_element(self.rfs, this, column)
+
+    def get_uri_from_name(self, name, cls):
+        assert cls in ["rfs", "sites", "platforms"]
+        if cls == "rfs":
+            df = self.rfs
+        elif cls == "sites":
+            df = self.sites
+        else:
+            df = self.platforms
         try:
-            uri, stype = self.get_uri(label)
-        except LookupError:
-            return False
-        if stype == element:
-            return True
-        return False
+            uri = df.loc[df["label"] == name]["uri"].values[0]
+        except (KeyError, IndexError):
+            rich.print(f"[red]ERROR: OSO does not have any '{cls}' with label '{name}', valid names:")
+            [rich.print(f"[red]    - '{a}'") for a in df['label'].unique()]
+            return ""
+        return str(uri)
 
-    def check_platform(self, label):
-        return self.check_element(label, self.platform_uri)
-
-    def check_site(self, label):
-        return self.check_element(label, self.site_uri)
-
-    def check_rf(self, label):
-        return self.check_element(label, self.rf_uri)
-
+    def get_name_from_uri(self, uri, cls):
+        assert cls in ["rfs", "sites", "platforms"]
+        if cls == "rfs":
+            df = self.rfs
+        elif cls == "sites":
+            df = self.sites
+        else:
+            df = self.platforms
+        try:
+            uri = df.loc[df["uri"] == uri]["label"].values[0]
+        except (KeyError, IndexError):
+            rich.print(f"[red]ERROR: OSO does not have any '{cls}' with uri '{uri}', valid uris:")
+            [rich.print(f"[red]    - '{a}'") for a in df['uri'].unique()]
+            return ""
+        return str(uri)
 
 
 class EmsoMetadata:
-    def __init__(self, force_update=False):
+    def __init__(self, force_update=False, specifications=""):
 
         os.makedirs(".emso", exist_ok=True)  # create a conf dir to store Markdown and other stuff
         os.makedirs(os.path.join(".emso", "jsonld"), exist_ok=True)
@@ -317,6 +352,7 @@ class EmsoMetadata:
         emso_metadata_file = os.path.join(".emso", "EMSO_metadata.md")
         oceansites_file = os.path.join(".emso", "OceanSites_codes.md")
         emso_sites_file = os.path.join(".emso", "EMSO_codes.md")
+        datacite_codes_file = os.path.join(".emso", "DataCite_codes.md")
         sdn_vocab_p01_file = os.path.join(".emso", "jsonld", "sdn_vocab_p01.json")
         sdn_vocab_p02_file = os.path.join(".emso", "jsonld", "sdn_vocab_p02.json")
         sdn_vocab_p06_file = os.path.join(".emso", "jsonld", "sdn_vocab_p06.json")
@@ -336,6 +372,7 @@ class EmsoMetadata:
             [emso_metadata_url, emso_metadata_file, "EMSO metadata"],
             [oceansites_codes_url, oceansites_file, "OceanSites"],
             [emso_codes_url, emso_sites_file, "EMSO codes"],
+            [datacite_codes_url, datacite_codes_file, "DataCite codes"],
             [sdn_vocab_p01, sdn_vocab_p01_file, "SDN Vocab P01"],
             [sdn_vocab_p02, sdn_vocab_p02_file, "SDN Vocab P02"],
             [sdn_vocab_p06, sdn_vocab_p06_file, "SDN Vocab P06"],
@@ -351,6 +388,11 @@ class EmsoMetadata:
             [dwc_terms_url, dwc_terms_file, "DwC terms"],
             [oso_ontology_url, oso_ontology_file, "OSO"]
         ]
+
+        if specifications:
+            rich.print(f"[yellow]WARNING: Using custom specifications file: {specifications}")
+            tasks = tasks[1:]
+            emso_metadata_file = specifications
 
         download_files(tasks)
 
@@ -377,6 +419,9 @@ class EmsoMetadata:
         tables = process_markdown_file(emso_sites_file)
         self.emso_regional_facilities = tables["EMSO Regional Facilities"]["EMSO Regional Facilities"].to_list()
         self.emso_sites = tables["EMSO Sites"]["EMSO Site"].to_list()
+
+        tables = process_markdown_file(datacite_codes_file)
+        self.datacite_contributor_roles = tables["DataCite Contributor Type"]["Type"].to_list()
 
         tables = process_markdown_file(spdx_licenses_file)
         t = tables["Licenses with Short Idenifiers"]

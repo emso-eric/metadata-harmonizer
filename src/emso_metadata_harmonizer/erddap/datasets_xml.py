@@ -132,7 +132,10 @@ def generate_erddap_dataset(wf: WaterFrame, directory, dataset_id, file_access=T
         attributes = {}  # By default, do not modify attributes
         if varname in var_mapping.keys():
             # If we have a mapping for this variable, set the destination and merge the attributes
-            destination = var_mapping[varname]["destination"]
+            if "destination" in var_mapping[varname].keys():
+                destination = var_mapping[varname]["destination"]
+            else: # By default, use source=destination
+                destination = var_mapping[varname]["source"]
             attributes = var_mapping[varname]["attributes"]
         else:
             try:

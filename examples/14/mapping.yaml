@@ -40,7 +40,6 @@ mapping:
 
 
     - source: platform_id
-      destination: platform_id
       dataType: "String"
       attributes:
         cf_role: timeseries_id
@@ -48,7 +47,6 @@ mapping:
 
     # ==== The following are all Sensor Metadata ==== #
     - source: "Vaisala_HMP155_SNR0230167"
-      destination: "Vaisala_HMP155_SNR0230167"
       dataType: "String"
       attributes:
         variable_type: "sensor"
@@ -61,7 +59,6 @@ mapping:
         serial_number: "R0230167"
 
     - source: "SBE37sm_SN37_1234"
-      destination: "SBE37sm_SN37_1234"
       dataType: "String"
       attributes:
         variable_type: "sensor"
@@ -74,7 +71,6 @@ mapping:
         serial_number: "37-1234"
 
     - source: "SBE16plusv2_SN16_50265"
-      destination: "SBE16plusv2_SN16_50265"
       dataType: "String"
       attributes:
         variable_type: "sensor"
@@ -87,7 +83,6 @@ mapping:
         serial_number: "16-50265"
 
     - source: "SBE37sm_SN37_5669"
-      destination: "SBE37sm_SN37_5669"
       dataType: "String"
       attributes:
         variable_type: "sensor"
@@ -100,7 +95,6 @@ mapping:
         serial_number: "37-5669"
 
     - source: "SBE37sm_SN37_22592"
-      destination: "SBE37sm_SN37_22592"
       dataType: "String"
       attributes:
         variable_type: "sensor"
@@ -115,8 +109,7 @@ mapping:
 
 
     # ==== The following is platform metadata ==== #
-    - source: W1M3A
-      destination: W1M3A
+    - source: "W1M3A"
       dataType: "String"
       attributes:
         variable_type: "platform"

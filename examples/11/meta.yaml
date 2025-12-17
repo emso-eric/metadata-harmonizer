@@ -1,30 +1,34 @@
 global:
   title: "Example 11: Fish detections from underwater pictures, compatible with Darwin Core"
   summary: "Fish detections from an underwater pictures analyzed through an object detection and classification algorithm trained to classify fish"
-  Conventions: "OceanSITES EMSO CF-1.8 DwC" # adding Darwin Core??
+  Conventions: "OceanSITES EMSO CF-1.8"
   institution: "UPC - Universitat Politècnica de Catalunya"
   institution_edmo_code: "2150"
+  institution_ror_uri: "https://ror.org/03mb6wj31"
   update_interval: "void"
-  emso_site: "OBSEA"
-  emso_regional_facility: "Balearic Sea"
+  emso_site_name: "OBSEA"
+  emso_regional_facility_name: "Balearic Sea"
   source: "mooring"
   data_type: "OceanSITES profile data"
   format_version: "1.4"
   network: "EMSO"
   data_mode: "D"
-  project: ""
+  projects: "DIGI4ECO GEORGE"
+  project_codes: "101112883 101094716"
   principal_investigator: "Homer Simpson"
   principal_investigator_email: "homer.simpson@fake.com"
   license: "CC-BY-4.0"
+  contributors: "Bart Simpson, Peter Griffin, Rick Sánchez"
+  contributor_types: "DataCollector DataManager Researcher"
 
 platforms:
-  OBSEA:
+  OBSEA_seabed_station:
     long_name: "OBSEA Seafloor Observatory"  # human-readable long name of the platform
-    wmo_number: "6103565"  # (optional) World Meteorological Organization platform number
-    emso_ontology_uri: ""  # link to the OSO ontology
-    platform_type: "mooring"  # Platform type from the L06 vocabulary
+    wmo_platform_code: "6103565"  # (optional) World Meteorological Organization platform number
+    emso_platform_name: "OBSEA seabed station"  # link to the OSO ontology
+    platform_type_name: "mooring"  # Platform type from the L06 vocabulary
     platform_type_uri: "http://vocab.nerc.ac.uk/collection/L06/current/48/"  # Link to an instance of the L06 vocabulary
-    info_url: "https://obsea.es"  # (optional) uri where more information can be obtained
+    platform_reference: "https://obsea.es"  # (optional) uri where more information can be obtained
     # (optional) other relevant information
     comment: "OBSEA seafloor observatory is a multiparametric cabled observatory located at NW mediterranean sea"
 
@@ -39,10 +43,11 @@ sensors:
     sensor_serial_number: "0001"
     sensor_mount: "mounted_on_seafloor_structure"  # mounting from a controlled list
     sensor_orientation: "horizontal"   # may be relevant for the camera
-    sensor_model: "IPC608UW underwater camera"
-    sensor_model_uri: ""  # Not found L22
-    sensor_manufacturer: "Linovision"
+    sdn_instrument_name: "IPC608UW underwater camera"
+    sensor_manufacturer_name: "Linovision"  # Not found in L35
     sensor_manufacturer_uri: ""  # Not found in L35
+    sensor_reference: "https://eu.linovision.com/en-eu/products/ipc608uw"
+    sensor_type_uri: "https://vocab.nerc.ac.uk/collection/L05/current/311/"
 
 variables:
   associatedMedia:
@@ -65,7 +70,6 @@ variables:
     comment: "Confidence represents a score assigned by a model to its prediction, indicating how certain the model is about that specific output. For tasks like object detection or image classification, each detected object or assigned class label comes with a confidence score, typically ranging from 0 to 1 (or 0% to 100%). This score helps users gauge the reliability of individual predictions made by models such as Ultralytics YOLO. A higher score suggests the model is more certain about its prediction based on the patterns learned during training. "
     variable_type: "technical"
     units: "1"
-
 
   bbox:
     long_name: "detection bounding box"

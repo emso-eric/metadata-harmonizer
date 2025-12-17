@@ -33,7 +33,10 @@ emso = None
 # Make sure that we have all the coordinates
 def platform_metadata_to_column(df: pd.DataFrame, variable: str, platforms: list) -> pd.DataFrame:
     if variable not in df.columns:
-        df[variable] = platforms[0][variable]
+        try:
+            df[variable] = platforms[0][variable]
+        except (KeyError, IndexError):
+            raise ValueError(f"Cannot extract  field '{variable}' from metadata")
     return df
 
 
@@ -121,11 +124,6 @@ class WaterFrame(LoggerSuperclass):
         # Set Constants
         self.flag_values = np.array([0, 1, 2, 3, 4, 7, 8, 9]).astype("u1")
         self.flag_meanings =  ['unknown', 'good_data', 'probably_good_data', 'potentially_correctable_bad_data', 'bad_data', 'nominal_value', 'interpolated_value', 'missing_value']
-
-        # # Ensure all dimensions are in lower case
-        # for col in list(df.columns):
-        #     if col.lower() in coordinates:
-        #         df = df.rename(columns={col: col.lower()})
 
         self.data = df
 
@@ -323,6 +321,21 @@ class WaterFrame(LoggerSuperclass):
             self.debug("Derivating institution_edmo_code")
             meta["institution_edmo_code"] = meta["institution_edmo_uri"].split("/")[-1]
 
+        uri_from_name = self.emso.oso.get_uri_from_name
+        name_from_uri = self.emso.oso.get_name_from_uri
+        # EMSO Regional Facilities
+        if "emso_regional_facility_uri" in meta.keys() and "emso_regional_facility_name" not in meta.keys():
+            meta["emso_regional_facility_name"] = name_from_uri(meta["emso_regional_facility_uri"], "rfs")
+
+        if "emso_regional_facility_name" in meta.keys() and "emso_regional_facility_uri" not in meta.keys():
+            meta["emso_regional_facility_uri"] = uri_from_name(meta["emso_regional_facility_name"], "rfs")
+
+        if "emso_site_uri" in meta.keys() and "emso_site_name" not in meta.keys():
+            meta["emso_site_name"] = name_from_uri(meta["emso_site_uri"], "sites")
+
+        if "emso_site_name" in meta.keys() and "emso_site_uri" not in meta.keys():
+            meta["emso_site_uri"] = uri_from_name(meta["emso_site_name"], "sites")
+
         # SPDX license
         if "license_uri" not in meta.keys() and "license" in meta.keys():
             meta["license_uri"] = "https://spdx.org/licenses/" + meta["license"]
@@ -355,6 +368,17 @@ class WaterFrame(LoggerSuperclass):
             if variable["variable_type"] == "platform":
                 self.autofill_vocab(variable, "platform_type", "L06")
 
+                meta = self.vocabulary[varname]
+
+                if "emso_platform_name" in meta.keys() and "emso_platform_uri" not in meta.keys():
+                    meta["emso_platform_uri"] = uri_from_name(meta["emso_platform_name"], "platforms")
+
+                if "emso_platform_name" in meta.keys() and "emso_platform_uri" not in meta.keys():
+                    meta["emso_platform_uri"] = name_from_uri(meta["emso_platform_name"], "platforms")
+
+                self.vocabulary[varname] = meta
+
+
         # Fill coordinate metadata from default table
         df = self.emso.valid_coordinates
         variables = df["coordinate name"].to_list()
@@ -376,16 +400,36 @@ class WaterFrame(LoggerSuperclass):
 
             self.vocabulary[varname] = variable
 
-        coordinates = [c for c, v in self.vocabulary.items() if v["variable_type"] == "coordinate"]
-        coordinates = " ".join(coordinates)
-
         for varname, variable in self.vocabulary.items():
             if variable["variable_type"] in ["environmental", "biological", "technical"]:
-                if  "coordinates" not in variable.keys():
-                    variable["coordinates"] = coordinates
+                variable["coordinates"] = [self._time, self._latitude, self._longitude, self._depth, self._sensor_id, self._platform_id]
+
 
         if not self.data.empty:
             self.autofill_coverage()
+
+        # Put as ancillary_variables all sensor data variable names
+
+        for varname, m in self.vocabulary.items():
+            # Data Variables will have sensor_id and platform_id in ancillary_variables
+            if m["variable_type"] in ["environmental", "biological", "technical"]:
+                if "ancillary_variables" not in m.keys():
+                    m["ancillary_variables"] = ""
+                m["ancillary_variables"] += self._sensor_id + " " + self._platform_id
+
+        # Adding sensor names in sensor_id's ancillary_data
+        if "ancillary_variables" not in self.vocabulary[self._sensor_id].keys():
+            self.vocabulary[self._sensor_id]["ancillary_variables"] = ""
+        else:
+            self.vocabulary[self._sensor_id]["ancillary_variables"] += " "
+        self.vocabulary[self._sensor_id]["ancillary_variables"] += " ".join(list(self.sensors.keys()))
+
+        # Adding sensor names in sensor_id's ancillary_data
+        if "ancillary_variables" not in self.vocabulary[self._platform_id].keys():
+            self.vocabulary[self._platform_id]["ancillary_variables"] = ""
+        else:
+            self.vocabulary[self._platform_id]["ancillary_variables"] += " "
+        self.vocabulary[self._platform_id]["ancillary_variables"] += " ".join(list(self.platforms.keys()))
 
 
     def autofill_vocab(self, meta, prefix, vocab_id, exception=False):
@@ -586,11 +630,6 @@ class WaterFrame(LoggerSuperclass):
         else:
             raise ValueError(f"Unimplemented type {self.cf_data_type}")
 
-        for var in self.vocabulary.keys():
-            if var.endswith("_QC"):
-                continue
-            if "coordinates" in self.vocabulary[var].keys():
-                self.vocabulary[var]["coordinates"] = [self._time, self._latitude, self._longitude, self._depth, self._sensor_id, self._platform_id]
 
         if "CF-1.8" not in self.metadata["Conventions"]:
             if isinstance(self.metadata["Conventions"], list):
@@ -849,7 +888,7 @@ class WaterFrame(LoggerSuperclass):
 
             ds.close()
 
-        ds = xr.open_dataset(filename, decode_times=decode_times, decode_cf=True ) # Open file with xarray
+        ds = xr.open_dataset(filename, decode_times=decode_times, decode_cf=True, decode_coords=False ) # Open file with xarray
 
         # Save ds into a WaterFrame
         metadata = {"global": dict(ds.attrs), "variables": {}, "sensors": {}, "platforms": {}}

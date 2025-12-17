@@ -1,31 +1,32 @@
 global:
   title: "Example 10: ASV equipped with an ADCP"
-  summary: "Trajectory data from an ASV with current profiles from an ADCP0"
+  summary: "Trajectory data from an ASV with current profiles from an ADCP"
   Conventions: "OceanSITES EMSO CF-1.8"
   institution: "UPC - Universitat Politècnica de Catalunya"
   institution_edmo_code: "2150"
+  institution_ror_uri: "https://ror.org/03mb6wj31"
   update_interval: "void"
-  emso_site: "OBSEA"
-  emso_regional_facility: "Balearic Sea"
+  emso_site_name: "OBSEA"
+  emso_regional_facility_name: "Balearic Sea"
   source: "mooring"
   data_type: "OceanSITES profile data"
   format_version: "1.4"
   network: "EMSO"
   data_mode: "D"
-  project: ""
+  projects: "DIGI4ECO GEORGE"
+  project_codes: "101112883 101094716"
   principal_investigator: "Homer Simpson"
   principal_investigator_email: "homer.simpson@fake.com"
   license: "CC-BY-4.0"
+  contributors: "Bart Simpson, Peter Griffin, Rick Sánchez"
+  contributor_types: "DataCollector DataManager Researcher"
 
 platforms:
   SailBuoy_SN0001:
     long_name: "OBSEA Seafloor Observatory"  # human-readable long name of the platform
-    wmo_number: ""  # (optional) World Meteorological Organization platform number
-    emso_ontology_uri: ""  # link to the OSO ontology
-    platform_type: "autonomous surface vehicle"  # Platform type from the L06 vocabulary
     platform_type_uri: "https://vocab.nerc.ac.uk/collection/L06/current/3B/"  # Link to an instance of the L06 vocabulary
-    info_url: "https://sailbuoy.no"
     comment: "SailBuoy ASV"
+    platform_reference: "https://sailbuoy.no/"
 
 sensors:
   AWAC_SN123456:
@@ -33,8 +34,11 @@ sensors:
     sensor_serial_number: "123456"
     sensor_mount: "mounted_on_seafloor_structure"  # mounting from a controlled list
     sensor_orientation: "upward"  # (optional) only relevant for ADCPs
-    sensor_model_uri: "https://vocab.nerc.ac.uk/collection/L22/current/TOOL0897"
-    sensor_manufacturer_uri: "http://vocab.nerc.ac.uk/collection/B75/current/ORG00333/"
+    sdn_instrument_uri: "https://vocab.nerc.ac.uk/collection/L22/current/TOOL0897"
+    sensor_manufacturer_uri: "http://vocab.nerc.ac.uk/collection/L35/current/MAN0068/"
+    sensor_type_uri: "http://vocab.nerc.ac.uk/collection/L05/current/115/"
+    sensor_reference: "https://www.nortekgroup.com/products/awac-1-mhz"
+
 
 variables:
   CSPD:

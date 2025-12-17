@@ -25,17 +25,19 @@ global_elements = (
     ("title", str, True),
     ("summary", str, False),
     ("institution", str, True),
-    ("institution_edmo_code", str, False),
+    ("institution_edmo_code", str, True),
+    ("institution_ror_uri", str, True),
     ("Conventions", str, False),
     ("update_interval", str, True),
-    ("emso_site", str, True),
-    ("emso_regional_facility", str, False),
+    ("emso_site_name", str, True),
+    ("emso_regional_facility_name", str, False),
     ("source", str, True),
     ("data_type", str, True),
     ("format_version", str, True),
     ("network", str, True),
     ("data_mode", str, True),
-    ("project", str, True),
+    ("projects", str, False),
+    ("project_codes", str, False),
     ("principal_investigator", str, True),
     ("principal_investigator_email", str, True),
     ("license", str, True)
@@ -43,11 +45,11 @@ global_elements = (
 
 platform_elements = (
     ("long_name", str, True),
-    ("wmo_number", str, False),
-    ("emso_platform", str, False),
-    ("platform_type", str, False),
+    ("wmo_platform_code", str, False),
+    ("emso_platform_name", str, False),
+    ("platform_type_name", str, False),
     ("platform_type_uri", str, True),
-    ("info_url", str, True),
+    ("platform_reference", str, False),
     ("comment", str, False),
     ("latitude", float, False),
     ("longitude", float, False)
@@ -169,7 +171,6 @@ def generate_dataset(data_files: list, metadata_files: list, output: str, log: l
     [assert_type(f, str) for f in data_files]
     [assert_type(f, str) for f in metadata_files]
     assert len(metadata_files) > 0, "Expected at least one metadata file!"
-
 
     metadata = consolidate_metadata(metadata_files)
 

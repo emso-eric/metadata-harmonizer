@@ -23,6 +23,7 @@ from .utils import group_metadata_variables, check_url
 import inspect
 import numpy as np
 from dataclasses import dataclass
+from urllib.parse import urlparse
 
 @dataclass
 class Context:
@@ -31,10 +32,8 @@ class Context:
     varname: str  # variable under test, used "global" for global attributes
 
 
-
-
 class EmsoMetadataTester:
-    def __init__(self):
+    def __init__(self, specifications=""):
         """
         This class implements the tests to ensure that the metadata in a particular ERDDAP is harmonized with the EMSO
         metadata standards. The tests are configured in the 'EMSO_metadata.md' document. There should be 2 different
@@ -43,7 +42,7 @@ class EmsoMetadataTester:
         # Dict to store all erddap. KEY is the test identifier while value is the method
         rich.print("[blue]Setting up EMSO Metadata Tests...")
 
-        self.metadata = EmsoMetadata(True)
+        self.metadata = EmsoMetadata(True, specifications=specifications)
         self.context = None  # here info about the current attribute being tested will be stored
 
         self.implemented_tests = {}
@@ -81,7 +80,12 @@ class EmsoMetadataTester:
         self.valid_cf_dsg_types = ["point", "timeSeries", "trajectory", "profile", "timeSeriesProfile",
                                    "trajectoryProfile"]
 
-    def __process_results(self, df, verbose=False) -> (float, float, float):
+        # Match contributor_types with contributor names
+        self.__contributors = {"names": [], "roles": []}
+
+
+
+    def __process_results(self, df, verbose=False, ignore_ok=False) -> (float, float, float):
         """
         Prints the results in a nice-looking table using rich
         :param df: DataFrame with test results
@@ -118,6 +122,9 @@ class EmsoMetadataTester:
             passed = str(row["passed"])
             message = row["message"]
             value = str(row["value"])
+
+            if row["passed"] and row["message"] != "not defined" and ignore_ok:
+                continue
             table.add_row(variable, attribute, required, passed, message, value, style=style)
 
         console = Console()
@@ -171,7 +178,7 @@ class EmsoMetadataTester:
         return total, required, optional
 
     def run_test(self, context: Context, test_name: str, args: list, attribute: str, required: bool, multiple: bool,
-                   results: dict) -> (bool, str, any):
+                   annotation: int, results: dict) -> (bool, str, any):
         """
         Applies the method test to the dict data and stores the output into results
         :param context: Context object
@@ -180,6 +187,7 @@ class EmsoMetadataTester:
         :param attribute: NetCDF / ERDDAP attribute being tested
         :param required: is the argument mandatory (True) of optional (False)
         :param multiple: Can the test accept multiple arguments?
+        :param annotation: Annotation in the table, marked as <sup>1</sup>, may indicate special behaviour (like separate by comma)
         :param results: dict to store the results
         """
         assert isinstance(context, Context)
@@ -188,11 +196,11 @@ class EmsoMetadataTester:
         assert isinstance(attribute, str)
         assert isinstance(required, bool)
         assert isinstance(multiple, bool)
+        assert isinstance(annotation, int)
         assert isinstance(results, dict)
 
         implemented = False
         self.context = context
-
         metadata = context.metadata[context.section][context.varname]
 
         if attribute in metadata.keys():
@@ -204,19 +212,23 @@ class EmsoMetadataTester:
 
             value = metadata[attribute]
 
-            if type(value) == str and ";" in value:
-                values = value.split(";")  # split multiple values
-                for i in range(len(values)):
-                    if values[i].startswith(" "):
-                        values[i] = values[i][1:]  # Make sure that first space is not kept
+
+            def split_variable(str_value, separator):
+                if isinstance(str_value, np.ndarray) or isinstance(str_value, list):
+                    str_value = separator.join([str(a) for a in str_value])
+
+                value_list = str_value.split(separator)  # split multiple values
+                return [a.strip() for a in value_list]
+
+            if multiple:
+                if annotation == 1:  # Annotation 1 means use comma to separate
+                    values = split_variable(value, ",")
+                else:  # By default separate by space
+                    values = split_variable(value, " ")
             else:
                 values = [value]
 
-            if len(values) > 1 and not multiple:
-                # got multiple values for a single-value test!
-                passed = False
-                message = f"Got {len(values)} values for a single-value test"
-            elif not implemented:
+            if not implemented:
                 passed = False
                 message = f"unimplemented"
 
@@ -285,7 +297,7 @@ class EmsoMetadataTester:
         assert isinstance(metadata, dict)
         assert isinstance(varname, str)
         assert isinstance(verbose, bool)
-        assert isinstance(results, dict)
+        assert isinstance(results, dict), f"Expected dict got {type(results)}"
         if not results:
             results = {
                 "attribute": [],
@@ -304,6 +316,7 @@ class EmsoMetadataTester:
             test_name = row["Compliance test"]
             required = row["Required"]
             multiple = row["Multiple"]
+            annotation = row["annotations"]
             if not test_name:
                 rich.print(f"[yellow]WARNING: test for {attribute} not implemented!")
                 continue
@@ -315,7 +328,7 @@ class EmsoMetadataTester:
                 args = args.split(",")  # comma-separated fields are args
 
             context = Context(metadata, section, varname)
-            self.run_test(context, test_name, args, attribute, required, multiple, results)
+            self.run_test(context, test_name, args, attribute, required, multiple, annotation, results)
 
         if verbose:  # add all parameters not listed in the standard
             checks = list(test_group[attribute_col].values)
@@ -331,7 +344,7 @@ class EmsoMetadataTester:
                     results["value"].append(value)
         return results
 
-    def validate_dataset(self, metadata, verbose=True, store_results=False):
+    def validate_dataset(self, metadata, verbose=True, store_results=False, variable_filter=[], ignore_ok=False):
         """
         Takes the well-formatted JSON metadata from an ERDDAP dataset and processes it
         :param metadata: well-formatted JSON metadta for an ERDDAP dataset
@@ -350,7 +363,10 @@ class EmsoMetadataTester:
         rich.print(f"#### Validating dataset [cyan]{global_attr['title']}[/cyan] ####")
 
         # Test global attributes
-        results = self.__test_group_handler(self.metadata.global_attr, metadata, "global", "global", verbose)
+        if "global" in variable_filter or not variable_filter:
+            results = self.__test_group_handler(self.metadata.global_attr, metadata, "global", "global", verbose)
+        else:
+            results = {}
 
 
         test_mapping = (
@@ -367,10 +383,12 @@ class EmsoMetadataTester:
         for section, attributes in test_mapping:
             group = metadata[section]
             for varname in group.keys():
+                if variable_filter and varname not in variable_filter:
+                    continue
                 results = self.__test_group_handler(attributes, metadata, section, varname, verbose, results)
 
         df = pd.DataFrame(results)
-        total, required, optional = self.__process_results(df, verbose=verbose)
+        total, required, optional = self.__process_results(df, verbose=verbose, ignore_ok=ignore_ok)
         r = {
             "dataset_id": dataset_id,
             "institution": "unknown",
@@ -627,12 +645,27 @@ class EmsoMetadataTester:
         elif data_type in ["int", "integer", "unsigned"]:
             # check string
             if type(value) != int:
-                return False, "not an integer"
+                try:
+                    int(value)
+                except ValueError:
+                    return False, "not a float"
+
 
         elif data_type in ["float", "double"]:
             # check string
             if type(value) != float:
-                return False, "not a float"
+                try:
+                    float(value)
+                except ValueError:
+                    return False, "not a float"
+
+        elif data_type in ["url", "uri"]:
+            try:
+                result = urlparse(value)
+            except ValueError:
+                return False
+            if not value.startswith("http"):
+                return False, "URL does not start with http"
 
         elif data_type in ["date"]:
             return False, "unimplemented"
@@ -686,28 +719,20 @@ class EmsoMetadataTester:
 
     #----- Quality control stuff -----#
     def qc_flag_values(self, value, args):
-        df = self.metadata.qc_variables_attr
-        expected_value = df[df["QC Attributes"] == "flag_values"]["Description"].values[0]
-
-        if isinstance(value, np.ndarray):
-            strings = [str(s) for s in value]
-            value = " ".join(strings)
-
-        # ERDDAP may add a comma when joining a list
-        alt_expected_value = expected_value.replace(" ", ", ")
-        if value in [expected_value, alt_expected_value]:
+        expected_values = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]
+        if value in expected_values:
             return True, ""
         else:
-            return False, f"Expected '{expected_value}' or '{alt_expected_value}'"
+            return False, f"Unexpected value '{value}'"
 
 
     def qc_flag_meanings(self, value, args):
-        df = self.metadata.qc_variables_attr
-        expected_value = df[df["QC Attributes"] == "flag_meanings"]["Description"].values[0]
-        if value != expected_value:
-            return False, f"Expected '{expected_value}'"
-        else:
+        expected_values = ["unknown", "good_data", "probably_good_data", "potentially_correctable_bad_data",
+                           "bad_data", "nominal_value", "interpolated_value", "missing_value"]
+        if value in expected_values:
             return True, ""
+        else:
+            return False, f"Unexpected value '{value}'"
 
     def qc_variable_name(self,value, args):
 
@@ -760,23 +785,48 @@ class EmsoMetadataTester:
 
         return True, ""
 
-    def oso_ontology(self, value, args):
-
+    def oso_ontology_name(self, value, args):
         oso_type = args[0]
         assert oso_type in ["rf", "site", "platform"]
 
         if oso_type == "rf" :
-            if not self.metadata.oso.check_rf(value):
+            if not self.metadata.oso.check_rf(value, "label"):
                 return False, "RF not found in OSO"
 
         elif oso_type == "site":
-            if not self.metadata.oso.check_site(value):
+            if not self.metadata.oso.check_site(value, "label"):
                 return False, "Site not found in OSO"
 
         elif oso_type == "platform":
-            if not self.metadata.oso.check_platform(value):
+            if not self.metadata.oso.check_platform(value, "label"):
                 return False, "Platform not found in OSO"
         else:
             raise ValueError(f"Unimplemented oso_type {oso_type}")
 
         return True, ""
+
+    def oso_ontology_uri(self, value, args):
+        oso_type = args[0]
+        assert oso_type in ["rf", "site", "platform"]
+
+        if oso_type == "rf":
+            if not self.metadata.oso.check_rf(value, "uri"):
+                return False, "RF not found in OSO"
+
+        elif oso_type == "site":
+            if not self.metadata.oso.check_site(value, "uri"):
+                return False, "Site not found in OSO"
+
+        elif oso_type == "platform":
+            if not self.metadata.oso.check_platform(value, "uri"):
+                return False, "Platform not found in OSO"
+        else:
+            raise ValueError(f"Unimplemented oso_type {oso_type}")
+
+        return True, ""
+
+    def contributor_types(self, value, args):
+        if value in self.metadata.datacite_contributor_roles:
+            return True, ""
+
+        return False, f"role '{value}' not valid!!"

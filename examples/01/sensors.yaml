@@ -8,5 +8,3 @@ sensors:
     sensor_manufacturer_uri: "http://vocab.nerc.ac.uk/collection/L35/current/MAN0013/"
     sensor_type_uri: "http://vocab.nerc.ac.uk/collection/L05/current/130/"
     sensor_reference: "https://www.seabird.com/moored/sbe-37-sm-smp-smp-odo-microcat/family?productCategoryId=54627473786"
-
-

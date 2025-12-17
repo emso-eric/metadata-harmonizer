@@ -24,7 +24,10 @@ if __name__ == "__main__":
     argparser.add_argument("-o", "--output", type=str, help="file to store the report of all the datasets", default="")
     argparser.add_argument("-r", "--report", action="store_true", help="Generate a CSV file for every test")
     argparser.add_argument("-c", "--clear", action="store_true", help="Clears downloaded files")
+    argparser.add_argument("-i", "--ignore-ok", action="store_true", help="do not show tests with positive outcome")
     argparser.add_argument("-t", "--table", action="store_true", help="prints the results in excel compatible table")
+    argparser.add_argument("-V", "--variables", nargs="+", help="Run test only for a variable subset", default=[])
+    argparser.add_argument("--specs", type=str, help="Use this file as EMSO Metadata specifications source (use only for development)", default="")
 
     args = argparser.parse_args()
     metadata_report(
@@ -37,5 +40,8 @@ if __name__ == "__main__":
         output=args.output,
         report=args.report,
         clear=args.clear,
-        excel_table=args.table
+        excel_table=args.table,
+        specifications=args.specs,
+        variables=args.variables,
+        ignore_ok=args.ignore_ok
     )

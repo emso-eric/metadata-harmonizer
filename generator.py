@@ -29,9 +29,4 @@ if __name__ == "__main__":
     args = argparser.parse_args()
     log = setup_log("emh", "log")
 
-    mapping = {}
-    if args.mapping:
-        with open(args.mapping) as f:
-            mapping = yaml.safe_load(f)
-
-    generate_dataset(args.data, args.metadata,  args.output, log, keep_names=args.keep_coordinates)
+    generate_dataset(args.data, args.metadata,  args.output, log, keep_names=args.keep_names)

@@ -92,7 +92,8 @@ class MetadataHarmonizerTester(unittest.TestCase):
                 "keep": False,
                 "NcML": "",    # By default, do not use NcML configuration files
                 "mapping": "", # By default, do not use mapping.yaml files
-                "nc_files": nc_files # if csv files are provided, we will attempt to configure it from source NetCDF
+                "nc_files": nc_files, # if csv files are provided, we will attempt to configure it from source NetCDF
+                "cf_check": False  # Do not test CF compliance with non-EMSO NetCDF files
             }
 
             for f in files:
@@ -158,13 +159,14 @@ class MetadataHarmonizerTester(unittest.TestCase):
             dataset_nc = os.path.join(nc_folder, dataset["dataset_id"] + ".nc")
             generate_dataset(dataset["data"], dataset["metadata"], dataset_nc, self.log, keep_names=dataset["keep"])
             dataset["nc_files"] = [dataset_nc]  # overwrite any existing nc files
+            dataset["cf_check"] = True
 
     def test_02_cf_compliance(self):
         rich.print(f"Checking CF compliance")
         for dataset in self.example_datasets:
             cf = CFChecker(silent=True)
             try:
-                file = dataset["file"]
+                file = dataset["nc_files"][0]
             except KeyError:
                 rich.print(f"[yellow]Dataset {dataset['dataset_id']} has no file, skipping CF checker")
                 continue
@@ -195,6 +197,8 @@ class MetadataHarmonizerTester(unittest.TestCase):
         rich.print(f"[purple]Running test {inspect.currentframe().f_code.co_name}")
         for dataset in self.example_datasets:
             dataset_id = dataset["dataset_id"]
+            if not dataset["cf_check"]:
+                rich.print(f"[yellow]WARNING: Skipping CF check for dataset {dataset_id}")
 
             nc_dataset = dataset["nc_files"][0]
 
