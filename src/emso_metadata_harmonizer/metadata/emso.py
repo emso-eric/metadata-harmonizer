@@ -424,7 +424,7 @@ class EmsoMetadata:
         self.datacite_contributor_roles = tables["DataCite Contributor Type"]["Type"].to_list()
 
         tables = process_markdown_file(spdx_licenses_file)
-        t = tables["Licenses with Short Idenifiers"]
+        t = tables["Licenses with Short Identifiers"]
 
         # remove extra '[' ']' in license identifiers
         new_ids = [value.replace("[", "").replace("]", "") for value in t["Short Identifier"]]
