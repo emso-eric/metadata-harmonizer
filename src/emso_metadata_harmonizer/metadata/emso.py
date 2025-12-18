@@ -20,7 +20,7 @@ from rdflib import Graph, Literal, Namespace
 from rdflib.plugins.sparql import prepareQuery
 from rdflib.namespace import SKOS, RDF, OWL
 
-emso_version = "feature/v1.0"
+emso_version = "develop"
 
 # List of URLs
 emso_metadata_url = f"https://raw.githubusercontent.com/emso-eric/emso-metadata-specifications/{emso_version}/EMSO_metadata.md"
