@@ -1,0 +1,140 @@
+global:
+  title: "Example 05: 3 deployments of the same mooring, equipped with 4 CTDs and a surface weather station"
+  summary: "Dataset with 3 deployments of the same mooring, equipped with 4 CTDs and a surface weather station. The lat/lon coordinates are a bit different in every deployment and the sensors may change positions"
+  institution: "CNR - Consiglio Nazionale delle Ricerche"
+  Conventions: "OceanSITES EMSO CF-1.8"
+  institution_edmo_code: "5229"
+  institution_ror_uri: "https://ror.org/04zaypm56"
+  update_interval: "void"
+  site_code: "W1M3A"
+  emso_regional_facility_name: "Western Mediterranean Sea"
+  emso_site_name: "W1M3A"
+  source: "mooring"
+  data_type: "OceanSITES profile data"
+  format_version: "1.4"
+  network: "EMSO"
+  data_mode: "D"
+  projects: "MINKE AMRIT"
+  project_codes: "	101008724 101132013"
+  principal_investigator: "Homer Simpson"
+  principal_investigator_email: "homer.simpson@fake.com"
+  license: "CC-BY-4.0"
+  "contributors": "Bart Simpson, Peter Griffin, Rick Sánchez"
+  "contributor_types": "DataCollector DataManager Researcher"
+
+platforms:
+  ODASItalia1:
+    long_name: "ODASItalia1"  # human-readable long name of the platform
+    wmo_platform_code: "6103675"  # (optional) World Meteorological Organization platform number
+    emso_platform_name: "ODAS Italia 1"  # link to the OSO ontology
+    platform_type_name: "mooring"  # Platform type from the L06 vocabulary
+    platform_type_uri: "http://vocab.nerc.ac.uk/collection/L06/current/48/"  # Link to an instance of the L06 vocabulary
+    platform_reference: "http://www.w1m3a.cnr.it"
+    # (optional) other relevant information
+    comment: "The EMSO Western Mediterranean Sea (W1M3A) Research Facility (RF) provides time-series to investigate air-sea interactions and connection between physics and bio-geo-chemistry along the water column on long-term for assessing climate changes and ocean acidification. "
+
+    # Nominal coordinates, deployment variables or real-time GPS coordinates can be provided in the data with the
+    # precise_latitude/precise_longitude variable, (standard name: deployment_latitude, P01 code: ALATGP01).
+    latitude: 43.8419  # nominal latitude
+    longitude: 9.1339  # nominal longitude
+
+
+sensors:
+  Airmar_200WX_SN0001:
+    long_name: "Airmar 200WX weather station"  # human-readable name
+    sensor_serial_number: "0001"
+    sensor_mount: "mounted_on_surface_buoy"  # mounting from a controlled list
+    sensor_orientation: "upward"  # (optional) only relevant for ADCPs
+    sdn_instrument_uri: "http://vocab.nerc.ac.uk/collection/L22/current/TOOL1032/"
+    sensor_manufacturer_uri: "http://vocab.nerc.ac.uk/collection/L35/current/MAN0319/"
+    sensor_reference: "https://www.airmar.com/Product/200WX"
+    sensor_type_uri: "http://vocab.nerc.ac.uk/collection/L05/current/102/"
+
+  SBE37SMP_SN0001:
+    long_name: "Sea-Bird Scientific SBE37 SMP CTD Sensor"  # human-readable name
+    sensor_serial_number: "0001"
+    sensor_mount: "mounted_on_mooring_line"  # mounting from a controlled list
+    sensor_orientation: "upward"  # (optional) only relevant for ADCPs
+    sdn_instrument_uri: "https://vocab.nerc.ac.uk/collection/L22/current/TOOL1457"
+    sensor_manufacturer_uri: "http://vocab.nerc.ac.uk/collection/L35/current/MAN0013/"
+    sensor_type_uri: "http://vocab.nerc.ac.uk/collection/L05/current/130/"
+    sensor_reference: "https://www.seabird.com/moored/sbe-37-sm-smp-smp-odo-microcat/family?productCategoryId=54627473786"
+
+  SBE37SMP_SN0002:
+    long_name: "Sea-Bird Scientific SBE37 SMP CTD Sensor"  # human-readable name
+    sensor_serial_number: "0002"
+    sensor_mount: "mounted_on_mooring_line"  # mounting from a controlled list
+    sensor_orientation: "upward"  # (optional) only relevant for ADCPs
+    sdn_instrument_uri: "https://vocab.nerc.ac.uk/collection/L22/current/TOOL1457"
+    sensor_manufacturer_uri: "http://vocab.nerc.ac.uk/collection/L35/current/MAN0013/"
+    sensor_type_uri: "http://vocab.nerc.ac.uk/collection/L05/current/130/"
+    sensor_reference: "https://www.seabird.com/moored/sbe-37-sm-smp-smp-odo-microcat/family?productCategoryId=54627473786"
+
+  SBE37SMP_SN0003:
+    long_name: "Sea-Bird Scientific SBE37 SMP CTD Sensor"  # human-readable name
+    sensor_serial_number: "0003"
+    sensor_mount: "mounted_on_mooring_line"  # mounting from a controlled list
+    sensor_orientation: "upward"  # (optional) only relevant for ADCPs
+    sdn_instrument_uri: "https://vocab.nerc.ac.uk/collection/L22/current/TOOL1457"
+    sensor_manufacturer_uri: "http://vocab.nerc.ac.uk/collection/L35/current/MAN0013/"
+    sensor_type_uri: "http://vocab.nerc.ac.uk/collection/L05/current/130/"
+    sensor_reference: "https://www.seabird.com/moored/sbe-37-sm-smp-smp-odo-microcat/family?productCategoryId=54627473786"
+
+  SBE37SMP_SN0004:
+    long_name: "Sea-Bird Scientific SBE37 SMP CTD Sensor"  # human-readable name
+    sensor_serial_number: "0004"
+    sensor_mount: "mounted_on_mooring_line"  # mounting from a controlled list
+    sensor_orientation: "upward"  # (optional) only relevant for ADCPs
+    sdn_instrument_uri: "https://vocab.nerc.ac.uk/collection/L22/current/TOOL1457"
+    sensor_manufacturer_uri: "http://vocab.nerc.ac.uk/collection/L35/current/MAN0013/"
+    sensor_type_uri: "http://vocab.nerc.ac.uk/collection/L05/current/130/"
+    sensor_reference: "https://www.seabird.com/moored/sbe-37-sm-smp-smp-odo-microcat/family?productCategoryId=54627473786"
+
+variables:
+  TEMP:
+    long_name: "sea water temperature"
+    sdn_parameter_uri: "http://vocab.nerc.ac.uk/collection/P01/current/TEMPST01"
+    sdn_uom_uri: "http://vocab.nerc.ac.uk/collection/P06/current/UPAA/"
+    standard_name: "sea_water_temperature"
+
+  CNDC:
+    long_name: "sea water electrical conductivity"
+    sdn_parameter_uri: "http://vocab.nerc.ac.uk/collection/P01/current/CNDCST01"
+    sdn_uom_uri: "http://vocab.nerc.ac.uk/collection/P06/current/UECA/"
+    standard_name: "sea_water_electrical_conductivity"
+
+  PRES:
+    long_name: "sea water pressure"
+    sdn_parameter_uri: "http://vocab.nerc.ac.uk/collection/P01/current/PRESPR01"
+    sdn_uom_uri: "http://vocab.nerc.ac.uk/collection/P06/current/UPDB/"
+    standard_name: "sea_water_pressure"
+
+  PSAL:
+    long_name: "sea water salinity"
+    sdn_parameter_uri: "http://vocab.nerc.ac.uk/collection/P01/current/PRESPR01"
+    sdn_uom_uri: "http://vocab.nerc.ac.uk/collection/P06/current/UPDB/"
+    standard_name: "sea_water_pressure"
+
+  SVEL:
+    long_name: "speed of sound in sea water"
+    sdn_parameter_uri: "http://vocab.nerc.ac.uk/collection/P01/current/SVELCT01"
+    sdn_uom_uri: "http://vocab.nerc.ac.uk/collection/P06/current/UVAA/"
+    standard_name: "speed_of_sound_in_sea_water"
+
+  AIRT:
+    long_name: "air temperature"
+    sdn_parameter_uri: "https://vocab.nerc.ac.uk/collection/P01/current/CTMPZZ01"
+    sdn_uom_uri: "http://vocab.nerc.ac.uk/collection/P06/current/UPAA/"
+    standard_name: "air_temperature"
+
+  WSPD:
+    long_name: "wind speed"
+    sdn_parameter_uri: "https://vocab.nerc.ac.uk/collection/P01/current/EWDASS01"
+    sdn_uom_uri: "https://vocab.nerc.ac.uk/collection/P06/current/UVAA/"
+    standard_name: "wind_speed"
+
+  WDIR:
+    long_name: "wind direction"
+    sdn_parameter_uri: "http://vocab.nerc.ac.uk/collection/P01/current/EWDASS01"
+    sdn_uom_uri: "http://vocab.nerc.ac.uk/collection/P06/current/DEGN/"
+    standard_name: "wind_from_direction"

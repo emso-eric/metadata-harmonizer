@@ -4,3 +4,4 @@
 .idea
 venv
 tests/**
+do-no-sync

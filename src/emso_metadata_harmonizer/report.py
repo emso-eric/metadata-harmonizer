@@ -30,7 +30,10 @@ def metadata_report(target,
                     output: str = "",
                     report: bool = False,
                     clear: bool = False,
-                    excel_table: bool = False
+                    excel_table: bool = False,
+                    specifications="",
+                    variables=[],
+                    ignore_ok=False
                     ):
     """
 
@@ -105,7 +108,7 @@ def metadata_report(target,
                 f.write(json.dumps(metadata, indent=2))
         exit()
 
-    tests = EmsoMetadataTester()
+    tests = EmsoMetadataTester(specifications=specifications)
 
     total = []
     required = []
@@ -115,7 +118,7 @@ def metadata_report(target,
     dataset_id = []
     for i in range(len(datasets_metadata)):
         metadata = datasets_metadata[i]
-        r = tests.validate_dataset(metadata, verbose=verbose, store_results=report)
+        r = tests.validate_dataset(metadata, verbose=verbose, store_results=report, variable_filter=variables, ignore_ok=ignore_ok)
         total.append(r["total"])
         required.append(r["required"])
         optional.append(r["optional"])

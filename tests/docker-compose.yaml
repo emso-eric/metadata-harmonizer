@@ -2,12 +2,14 @@
 services:
   erddap:
     container_name: erddap-emh-test
-    image: axiom/docker-erddap:2.24-jdk21-openjdk
+    image: erddap/erddap:20251121T183110
     restart: unless-stopped
     hostname: dummy-erddap
+    environment:
+      - "ERDDAP_adminInstitution=EMSO ERIC"
     ports:
       - 8080:8080
     volumes:
       - ./conf:/usr/local/tomcat/content/erddap
       - ./erddapData:/erddapData   # bind mount for ERDDAP internal data
-      - ./datasets:/datasets # bind mount for user data files
+      - ./datasets:/datasets:ro # bind mount for user data files

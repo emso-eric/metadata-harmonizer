@@ -11,24 +11,22 @@ created: 13/4/23
 """
 
 from argparse import ArgumentParser
+import yaml
 from src.emso_metadata_harmonizer import generate_dataset
+from src.emso_metadata_harmonizer.metadata.utils import setup_log
+
 
 if __name__ == "__main__":
     argparser = ArgumentParser()
     argparser.add_argument("-v", "--verbose", action="store_true", help="Shows verbose output", default=False)
-    argparser.add_argument("-d", "--data", type=str, help="List of data files (CSV or NetCDF)", required=True,
-                           nargs="+")
-    argparser.add_argument("-m", "--metadata", type=str, help="List of JSON metadata documents", required=False,
-                           nargs="+")
-    argparser.add_argument("-g", "--generate", type=str, help="Generates metadata templates in the specified folder",
-                           required=False)
-    argparser.add_argument("-a", "--autofill", action="store_true",
-                           help="Takes a NetCDF file and tries to autofill its metadata",
-                           required=False)
-    argparser.add_argument("-o", "--output", type=str, help="Output NetCDF file", required=False, default="")
+    argparser.add_argument("-d", "--data", type=str, help="list of data files (CSV or NetCDF)", required=False,
+                           nargs="+", default=[])
+    argparser.add_argument("-m", "--metadata", type=str, help="metadata yaml files", required=True, nargs="+")
+    argparser.add_argument("-k", "--keep-names", help="Keep source variable names (by default forces ERDDAP-like varnames)", action="store_true")
+    argparser.add_argument("-o", "--output", type=str, help="Output NetCDF file", required=False, default="out.nc")
     argparser.add_argument("--clear", action="store_true", help="Clears all downloads", required=False)
-    argparser.add_argument("-M", "--multisensor", action="store_true", help="Keep metadata of all sensors even if they have no data", required=False)
 
     args = argparser.parse_args()
-    generate_dataset(args.data, args.metadata, generate=args.generate, autofill=args.autofill, output=args.output,
-                     clear=args.clear, multisensor_metadata=args.multisensor)
+    log = setup_log("emh", "log")
+
+    generate_dataset(args.data, args.metadata,  args.output, log, keep_names=args.keep_names)

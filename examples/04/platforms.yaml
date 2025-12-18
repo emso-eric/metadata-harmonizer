@@ -1,0 +1,15 @@
+platforms:
+  ODASItalia1:
+    long_name: "ODASItalia1"  # human-readable long name of the platform
+    wmo_platform_code: "6103675"  # (optional) World Meteorological Organization platform number
+    emso_platform_name: "ODAS Italia 1"  # link to the OSO ontology
+    platform_type_name: "mooring"  # Platform type from the L06 vocabulary
+    platform_type_uri: "http://vocab.nerc.ac.uk/collection/L06/current/48/"  # Link to an instance of the L06 vocabulary
+    platform_reference: "http://www.w1m3a.cnr.it"
+    # (optional) other relevant information
+    comment: "The EMSO Western Mediterranean Sea (W1M3A) Research Facility (RF) provides time-series to investigate air-sea interactions and connection between physics and bio-geo-chemistry along the water column on long-term for assessing climate changes and ocean acidification. "
+
+    # Nominal coordinates, deployment variables or real-time GPS coordinates can be provided in the data with the
+    # precise_latitude/precise_longitude variable, (standard name: deployment_latitude, P01 code: ALATGP01).
+    latitude: 43.8419  # nominal latitude
+    longitude: 9.1339  # nominal longitude
