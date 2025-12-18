@@ -41,6 +41,9 @@ sdn_vocab_l35 = "https://vocab.nerc.ac.uk/collection/L35/current/?_profile=nvs&_
 edmo_codes = "https://edmo.seadatanet.org/sparql/sparql?query=SELECT%20%3Fs%20%3Fp%20%3Fo%20WHERE%20%7B%20%0D%0A%0" \
              "9%3Fs%20%3Fp%20%3Fo%20%0D%0A%7D%20LIMIT%201000000&accept=application%2Fjson"
 
+# EDMO SPARQL endpoints fails, so use instead static CSV at github
+edmo_codes_csv_url = "https://raw.githubusercontent.com/emso-eric/metadata-harmonizer/refs/heads/develop/resources/edmo_codes.csv"
+
 spdx_licenses_github = "https://raw.githubusercontent.com/spdx/license-list-data/main/licenses.md"
 
 # Copernicus INS TAC Parameter list v3.2
@@ -368,6 +371,9 @@ class EmsoMetadata:
         dwc_terms_file = os.path.join(".emso", "dwc_terms.csv")
         oso_ontology_file = os.path.join(".emso", "oso.ttl")
 
+        edmo_csv = os.path.join(".emso", f"edmo_codes.csv")
+
+
         tasks = [
             [emso_metadata_url, emso_metadata_file, "EMSO metadata"],
             [oceansites_codes_url, oceansites_file, "OceanSites"],
@@ -381,7 +387,8 @@ class EmsoMetadata:
             [sdn_vocab_l06, sdn_vocab_l06_file, "SDN Vocab L06"],
             [sdn_vocab_l22, sdn_vocab_l22_file, "SDN Vocab L22"],
             [sdn_vocab_l35, sdn_vocab_l35_file, "SDN Vocab L35"],
-            [edmo_codes, edmo_codes_jsonld, "EDMO codes"],
+            #[edmo_codes, edmo_codes_jsonld, "EDMO codes"],
+            [edmo_codes_csv_url, edmo_csv, "EDMO coes"],
             [spdx_licenses_github, spdx_licenses_file, "spdx licenses"],
             [copernicus_param_list, copernicus_params_file, "spdx licenses"],
             [cf_standard_name_units_url, cf_std_name_units_file, "CF units"],
@@ -492,7 +499,6 @@ class EmsoMetadata:
             self.sdn_vocabs_ids[vocab] = df["id"].values
             self.sdn_vocabs_uris[vocab] = df["uri"].values
 
-        edmo_csv = os.path.join(".emso", f"edmo_codes.csv")
         if not os.path.exists(edmo_csv):
             self.edmo_codes = get_edmo_codes(edmo_codes_jsonld)
             self.edmo_codes.to_csv(edmo_csv, index=False)
