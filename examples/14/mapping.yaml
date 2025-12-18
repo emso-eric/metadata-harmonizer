@@ -3,6 +3,12 @@ mapping:
     title: "Example 14: Setup a EMSO-compliant dataset from Copernicus-like files"
     summary: "Example 14: Setup a EMSO-compliant dataset from Copernicus-like files. Source files from W1M3A have been slightly modified to convert the sensor_id to a string (instead of a numerical variable) and some variables have been removed"
     treatDimensionsAs: "LATITUDE,LONGITUDE,TIME"  # required for NetCDF files not compliant with CF, depends on your dimensions
+    contributors: "Bart Simpson, Peter Griffin, Rick Sánchez"
+    contributor_types: "DataCollector DataManager Researcher"
+    emso_regional_facility_name: "Western Mediterranean Sea"
+    emso_regional_facility_uri: "https://w3id.org/earthsemantics/OSO#Western_Mediterranean_Sea"
+    emso_site_name: "W1M3A"
+    emso_site_uri: "https://w3id.org/earthsemantics/OSO#W1M3A"
 
   variables:
   # Use the mapping file to edit the source / destinations of the ERDDAP configuration. The structure is as follows:
@@ -11,17 +17,57 @@ mapping:
   # attributes: (optional)
   #   key: value
 
+    #======== Coordinates:=======#
+    - source: TIME
+      destination: "time"
+      attributes:
+        variable_type: "coordinate"
+
+    - source: DEPTH
+      destination: "depth"
+      attributes:
+        variable_type: "coordinate"
+
     - source: LATITUDE
       destination: precise_latitude
       attributes:
         standard_name: deployment_latitude
         variable_type: "coordinate"
+        sdn_parameter_uri: "https://vocab.nerc.ac.uk/collection/P01/current/ALONZZ01"
+        sdn_uom_uri:  "http://vocab.nerc.ac.uk/collection/P06/current/UAAA/"
+        units: "degrees_east"
+        sdn_parameter_urn: "SDN:P01::ALONZZ01"
+        sdn_parameter_name: "Longitude east"
+        sdn_uom_urn: "SDN:P06::UAAA"
+        sdn_uom_name: "Degrees"
+
 
     - source: LONGITUDE
       destination: precise_longitude
       attributes:
         standard_name: deployment_longitude
         variable_type: "coordinate"
+
+    - source: platform_id
+      dataType: "String"
+      attributes:
+        cf_role: timeseries_id
+        long_name: "Platform where the sensors were deployed"
+        variable_type: "coordinate"
+        sdn_parameter_uri: "https://vocab.nerc.ac.uk/collection/P01/current/NMSPPF01/"
+        sdn_parameter_urn: "SDN:P01::NMSPPF01"
+        sdn_parameter_name: "Name of sampling platform"
+        standard_name: "platform_id"
+
+
+    - source: sensor_id
+      dataType: "String"
+      attributes:
+        variable_type: "coordinate"
+        long_name: "Identifier of the sensor that took the measurement"
+        sdn_parameter_uri: "https://vocab.nerc.ac.uk/collection/P01/current/NMSPINST/"
+        sdn_parameter_urn: "SDN:P01::NMSPINST"
+        sdn_parameter_name: "Name of sampling instrument"
 
 
     - source: nominal_latitude
@@ -30,96 +76,221 @@ mapping:
       attributes:
         standard_name: latitude
         variable_type: "coordinate"
+        sdn_parameter_uri: "https://vocab.nerc.ac.uk/collection/P01/current/ALATZZ01"
+        sdn_parameter_name: "Latitude north"
+        sdn_parameter_urn: "SDN:P01::ALATZZ01"
+        sdn_uom_uri: "http://vocab.nerc.ac.uk/collection/P06/current/UAAA/"
+        sdn_uom_urn: "SDN:P06::UAAA/"
+        sdn_uom_name: "Degrees"
+        units: "degrees_north"
 
     - source: nominal_longitude
       destination: longitude
       dataType: "float"
       attributes:
-        standard_name: longitude
+        standard_name: "longitude"
         variable_type: "coordinate"
+        long_name: "longitude of measurements"
+        sdn_parameter_uri: "https://vocab.nerc.ac.uk/collection/P01/current/ALONZZ01"
+        sdn_uom_uri: "http://vocab.nerc.ac.uk/collection/P06/current/UAAA/"
+        sdn_parameter_urn: "SDN:P01::ALONZZ01"
+        sdn_parameter_name: "Longitude east"
+        sdn_uom_urn: "SDN:P06::UAAA"
+        sdn_uom_name: "Degrees"
+        units: "degrees_east"
 
-
-    - source: platform_id
-      dataType: "String"
+    - source: TEMP
       attributes:
-        cf_role: timeseries_id
-        long_name: "Platform where the sensors were deployed"
+        variable_type: "environmental"
+        units: degC
 
-    # ==== The following are all Sensor Metadata ==== #
+    - source: DRYT
+      attributes:
+        variable_type: "environmental"
+        units: degC
+
+    - source: PRES
+      attributes:
+        variable_type: "environmental"
+        units: dbar
+
+    - source: CNDC
+      attributes:
+        variable_type: "environmental"
+        units: "S/m"
+
+    #======== Quality Control Variables:=======#
+    - source: TEMP_QC
+      attributes:
+        variable_type: "quality_control"
+        flag_values: "0 1 2 3 4 5 6 7 8 9"
+        flag_meanings: "unknown good_data probably_good_data potentially_correctable_bad_data bad_data nominal_value interpolated_value missing_value"
+
+    - source: DRYT_QC
+      attributes:
+        variable_type: "environmental"
+        flag_values: "0 1 2 3 4 5 6 7 8 9"
+        flag_meanings: "unknown good_data probably_good_data potentially_correctable_bad_data bad_data nominal_value interpolated_value missing_value"
+
+
+    - source: PRES_QC
+      attributes:
+        variable_type: "environmental"
+        flag_values: "0 1 2 3 4 5 6 7 8 9"
+        flag_meanings: "unknown good_data probably_good_data potentially_correctable_bad_data bad_data nominal_value interpolated_value missing_value"
+
+
+    - source: CNDC_QC
+      attributes:
+        variable_type: "environmental"
+        flag_values: "0 1 2 3 4 5 6 7 8 9"
+        flag_meanings: "unknown good_data probably_good_data potentially_correctable_bad_data bad_data nominal_value interpolated_value missing_value"
+
+
+    - source: TIME_QC
+      attributes:
+        variable_type: "quality_control"
+        flag_values: "0 1 2 3 4 5 6 7 8 9"
+        flag_meanings: "unknown good_data probably_good_data potentially_correctable_bad_data bad_data nominal_value interpolated_value missing_value"
+
+
+    - source: POSITION_QC
+      attributes:
+        variable_type: "quality_control"
+        flag_values: "0 1 2 3 4 5 6 7 8 9"
+        flag_meanings: "unknown good_data probably_good_data potentially_correctable_bad_data bad_data nominal_value interpolated_value missing_value"
+
+    - source: DEPTH_QC
+      attributes:
+        variable_type: "quality_control"
+        flag_values: "0 1 2 3 4 5 6 7 8 9"
+        flag_meanings: "unknown good_data probably_good_data potentially_correctable_bad_data bad_data nominal_value interpolated_value missing_value"
+
+
+    #:=== The following are all Sensor Metadata:=== #
     - source: "Vaisala_HMP155_SNR0230167"
       dataType: "String"
       attributes:
         variable_type: "sensor"
-        sensor_model: "Vaisala HMP155 hygrometer series"
-        sensor_manufacturer: "Vaisala"
+        long_name: "Vaisala HMP155 hygrometer series"
+        sdn_instrument_name: "Vaisala HMP155 hygrometer series"
+        sdn_instrument_uri: "http://vocab.nerc.ac.uk/collection/L22/current/TOOL1673/"
+        sdn_instrument_urn: "SDN:L22::TOOL1673"
+        sensor_manufacturer_name: "Vaisala"
         sensor_manufacturer_uri: "http://vocab.nerc.ac.uk/collection/L35/current/MAN0025/"
         sensor_manufacturer_urn: "SDN:L35::MAN0025"
+        sensor_SeaVoX_L22_code: "SDN:L22::TOOL1673"
         sensor_mount: "mounted_on_surface_buoy"
+        sensor_type_uri: "http://vocab.nerc.ac.uk/collection/L05/current/130/"
+        sensor_type_urn: "SDN:L05::102"
+        sensor_type_name: "meteorological packages"
         sensor_reference: "http://vocab.nerc.ac.uk/collection/L22/current/TOOL1673/"
-        serial_number: "R0230167"
+        sensor_serial_number: "R0230167"
+        sensor_id: "Vaisala_HMP155_SNR0230167"
 
     - source: "SBE37sm_SN37_1234"
       dataType: "String"
       attributes:
         variable_type: "sensor"
+        long_name: "Sea-Bird SBE 37 MicroCat CTP (submersible) CTD sensor series"
         sensor_model: "Sea-Bird SBE 37 MicroCat CTP (submersible) CTD sensor series"
-        sensor_manufacturer: "Sea-Bird Scientific"
+        sensor_manufacturer_name: "Sea-Bird Scientific"
         sensor_manufacturer_uri: "http://vocab.nerc.ac.uk/collection/L35/current/MAN0013/"
         sensor_manufacturer_urn: "SDN:L35::MAN0013"
-        sensor_mount: "mounted_on_surface_buoy"
+        sensor_type_uri: "http://vocab.nerc.ac.uk/collection/L05/current/130/"
+        sensor_type_urn: "SDN:L05::130"
+        sensor_type_name: "CTD"
+        sdn_instrument_name: "Sea-Bird SBE 37 MicroCat CTP (submersible) CTD sensor series"
+        sdn_instrument_uri: "http://vocab.nerc.ac.uk/collection/L22/current/TOOL1393/"
+        sdn_instrument_urn: "SDN:L22::TOOL1393"
+        sensor_SeaVoX_L22_code: "SDN:L22::TOOL1393"
         sensor_reference: "http://vocab.nerc.ac.uk/collection/L22/current/TOOL1393/"
-        serial_number: "37-1234"
+        sensor_serial_number: "37-1234"
+        sensor_id: "SBE37sm_SN37_1234"
+        sensor_mount: "mounted_on_mooring_line"
+        sensor_orientation: "upward"
+
 
     - source: "SBE16plusv2_SN16_50265"
       dataType: "String"
       attributes:
         variable_type: "sensor"
-        sensor_model: "Sea-Bird SBE 16Plus V2 SEACAT C-T Recorder"
-        sensor_manufacturer: "Sea-Bird Scientific"
+        long_name: "Sea-Bird SBE 16Plus V2 SEACAT C-T Recorder"
+        sensor_manufacturer_name: "Sea-Bird Scientific"
         sensor_manufacturer_uri: "http://vocab.nerc.ac.uk/collection/L35/current/MAN0013/"
         sensor_manufacturer_urn: "SDN:L35::MAN0013"
-        sensor_mount: "mounted_on_surface_buoy"
+        sensor_type_uri: "http://vocab.nerc.ac.uk/collection/L05/current/130/"
+        sensor_type_urn: "SDN:L05::130"
+        sensor_type_name: "CTD"
         sensor_reference: "http://vocab.nerc.ac.uk/collection/L22/current/TOOL0870/"
-        serial_number: "16-50265"
+        sdn_instrument_uri: "http://vocab.nerc.ac.uk/collection/L22/current/TOOL0870/"
+        sdn_instrument_urn: "SDN:L22::TOOL0870"
+        sensor_SeaVoX_L22_code: "SDN:L22::TOOL0870"
+        sdn_instrument_name: "Sea-Bird SBE 16Plus V2 SEACAT C-T Recorder"
+        sensor_serial_number: "16-50265"
+        sensor_id: "SBE16plusv2_SN16_50265"
+        sensor_mount: "mounted_on_mooring_line"
+        sensor_orientation: "upward"
 
     - source: "SBE37sm_SN37_5669"
       dataType: "String"
       attributes:
         variable_type: "sensor"
-        sensor_model: "Sea-Bird SBE 37 MicroCat CTP (submersible) CTD sensor series"
-        sensor_manufacturer: "Sea-Bird Scientific"
+        long_name: "Sea-Bird SBE 37 MicroCat CTP (submersible) CTD sensor series"
+        sdn_instrument_name: "Sea-Bird SBE 37 MicroCat CTP (submersible) CTD sensor series"
+        sdn_instrument_uri: "http://vocab.nerc.ac.uk/collection/L22/current/TOOL1393/"
+        sdn_instrument_urn: "SDN:L22::TOOL1393"
+        sensor_SeaVoX_L22_code: "SDN:L22::TOOL1393"
+        sensor_manufacturer_name: "Sea-Bird Scientific"
         sensor_manufacturer_uri: "http://vocab.nerc.ac.uk/collection/L35/current/MAN0013/"
         sensor_manufacturer_urn: "SDN:L35::MAN0013"
-        sensor_mount: "mounted_on_surface_buoy"
         sensor_reference: "http://vocab.nerc.ac.uk/collection/L22/current/TOOL1393/"
-        serial_number: "37-5669"
+        sensor_type_uri: "http://vocab.nerc.ac.uk/collection/L05/current/130/"
+        sensor_type_urn: "SDN:L05::130"
+        sensor_type_name: "CTD"
+        sensor_serial_number: "37-5669"
+        sensor_id: "SBE37sm_SN37_5669"
+        sensor_mount: "mounted_on_mooring_line"
+        sensor_orientation: "upward"
 
     - source: "SBE37sm_SN37_22592"
       dataType: "String"
       attributes:
         variable_type: "sensor"
-        sensor_model: "Sea-Bird SBE 37 MicroCat CTP (submersible) CTD sensor series"
-        sensor_manufacturer: "Sea-Bird Scientific"
+        long_name: "Sea-Bird SBE 37 MicroCat CTP (submersible) CTD sensor series"
+        sdn_instrument_name: "Sea-Bird SBE 37 MicroCat CTP (submersible) CTD sensor series"
+        sdn_instrument_uri: "http://vocab.nerc.ac.uk/collection/L22/current/TOOL1393/"
+        sdn_instrument_urn: "SDN:L22::TOOL1393"
+        sensor_SeaVoX_L22_code: "SDN:L22::TOOL1393"
+        sensor_manufacturer_name: "Sea-Bird Scientific"
         sensor_manufacturer_uri: "http://vocab.nerc.ac.uk/collection/L35/current/MAN0013/"
         sensor_manufacturer_urn: "SDN:L35::MAN0013"
-        sensor_mount: "mounted_on_surface_buoy"
+        sensor_type_uri: "http://vocab.nerc.ac.uk/collection/L05/current/130/"
+        sensor_type_urn: "SDN:L05::130"
+        sensor_type_name: "CTD"
         sensor_reference: "http://vocab.nerc.ac.uk/collection/L22/current/TOOL1393/"
-        serial_number: "37-22592"
+        sensor_serial_number: "37-22592"
+        sensor_id: "SBE37sm_SN37_22592"
+        sensor_mount: "mounted_on_mooring_line"
+        sensor_orientation: "upward"
 
 
 
-    # ==== The following is platform metadata ==== #
-    - source: "W1M3A"
+    #:=== The following is platform metadata:=== #
+    - source: "ODASItalia1"
       dataType: "String"
       attributes:
         variable_type: "platform"
-        sensor_model: "Sea-Bird SBE 37 MicroCat CTP (submersible) CTD sensor series"
-        sensor_manufacturer: "Sea-Bird Scientific"
-        sensor_manufacturer_uri: "http://vocab.nerc.ac.uk/collection/L35/current/MAN0013/"
-        sensor_manufacturer_urn: "SDN:L35::MAN0013"
-        sensor_mount: "mounted_on_surface_buoy"
-        sensor_reference: "http://vocab.nerc.ac.uk/collection/L22/current/TOOL1393/"
-        serial_number: "37-5669"
+        long_name: "ODASItalia1"
+        wmo_platform_code: "6103675"
+        emso_platform_name: "ODAS Italia 1"
+        emso_platform_uri: "https://w3id.org/earthsemantics/OSO#ODASItalia1"
+        platform_type_name: "mooring"
+        platform_type_uri: "http://vocab.nerc.ac.uk/collection/L06/current/48/"
+        platform_type_urn: "SDN:L06::48"
+        platform_reference: "http://www.w1m3a.cnr.it"
+        platform_id: "ODASItalia1"
+
 
 
 

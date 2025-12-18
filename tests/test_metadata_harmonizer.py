@@ -158,6 +158,8 @@ class MetadataHarmonizerTester(unittest.TestCase):
             os.makedirs(nc_folder, exist_ok=True)
             dataset_nc = os.path.join(nc_folder, dataset["dataset_id"] + ".nc")
             generate_dataset(dataset["data"], dataset["metadata"], dataset_nc, self.log, keep_names=dataset["keep"])
+            # Copy the file to the examples folder
+            shutil.copy2(dataset_nc, f"../examples/{dataset['dataset_id']}/example{dataset['dataset_id']}.nc")
             dataset["nc_files"] = [dataset_nc]  # overwrite any existing nc files
             dataset["cf_check"] = True
 

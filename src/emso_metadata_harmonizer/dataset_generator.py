@@ -108,7 +108,7 @@ def debug_metadata_tests(string, end="\n"):
     if DEBUG_TESTS:
         rich.print(string, end=end)
 
-def validate_metadata(metadata: dict, section: str, rules: tuple, errors: list, warnings: list, key=""):
+def validate_metadata(metadata: dict, section: str, rules: tuple, errors: list, warnings: list, infos: list, key=""):
     """
     Validate
     """
@@ -135,8 +135,8 @@ def validate_metadata(metadata: dict, section: str, rules: tuple, errors: list, 
                     errors.append(f"{section}:{element_id} Missing mandatory attribute '{key}'")
                     debug_metadata_tests(f"[red]error")
                 else:
-                    warnings.append(f"{section}:{element_id} Missing optional attribute '{key}'")
-                    debug_metadata_tests(f"[yellow]warning")
+                    infos.append(f"{section}:{element_id} Missing optional attribute '{key}'")
+                    debug_metadata_tests(f"[grey42]info")
                 continue
             value = data[key]
             if not isinstance(value, data_type):
@@ -199,11 +199,12 @@ def generate_dataset(data_files: list, metadata_files: list, output: str, log: l
     log.info("Validating metadata...")
     errors = []
     warnings = []
+    infos = []
 
     # Validate that all sensors, platforms and variables are compliant with the schemas
-    validate_metadata(metadata, "global", global_elements, errors, warnings)
-    validate_metadata(metadata, "sensors", sensor_elements, errors, warnings)
-    validate_metadata(metadata, "platforms", platform_elements, errors, warnings)
+    validate_metadata(metadata, "global", global_elements, errors, warnings, infos)
+    validate_metadata(metadata, "sensors", sensor_elements, errors, warnings, infos)
+    validate_metadata(metadata, "platforms", platform_elements, errors, warnings, infos)
 
     for key, variable in metadata["variables"].items():
         if "variable_type" not in variable.keys():
@@ -211,17 +212,20 @@ def generate_dataset(data_files: list, metadata_files: list, output: str, log: l
         else:
             vartype = variable["variable_type"]
         if vartype == "environmental":
-            validate_metadata(metadata, "variables", environmental_variable_elements, errors, warnings, key=key)
+            validate_metadata(metadata, "variables", environmental_variable_elements, errors, warnings, infos, key=key)
         elif vartype == "biological":
-            validate_metadata(metadata, "variables", biological_variable_elements, errors, warnings, key=key)
+            validate_metadata(metadata, "variables", biological_variable_elements, errors, warnings, infos, key=key)
         elif vartype == "technical":
-            validate_metadata(metadata, "variables", technical_variable_elements, errors, warnings, key=key)
+            validate_metadata(metadata, "variables", technical_variable_elements, errors, warnings, infos,  key=key)
         elif vartype == "coordinate":
-            validate_metadata(metadata, "variables", technical_variable_elements, errors, warnings, key=key)
+            validate_metadata(metadata, "variables", technical_variable_elements, errors, warnings, infos,  key=key)
         else:
             raise ValueError(f"Variable type '{vartype}' not supported")
 
     # Validate that global attributes are compliant with the schemas
+
+    for i in infos:
+        log.info(i)
 
     for w in warnings:
         log.warning(w)

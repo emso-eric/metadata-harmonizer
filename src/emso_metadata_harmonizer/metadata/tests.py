@@ -80,9 +80,6 @@ class EmsoMetadataTester:
         self.valid_cf_dsg_types = ["point", "timeSeries", "trajectory", "profile", "timeSeriesProfile",
                                    "trajectoryProfile"]
 
-        # Match contributor_types with contributor names
-        self.__contributors = {"names": [], "roles": []}
-
 
 
     def __process_results(self, df, verbose=False, ignore_ok=False) -> (float, float, float):
@@ -223,7 +220,7 @@ class EmsoMetadataTester:
             if multiple:
                 if annotation == 1:  # Annotation 1 means use comma to separate
                     values = split_variable(value, ",")
-                else:  # By default separate by space
+                else:  # By default, separate by space
                     values = split_variable(value, " ")
             else:
                 values = [value]
@@ -259,6 +256,11 @@ class EmsoMetadataTester:
             message = "not required (exception)"
             value = ""
 
+        elif annotation == 7 and context.varname != "platform_id":
+            # Annotation 7 means that only platform_id requires cf_role
+            passed = True
+            message = "not required"
+            value = ""
         else:
             passed = False
             message = "not found"
@@ -720,6 +722,10 @@ class EmsoMetadataTester:
     #----- Quality control stuff -----#
     def qc_flag_values(self, value, args):
         expected_values = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]
+        if "," in value:
+            # ERDDAP sometimes adds comma to arrays, just ignore it
+            value = value.replace(",", "")
+
         if value in expected_values:
             return True, ""
         else:
@@ -756,7 +762,12 @@ class EmsoMetadataTester:
 
     #------ Climate and Forecast Discrete Sampling Geometry -------#
     def cf_dsg_types(self, value, args):
+        # ERDDAP modifies CF DSG types by changing the first char to upper case
+        cf_dsg_types_erddap = [a[0].upper() + a[1:] for a in self.valid_cf_dsg_types]
+
         if value in self.valid_cf_dsg_types:
+            return True, ""
+        elif value in cf_dsg_types_erddap:
             return True, ""
         else:
             return False, "Not a valid CF Discrete Sampling Geometry"

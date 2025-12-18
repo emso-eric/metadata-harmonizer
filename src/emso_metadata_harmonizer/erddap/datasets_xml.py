@@ -152,7 +152,11 @@ def generate_erddap_dataset(wf: WaterFrame, directory, dataset_id, file_access=T
             try:
                 dtype = var_mapping[varname]["dataType"]
             except KeyError:
-                raise ValueError(f"Variable '{varname}' dataType must be defined in the mapping")
+                try:
+                    print(wf.data)
+                    dtype = get_erddap_data_type(wf.data[varname])
+                except KeyError:
+                    raise ValueError(f"Variable '{varname}' dataType must be defined in the mapping")
         else:
             raise ValueError(f"Variable '{varname}' dataType not found in DataFrame nor in mapping")
 
@@ -235,7 +239,6 @@ def generate_erddap_dataset(wf: WaterFrame, directory, dataset_id, file_access=T
 
 
     all_variables = coordinates + variables + quality_control + sensors + platforms + others
-    rich.print(f"[yellow]WARNING CHECK ANCILLARY_VARIABLES AND QC VARIABLE NAMES!")
 
     if "infoUrl" in wf.metadata.keys():  # If infoURL not set, use the edmo uri
         info_url = wf.metadata["infoUrl"]

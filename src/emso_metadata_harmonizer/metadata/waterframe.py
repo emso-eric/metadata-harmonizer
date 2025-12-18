@@ -135,20 +135,14 @@ class WaterFrame(LoggerSuperclass):
 
         # Add sensors and platforms!
         for key, value in sensors.items():
-            sensors[key][self._sensor_id] = key
+            # Add the sensor_id always as lower case
+            sensors[key]["sensor_id"] = key
 
         for key, value in platforms.items():
-            platforms[key][self._platform_id] = key
+            platforms[key]["platform_id"] = key
 
         sensors, df = self.process_identifiers(sensors, df, self._sensor_id)
         platforms, df = self.process_identifiers(platforms, df, self._platform_id)
-
-        # Add sensors and platforms!
-        for key, value in sensors.items():
-            sensors[key][self._sensor_id] = key
-
-        for key, value in platforms.items():
-            platforms[key][self._platform_id] = key
 
         for var in df.columns:
             # If not defined by the user, use the default coordinate metadata
@@ -408,28 +402,21 @@ class WaterFrame(LoggerSuperclass):
         if not self.data.empty:
             self.autofill_coverage()
 
-        # Put as ancillary_variables all sensor data variable names
+        # Put as ancillary_variables quality control and related sensors
 
         for varname, m in self.vocabulary.items():
             # Data Variables will have sensor_id and platform_id in ancillary_variables
             if m["variable_type"] in ["environmental", "biological", "technical"]:
                 if "ancillary_variables" not in m.keys():
-                    m["ancillary_variables"] = ""
-                m["ancillary_variables"] += self._sensor_id + " " + self._platform_id
+                    # create a dict where key is varname lower case and value is the true variable name
+                    varname_dict = {a.lower(): a for a in self.vocabulary.keys()}
 
-        # Adding sensor names in sensor_id's ancillary_data
-        if "ancillary_variables" not in self.vocabulary[self._sensor_id].keys():
-            self.vocabulary[self._sensor_id]["ancillary_variables"] = ""
-        else:
-            self.vocabulary[self._sensor_id]["ancillary_variables"] += " "
-        self.vocabulary[self._sensor_id]["ancillary_variables"] += " ".join(list(self.sensors.keys()))
+                    expected_qc = f"{varname}_qc".lower() # expected value of the QC variable
+                    if expected_qc in varname_dict.keys():
+                        m["ancillary_variables"] = varname_dict[expected_qc]
+                    else:
+                        m["ancillary_variables"] = ""
 
-        # Adding sensor names in sensor_id's ancillary_data
-        if "ancillary_variables" not in self.vocabulary[self._platform_id].keys():
-            self.vocabulary[self._platform_id]["ancillary_variables"] = ""
-        else:
-            self.vocabulary[self._platform_id]["ancillary_variables"] += " "
-        self.vocabulary[self._platform_id]["ancillary_variables"] += " ".join(list(self.platforms.keys()))
 
 
     def autofill_vocab(self, meta, prefix, vocab_id, exception=False):
@@ -751,13 +738,6 @@ class WaterFrame(LoggerSuperclass):
                 var = ncfile.createVariable(varname, nc_dtype, dimensions, zlib=zlib, fill_value=nc_fill_value)
                 var[:] = values
                 self.populate_var_metadata(varname, var)
-                if varname not in coordinates and not varname.endswith("_QC"):
-                    ancillary_vars = []
-                    for suffix  in ["_QC", "_STD"]:
-                        if varname + suffix in df.columns:
-                            ancillary_vars.append(varname + suffix)
-                    if len(ancillary_vars) > 0:
-                        var.setncattr("ancillary_variables", " ".join(ancillary_vars))
 
                 if varname.endswith("_QC"):
                     var.setncattr("flag_values", self.flag_values)
@@ -942,7 +922,6 @@ class WaterFrame(LoggerSuperclass):
 
 
     def __repr__(self):
-
         def get_param(key, vocab):
             if key in vocab.keys():
                 return vocab[key]

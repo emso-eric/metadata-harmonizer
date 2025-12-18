@@ -17,25 +17,19 @@
 
   <!-- Add a variable 'nominal_latitude' with 'TIME DEPTH' dimensions and a constant value -->
   <variable name="nominal_latitude" type="double" shape="TIME DEPTH">
-    <attribute name="long_name" type="string" value="Latitude"/>
-    <attribute name="units" type="string" value="degrees_north"/>
-      <attribute name="variable_type" type="string" value="coordinate"/>
-    <attribute name="description" type="string" value="Nominal latitude configured from NcML file"/>
+   <attribute name="comment" type="string" value="Nominal latitude configured from NcML file"/>
    <values start="41.18212" increment="0" />
 
   <!-- Add a variable 'nominal_longitude' with 'TIME DEPTH' dimensions and a constant value -->
   </variable>
     <variable name="nominal_longitude" type="double" shape="TIME DEPTH">
-    <attribute name="long_name" type="string" value="Nominal longitude"/>
-    <attribute name="units" type="string" value="degrees_north"/>
-    <attribute name="variable_type" type="string" value="coordinate"/>
-    <attribute name="description" type="string" value="Nominal latitude configured from NcML file"/>
+    <attribute name="comment" type="string" value="Nominal latitude configured from NcML file"/>
    <values start="1.75257" increment="0" />
   </variable>
 
   <!-- Add a variable 'platform_id' with 'W1M3A' constant value -->
   <variable name="platform_id" type="string">
-    <values>W1M3A</values>>
+    <values>ODASItalia1</values>>
   </variable>
 
 </netcdf>
