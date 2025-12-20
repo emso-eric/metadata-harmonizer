@@ -10,7 +10,6 @@ created: 29/4/23
 from .metadata_templates import time_valid_names
 from .waterframe import WaterFrame
 import pandas as pd
-from .constants import dimensions
 import rich
 import xarray as xr
 

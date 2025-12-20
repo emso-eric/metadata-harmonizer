@@ -229,8 +229,6 @@ class EmsoMetadata:
         if not force_update and os.path.exists(self.local_resources_file):
             rich.print("[purple]loading local resource files...")
             self.local_resources = load_json(self.local_resources_file)
-        else:
-            rich.print("[purple]local resources file not found, downloading from github!")
 
         # Get the remote resources list
         remote_resources = requests.get(metadata_specifications_resources).json()
