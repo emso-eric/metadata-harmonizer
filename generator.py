@@ -11,7 +11,6 @@ created: 13/4/23
 """
 
 from argparse import ArgumentParser
-import yaml
 from src.emso_metadata_harmonizer import generate_dataset
 from src.emso_metadata_harmonizer.metadata.utils import setup_log
 

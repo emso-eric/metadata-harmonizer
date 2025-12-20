@@ -9,7 +9,6 @@ email: enoc.martinez@upc.edu
 license: MIT
 created: 13/4/23
 """
-import json
 import logging
 import rich
 import pandas as pd
@@ -18,7 +17,7 @@ import yaml
 from .metadata.dataset import load_data
 from .metadata import EmsoMetadata
 from .metadata.utils import assert_type, LoggerSuperclass
-from .metadata.waterframe import WaterFrame, merge_waterframes, get_coordinates_from_dataframe
+from .metadata.waterframe import WaterFrame, get_coordinates_from_dataframe
 
 global_elements = (
     # Array with attribute_name, type, mandatory (True, False), additional_checks

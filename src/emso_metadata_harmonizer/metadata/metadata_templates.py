@@ -8,9 +8,6 @@ email: enoc.martinez@upc.edu
 license: MIT
 created: 19/4/23
 """
-import numpy as np
-import rich
-import time
 
 
 def quality_control_metadata(long_name):

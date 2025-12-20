@@ -15,7 +15,7 @@ import pandas as pd
 import yaml
 from ..metadata.metadata_templates import coordinate_default_name
 from ..metadata.waterframe import WaterFrame
-from ..metadata.xmlutils import get_element, append_after, get_elements
+from ..metadata.xmlutils import get_element
 from datetime import datetime
 import rich
 

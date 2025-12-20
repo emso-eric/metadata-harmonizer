@@ -21,7 +21,7 @@ import warnings
 from src.emso_metadata_harmonizer.metadata.metadata_templates import \
     time_valid_names, depth_valid_names, latitude_valid_names, longitude_valid_names, sensor_id_valid_names, \
     platform_id_valid_names, is_coordinate
-from src.emso_metadata_harmonizer.metadata import EmsoMetadata
+from src.emso_metadata_harmonizer.metadata import EmsoMetadata, init_emso_metadata
 from src.emso_metadata_harmonizer.metadata.constants import iso_time_format
 from src.emso_metadata_harmonizer.metadata.metadata_templates import dimension_metadata, quality_control_metadata, \
     dimension_metadata_keys, dimension_metadata_dtype
@@ -83,7 +83,7 @@ class WaterFrame(LoggerSuperclass):
         LoggerSuperclass.__init__(self, logger, "WF", colour=CYN)
         global emso
         if not emso:
-            emso = EmsoMetadata()
+            emso = init_emso_metadata()
         self.emso = emso
 
         # Metadata should have at least 4 keys: global, sensor, platform and variables
@@ -943,6 +943,18 @@ class WaterFrame(LoggerSuperclass):
         s += "==== Data ===="
         s += self.data.__repr__()
         return s
+
+    def operational_tests(self):
+        """
+        Ensures that the current WaterFrame is operationally sound. The following tests are preformed:
+            1. All variables have the variable_type attribute with a valid value
+            2. Ensure that we have coordinates with the following names: time, depth, latitude, longitude, sensor_id, platform_id
+            3. sensor_id and platform_id values are resolvable identifiers of sensors and platforms metadata variables
+        """
+
+        __valid_variable_types = [""]
+
+
 
 
 def __merge_timeseries_waterframes(waterframes: list) -> pd.DataFrame:

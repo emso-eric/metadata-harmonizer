@@ -18,7 +18,7 @@ from rich.style import Style
 from rich.progress import Progress
 import pandas as pd
 import re
-from . import EmsoMetadata
+from . import EmsoMetadata, init_emso_metadata
 from .utils import group_metadata_variables, check_url
 import inspect
 import numpy as np
@@ -42,7 +42,7 @@ class EmsoMetadataTester:
         # Dict to store all erddap. KEY is the test identifier while value is the method
         rich.print("[blue]Setting up EMSO Metadata Tests...")
 
-        self.metadata = EmsoMetadata(True, specifications=specifications)
+        self.metadata = init_emso_metadata(force_update=True, specifications=specifications)
         self.context = None  # here info about the current attribute being tested will be stored
 
         self.implemented_tests = {}
