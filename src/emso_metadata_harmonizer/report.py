@@ -15,7 +15,7 @@ import rich
 import time
 from .erddap import ERDDAP
 import pandas as pd
-from .metadata import EmsoMetadata
+from .metadata import init_emso_metadata, EmsoMetadata
 from .metadata.utils import threadify
 from .metadata.dataset import get_netcdf_metadata
 from .metadata.tests import EmsoMetadataTester
