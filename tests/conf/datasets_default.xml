@@ -49,58 +49,45 @@ Also, 1000 ms won't annoy human users who make a bad request.
 -->
 <slowDownTroubleMillis>1000</slowDownTroubleMillis>
 
-<!-- If you want to prevent specific people from using the email/URL subscription
-	system, uncomment the following tag and add their email addresses to the comma-separated list.
-<subscriptionEmailBlacklist>some.name@company.com, another.name@company.com</subscriptionEmailBlacklist>
--->
+  <startBodyHtml5>
+&lt;body&gt;
+&lt;table class="compact nowrap" style="width:100%; background-color:#393b3f;"&gt;
+  &lt;tr&gt;
+    &lt;td style="text-align:center; width:80px;"&gt;&lt;a rel="bookmark"
+      href="https://emso.eu/"&gt;&lt;img
+      title="EMSO ERIC"
+      src="&amp;erddapUrl;/images/logo.png" alt="EMSO" height="90" width="142"
+      style="vertical-align:middle;"&gt;&lt;/a&gt;&lt;/td&gt;
+    &lt;td style="text-align:left; font-size:x-large; color:#a7be58; "&gt;
+      &lt;strong&gt;EMSO ERIC Example Datasets&lt;/strong&gt;
+      &lt;br&gt;&lt;small&gt;&lt;small&gt;&lt;small&gt;Easier access to scientific data&lt;/small&gt;&lt;/small&gt;&lt;/small&gt;
+      &lt;/td&gt;
+    &lt;td style="text-align:right; font-size:small;  color:#FFFFFF; "&gt;
+      &amp;loginInfo; | &amp;language; &amp;nbsp; &amp;nbsp;
+      &lt;br&gt;&amp;BroughtToYouBy;
+      &lt;a title="EMSO" rel="bookmark"  href="https://emso.eu/" style="color:#7C87DF;"&gt;EMSO&lt;/a&gt;
+      &amp;nbsp; &amp;nbsp;
+      &lt;/td&gt;
+  &lt;/tr&gt;
+&lt;/table&gt;
+</startBodyHtml5>
+  <theShortDescriptionHtml>
+    &lt;h1&gt;EMSO Dataset Examples&lt;/h1&gt;
 
-<!-- These convert the local sourceUrl (used in dataset tags)
-into the public sourceUrl (which appears in a dataset's globalAttributes).
-This is only needed if some datasets use non-public sourceUrl's
-(usually because their computer is in your DMZ or a local LAN).
-'from' and 'to' are the start of the URLs and are case sensitive.
-'from' must be '[something]//[something]/' .
-For example,
-<convertToPublicSourceUrl from="http://192.168.31.18/" to="http://oceanwatch.pfeg.noaa.gov/" />
-will cause a matching local sourceUrl (such as http://192.168.31.18/thredds/dodsC/satellite/BA/ssta/5day)
-into a public sourceUrl (http://oceanwatch.pfeg.noaa.gov/thredds/dodsC/satellite/BA/ssta/5day).
--->
-<!--
-<convertToPublicSourceUrl from="http://192.168.31.18/" to="http://oceanwatch.pfeg.noaa.gov/" />
-<convertToPublicSourceUrl from="http://192.168.31.27/" to="http://thredds1.pfeg.noaa.gov/"   />
--->
+    &lt;div&gt;
+        &lt;p&gt;This page contains a set of dataset examples following the &lt;a href="https://github.com/emso-eric/emso-metadata-specifications/tree/develop"&gt;EMSO Metadata Specifications&lt;/a&gt;. These examples demonstrate proper metadata formatting and structure for EMSO data products, ensuring consistency and interoperability across the research infrastructure.&lt;/p&gt;
+    &lt;/div&gt;
 
+    &lt;div&gt;
+        &lt;h2&gt;Useful Links&lt;/h2&gt;
+        &lt;ul&gt;
+            &lt;li&gt;&lt;strong&gt;&lt;/strong&gt; &lt;a href="https://github.com/emso-eric/emso-metadata-specifications/tree/develop" target="_blank"&gt;EMSO Metadata Specifications&lt;/a&gt;: The normative document with the rules on how to create EMSO-compliant NetCDF and ERDDAP datasets&lt;/li&gt;
+            &lt;li&gt;&lt;a href="https://github.com/emso-eric/metadata-harmonizer/tree/develop" target="_blank"&gt;Metadata Harmonizer Toolbox&lt;/a&gt;: contains several tools o creates and evaluate NetCDF datasets in compliance with EMSO Metadata Specifications. It also includes tools to integrate NetCDF files into an ERDDAP server&lt;/li&gt;
+            &lt;li&gt;&lt;a href="https://github.com/emso-eric/example-datasets" target="_blank"&gt;Configuration of this ERDDAP server&lt;/a&gt;: Contains all the configuration and datasets shown in this page. &lt;/li&gt;
+        &lt;/ul&gt;
+    &lt;/div&gt;
 
-
-<!--
-DISCLAIMER:
-The chunk of datasets.xml made by GenerageDatasetsXml isn't perfect.
-YOU MUST READ AND EDIT THE XML BEFORE USING IT IN A PUBLIC ERDDAP.
-GenerateDatasetsXml relies on a lot of rules-of-thumb which aren't always
-correct.  *YOU* ARE RESPONSIBLE FOR ENSURING THE CORRECTNESS OF THE XML
-THAT YOU ADD TO ERDDAP'S datasets.xml FILE.
-
-DIRECTIONS:
-* Read about this type of dataset in
-http://coastwatch.pfeg.noaa.gov/erddap/download/setupDatasetsXml.html .
-* Read http://coastwatch.pfeg.noaa.gov/erddap/download/setupDatasetsXml.html#addAttributes
-so that you understand about sourceAttributes and addAttributes.
-* Note: Global sourceAttributes and variable sourceAttributes are listed
-below as comments, for informational purposes only.
-ERDDAP combines sourceAttributes and addAttributes (which have
-precedence) to make the combinedAttributes that are shown to the user.
-(And other attributes are automatically added to longitude, latitude,
-altitude, depth, and time variables).
-* If you don't like a sourceAttribute, override it by adding an
-addAttribute with the same name but a different value
-(or no value, if you want to remove it).
-* All of the addAttributes are computer-generated suggestions. Edit them!
-If you don't like an addAttribute, change it.
-* If you want to add other addAttributes, add them.
-* If you want to change a destinationName, change it.
-But don't change sourceNames.
-* You can change the order of the dataVariables or remove any of them.
--->
+    </theShortDescriptionHtml>
 
 
 

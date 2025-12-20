@@ -13,3 +13,5 @@ services:
       - ./conf:/usr/local/tomcat/content/erddap
       - ./erddapData:/erddapData   # bind mount for ERDDAP internal data
       - ./datasets:/datasets:ro # bind mount for user data files
+      - ./conf/logo.png:/usr/local/tomcat/webapps/erddap/images/logo.png:ro
+      - ./conf/favicon.ico:/usr/local/tomcat/webapps/erddap/images/favicon.ico:ro
