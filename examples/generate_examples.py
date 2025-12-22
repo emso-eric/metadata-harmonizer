@@ -1,3 +1,6 @@
+"""
+Automatically generates the CSV files for the examples!
+"""
 import pandas as pd
 import numpy as np
 import rich
@@ -493,4 +496,43 @@ df = pd.DataFrame({
 
 df["SENSOR_ID"] = "SBE16_SN57353_6479"
 to_csv(df, folder, "SBE16.csv", _time="TIME")
+guess_command(folder)
+
+
+# ============ Example 15: Two CTDs at different depths, one is unknown ============ #
+folder = "02"
+
+temp1 = 20 + 5 * np.sin(2*np.pi*t)
+cndc1 = 5 + np.sin(2*np.pi*t)
+psal1 = 37 + np.sin(2*np.pi*t)
+pres1 = 10 + 2 * np.sin(365*2*np.pi*t)
+
+temp2 = 15 + 5 * np.sin(2*np.pi*t)
+cndc2 = 5 + np.sin(2*np.pi*t)
+psal2 = 36 + np.sin(2*np.pi*t)
+pres2 = 20 + 2 * np.sin(365*2*np.pi*t)
+
+df1 = pd.DataFrame({
+    "time": times,
+    "depth": 10.0,
+    "sensor_id": "SBE16_SN57353_6479",
+    "TEMP": temp1, "TEMP_QC": 1,
+    "CNDC": cndc1, "CNDC_QC": 1,
+    "PSAL": psal1, "PSAL_QC": 1,
+    "PRES": pres1, "PRES_QC": 1
+})
+
+df2 = pd.DataFrame({
+    "time": times,
+    "depth": 20.0,
+    "sensor_id": "unknown",
+    "TEMP": temp2, "TEMP_QC": 1,
+    "CNDC": cndc2, "CNDC_QC": 1,
+    "PSAL": psal2, "PSAL_QC": 1,
+    "PRES": pres2, "PRES_QC": 1
+})
+
+
+to_csv(df1, folder, "SBE16.csv")
+to_csv(df2, folder, "SBE37.csv")
 guess_command(folder)

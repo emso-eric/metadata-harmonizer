@@ -1,7 +1,7 @@
 mapping:
   attributes:
     title: "Example 14: Setup a EMSO-compliant dataset from Copernicus-like files"
-    summary: "Example 14: Setup a EMSO-compliant dataset from Copernicus-like files. Source files from W1M3A have been slightly modified to convert the sensor_id to a string (instead of a numerical variable) and some variables have been removed"
+    summary: "Setup a EMSO-compliant dataset from Copernicus-like files. Source files from W1M3A have been slightly modified to convert the sensor_id to a string (instead of a numerical variable) and some variables have been removed"
     treatDimensionsAs: "LATITUDE,LONGITUDE,TIME"  # required for NetCDF files not compliant with CF, depends on your dimensions
     contributors: "Bart Simpson, Peter Griffin, Rick Sánchez"
     contributor_types: "DataCollector DataManager Researcher"

@@ -1,6 +1,6 @@
 global:
   title: "Example 15: Dataset with an unknown sensor"
-  summary: "Simple dataset with two CTDs, but the information regarding one of them as been lost"
+  summary: "Simple dataset with two CTDs, but the information of one of them has been lost and it is recorded as unknown"
   Conventions: "OceanSITES EMSO CF-1.8"
   institution: "UPC - Universitat Politècnica de Catalunya"
   institution_edmo_code: "2150"
