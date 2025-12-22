@@ -231,9 +231,9 @@ class EmsoMetadata:
             self.local_resources = load_json(__resources_file)
 
         # Load local resources file
-        if not force_update and os.path.exists(self.local_resources_file):
+        if not force_update and os.path.exists(__resources_file):
             rich.print("[purple]loading local resource files...")
-            self.local_resources = load_json(self.local_resources_file)
+            self.local_resources = load_json(__resources_file)
 
         # Get the remote resources list
         remote_resources = requests.get(metadata_specifications_resources).json()
@@ -380,16 +380,6 @@ class EmsoMetadata:
             if os.path.isfile(f):
                 os.remove(f)
 
-    @staticmethod
-    def load_sdn_vocab(filename):
-        """
-        Loads a SDN vocab into a pandas dataframe.
-        """
-        data, narrower, broader, related = parse_sdn_jsonld(filename)
-        
-        df = pd.DataFrame(data)
-        df = df.rename(columns={"@id": "uri", "dc:identifier": "id"})
-        return df, narrower, broader, related
 
     @staticmethod
     def harmonize_uri(uri):

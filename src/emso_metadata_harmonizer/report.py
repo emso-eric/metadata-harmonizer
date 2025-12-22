@@ -25,15 +25,9 @@ from .metadata.tests import EmsoMetadataTester
 
 
 def metadata_report(target,
-                    dataset_list: list=[],
-                    just_list: bool=False,
-                    just_print: bool=False,
                     verbose: bool = False,
-                    save_metadata: str = "",
                     output: str = "",
-                    report: bool = False,
                     clear: bool = False,
-                    excel_table: bool = False,
                     specifications="",
                     variables=[],
                     ignore_ok=False
@@ -47,7 +41,7 @@ def metadata_report(target,
     :param verbose: Shows more info
     :param save_metadata: Save dataset's metadata into the specified folder
     :param output: file to store the report of all the datasets
-    :param report: Gnerate a CSV file for every test
+    :param report: Generate a CSV file for every test
     :param clear: Clears the downloaded files
     param: excel_table:  prints the results in a excel compatible table
     """
@@ -71,13 +65,6 @@ def metadata_report(target,
         url, dataset_id = ERDDAP.process_url(target)
         erddap = ERDDAP(url)
 
-        if just_list:  # If set, just list datasets and exit
-            erddap_datasets = erddap.dataset_list()
-            rich.print("[green]Listing datasets in ERDDAP:")
-            for i in range(len(erddap_datasets)):
-                rich.print(f"    {i:02d} - {erddap_datasets[i]}")
-            exit()
-
         if dataset_id:  # Run tests on ONE dataset
             datasets.append({"file": "", "url": url, "dataset_id": dataset_id, "metadata": {}})
         else:  # test ALL datasets
@@ -99,21 +86,8 @@ def metadata_report(target,
         datasets.append({
             "file": target, "url": "", "dataset_id": "", "metadata": get_netcdf_metadata(target)
         })
-
-    if just_print:
-        for d in datasets_metadata:
-            rich.print(d)
-            exit()
-
-    if save_metadata:
-        os.makedirs(save_metadata, exist_ok=True)
-        rich.print(f"Saving datasets metadata in '{save_metadata}' folder")
-        for dataset_id in datasets:
-            file = os.path.join(save_metadata, f"{dataset_id}.json")
-            metadata = erddap.dataset_metadata(dataset_id)
-            with open(file, "w") as f:
-                f.write(json.dumps(metadata, indent=2))
-        exit()
+    else:
+        raise ValueError(f"Expected .nc file or ERDDAP url, got target='{target}' ")
 
     tests = EmsoMetadataTester(specifications=specifications)
 
@@ -125,7 +99,7 @@ def metadata_report(target,
     dataset_id = []
     for d in datasets:
         metadata = d["metadata"]
-        r = tests.validate_dataset(metadata, verbose=verbose, store_results=report, variable_filter=variables, ignore_ok=ignore_ok)
+        r = tests.validate_dataset(metadata, verbose=verbose, variable_filter=variables, ignore_ok=ignore_ok)
         total.append(r["total"])
         required.append(r["required"])
         optional.append(r["optional"])
@@ -133,7 +107,6 @@ def metadata_report(target,
         emso_facility.append(r["emso_facility"])
         dataset_id.append(r["dataset_id"])
 
-        print("")
         if d["file"]:
             rich.print("Load NetCDF file")
             wf = WaterFrame.from_netcdf(d["file"])

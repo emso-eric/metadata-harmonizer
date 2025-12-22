@@ -346,7 +346,7 @@ class EmsoMetadataTester:
                     results["value"].append(value)
         return results
 
-    def validate_dataset(self, metadata, verbose=True, store_results=False, variable_filter=[], ignore_ok=False):
+    def validate_dataset(self, metadata, verbose=True, variable_filter=[], ignore_ok=False):
         """
         Takes the well-formatted JSON metadata from an ERDDAP dataset and processes it
         :param metadata: well-formatted JSON metadta for an ERDDAP dataset
@@ -370,7 +370,6 @@ class EmsoMetadataTester:
         else:
             results = {}
 
-
         test_mapping = (
             # variable group, list of tests
             ("coordinate", self.metadata.cor_variables_attr),
@@ -379,7 +378,10 @@ class EmsoMetadataTester:
             ("technical", self.metadata.tec_variables_attr),
             ("quality_control", self.metadata.qc_variables_attr),
             ("sensor", self.metadata.sensor_variables_attr),
-            ("platform", self.metadata.platform_variables_attr)
+            ("platform", self.metadata.platform_variables_attr),
+
+            # Test unclassified as environmental
+            ("unclassified", self.metadata.env_variables_attr),
 
         )
         for section, attributes in test_mapping:
@@ -411,10 +413,6 @@ class EmsoMetadataTester:
         if "emso_facility" in metadata["global"].keys():
             r["emso_facility"] = metadata["global"]["emso_facility"]
 
-        if store_results:
-            results_csv = f"report_{dataset_id}.csv".replace(" ", "_").replace(",", "")
-            rich.print(f"[green]Storing results into file {results_csv}...")
-            df.to_csv(results_csv, index=False)
         return r
 
     # ------------------------------------------------ TEST METHODS -------------------------------------------------- #

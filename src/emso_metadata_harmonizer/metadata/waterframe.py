@@ -1099,7 +1099,6 @@ def operational_tests(wf: WaterFrame) -> bool:
     rich.print("\n")
     rich.print("[cyan]===== Running Operational tests ====")
 
-
     for varname, meta in wf.vocabulary.items():
         if "variable_type" not in meta.keys():
             errors.append(f"variable '{varname}' does not have the mandatory variable_type attribute")
