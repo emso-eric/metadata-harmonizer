@@ -1,12 +1,11 @@
 
 # EMSO ERIC Dataset Examples 
  
-Here you can find an extensive list of examples on how to generate NetCDF datasets and how to integrate them into an ERDDAP server. All the examples in this folder are deployed in the [NetCDF-dev ERDDAP](https://netcdf-dev.obsea.es/erddap/index.html). The configuration of this ERDDAP can be found in [github](https://github.com/emso-eric/example-datasets), including the [datasets.xml](https://github.com/emso-eric/example-datasets/blob/main/conf/datasets.xml) file. 
+Here you can find an extensive list of examples on how to generate NetCDF datasets and how to integrate them into an 
+ERDDAP server. All the examples in this folder are deployed in the [NetCDF-dev ERDDAP](https://netcdf-dev.obsea.es/erddap/index.html). The configuration of this 
+ERDDAP can be found in the [example datasets](https://github.com/emso-eric/example-datasets) repository, including the [datasets.xml](https://github.com/emso-eric/example-datasets/blob/main/conf/datasets.xml) file. 
 
-The commands listed here assume that the user is using a Linux shell or [WSL](https://ubuntu.com/desktop/wsl) and the current directory is the root folder of the metadata harmonizer project and 
- 
-
-
+The commands listed here assume that the user is using a Linux shell or [WSL](https://ubuntu.com/desktop/wsl) and the current directory is the root folder of the metadata harmonizer.
 
 
 ###  Example 01: Simple dataset with only one CTD at a fixed depth    
