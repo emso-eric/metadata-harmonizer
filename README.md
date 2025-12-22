@@ -1,19 +1,25 @@
 # Metadata Harmonizer Toolbox #
 This repository contains a set of tools that can be used to create NetCDF files, integrate them into an ERDDAP server 
 and to ensure the compliance with the [EMSO Metadata Specifications](https://github.com/emso-eric/emso-metadata-specifications/tree/develop).
-
-The main tools contained in this repository are:
+The tools provided here are:
 * `generator.py`: creates EMSO-compliant NetCDF files from `.csv` and `.yaml` files  
 * `erddap_config.py`: integrates NetCDF files into an ERDDAP server
-* `metadata_report.py`: check the compliance of a dataset with the specifiations.
+* `metadata_report.py`: check the compliance of a dataset with the specifications.
 
-This project comes with a comprehensive example list  
+## How to use this repository 
+This repository tools provided here are intended to create and publish EMSO-compliant datasets. The typical workflow would be:
+1. Prepare CSV data and YAML metadata
+2. Generate EMSO-compliant NetCDF files using `generator.py`
+3. Integrate datasets into your ERDDAP deployment using `erddap_config.py`
+4. Validate metadata and operational compliance using `metadata_report.py`
 
-
+⚠️ WARNING: this work is based on the draft of the new EMSO Metadata Specifications. It has not yet formally approved by the DMSG.  
 
 ## 🚀 Project Setup ##
 ### Prerequisites
-Previous requirements are `python` 3.8+,`git` and `pip`. All commands here are for unix-like OS, for Windows users it is strongly recommended to use [Ubuntu WSL](https://ubuntu.com/desktop/wsl). In order to use PowerShell or Windows cli make sure to change the unix-like paths here to Windows paths.  
+Previous requirements are `python 3.8+`,`git` and `pip`. All commands here are for unix-like OS, for Windows users it 
+is recommended to use [Ubuntu WSL](https://ubuntu.com/desktop/wsl). If PowerShell or Windows cli is used make sure to change the
+unix-like paths (`path/to/file.csv`) to Windows-like paths (`.\path\to\file.csv`).
 
 ### Installation
 To use this repository, just clone and install its requirements: 
@@ -40,8 +46,7 @@ The NetCDF generator creates EMSO-compliant NetCDF datasets from one or more CSV
 ```bash 
 python3 generator.py -d <csv files> -m <yaml files> --out <NetCDF file>
 ```
-
-It is strongly reccomended to check the [examples folder](https://github.com/emso-eric/metadata-harmonizer/tree/develop/examples), where there is a comprehensive list of datasets 
+It is strongly recommended to check the [examples folder](https://github.com/emso-eric/metadata-harmonizer/tree/develop/examples), where there is a comprehensive list of datasets 
 covering different scenarios. For instance, to generate the nc file for the first example:
 
 ```bash
@@ -58,7 +63,7 @@ python3 generator.py -m examples/01/*.yaml -d examples/01/*.csv --out example01.
 By default, the `generator.py` will convert the coordinate variable names to lower case (e.g. time, depth...). If the
 user wants to explicitly retain the source names, the `--keep-names` option can be used. Note that the NetCDF files 
 won't be compliant with the EMSO metadata specifications, although it is still possible to create an ERDDAP-compliant 
-dataset if the propper mappings are used (see next section)
+dataset if the proper mappings are used (see next section)
 
 
 ## ⚙️ ERDDAP Configurator ##
@@ -77,7 +82,7 @@ where:
 * `dataset_id`, identifier assigned to the ERDDAP dataset.
 * `source` source folder to scan for `.nc`  files.
 
-The `source` value will be se in the `<fileDir>` option of the dataset configuration. Note that if the ERDDAP server is 
+The `source` value will be set in the `<fileDir>` option of the dataset configuration. Note that if the ERDDAP server is 
 deployed inside a docker container, the paths inside the container and the paths in the host will most likely be 
 different. Check the official [docker documentation](https://docs.docker.com/engine/storage/volumes/) on volumes and the  
 [ERDDAP documentation](https://erddap.github.io/docs/server-admin/datasets#eddtablefromfilenames-data) 
@@ -104,9 +109,8 @@ Specifications. To test a dataset, use the following syntax:
 ```bash
 python3 metadata_report.py <target> 
 ```
-Where `target` is the dataset under test. It can be a `.nc` file or an ERDDAP dataset. If `target` points to an ERDDAP
-server but it does not directly point to a specific dataset, the metadata reporting tool will try to assess all datasets
-in the server. 
+Where `target` is the dataset under test, `.nc` files and ERDDAP dataset URLs are accepted. If `target` points to an ERDDAP 
+but no dataset is selected, the metadata reporting tool will assess all datasets in the server. 
 
 To run the metadata report against an example NetCDF file:
 ```bash
@@ -132,7 +136,7 @@ provides a binary output, whether the dataset is operationally valid or not.
 #### Additional Options:
 * `-v` or `--verbose`: Verbose output
 * `-o` or `--output`: store the results as a csv file
-* `-i` or `--ignore-ok`: do not successful metadata tests, used to reduce the reports's verbosity
+* `-i` or `--ignore-ok`: do not show successful metadata tests, used to reduce the reports's verbosity
 * `-V` or `--variables`: list of variables to test, other variables will be ignored.
 * `-c` or `--clear`: clear cached resources, mainly SDN/BODC vocabularies
 * `--specs`: Used a local file to read the EMSO Metadata Specifications instead of the public file in github
