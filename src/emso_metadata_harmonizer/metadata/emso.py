@@ -218,12 +218,17 @@ class EmsoMetadata:
     def __init__(self, force_update=False, specifications=""):
         rich.print("[purple]Loading EMSO Metadata resources...")
         os.makedirs(".emso", exist_ok=True)  # create a conf dir to store Markdown and other stuff
-        ssl._create_default_https_context = ssl._create_unverified_context
-        self.local_resources = {}
-        self.local_resources_file = "resources.json"
-
         previous_wdir = os.getcwd()
         os.chdir(".emso")
+
+        __resources_file = "resources.json"
+
+        if not os.path.exists(__resources_file):
+            rich.print("[purple]resources.json file not found, downloading...")
+            self.local_resources = {}
+        else:
+            rich.print("loading cached resources.json")
+            self.local_resources = load_json(__resources_file)
 
         # Load local resources file
         if not force_update and os.path.exists(self.local_resources_file):
@@ -232,7 +237,6 @@ class EmsoMetadata:
 
         # Get the remote resources list
         remote_resources = requests.get(metadata_specifications_resources).json()
-
         for name, remote_resource in remote_resources.items():
             if name not in self.local_resources.keys():
                 rich.print(f"resources {name} not found locally, downloading from github!")
@@ -277,7 +281,7 @@ class EmsoMetadata:
 
 
         # ==== Storing current resources ==== #
-        with open(self.local_resources_file, "w") as f:
+        with open(__resources_file, "w") as f:
             f.write(json.dumps(self.local_resources, indent=2))
 
         # Return to the old working dir

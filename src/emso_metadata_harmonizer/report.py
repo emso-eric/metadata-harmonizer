@@ -13,6 +13,9 @@ import json
 import os
 import rich
 import time
+
+from src.emso_metadata_harmonizer.metadata.waterframe import operational_tests
+from . import WaterFrame
 from .erddap import ERDDAP
 import pandas as pd
 from .metadata import  EmsoMetadata
@@ -22,7 +25,7 @@ from .metadata.tests import EmsoMetadataTester
 
 
 def metadata_report(target,
-                    datasets: list=[],
+                    dataset_list: list=[],
                     just_list: bool=False,
                     just_print: bool=False,
                     verbose: bool = False,
@@ -58,40 +61,44 @@ def metadata_report(target,
         rich.print("[red]ERDDAP URL, NetCDF file or JSON file required!")
         exit()
 
+    datasets = [
+        # {"file": filename, "url": "http://my.server.com/erddap", "dataset_id": "MyDataset"}
+    ]
+
     if target.startswith("http"):
-        # Assuming ERDDAP service
-        erddap = ERDDAP(target)
-        datasets = datasets
-        if not datasets:  # If a list of datasets is not provided, use all datasets in the service
-            datasets = erddap.dataset_list()
+        rich.print(f"Processing ERDDAP URL {target}")
+
+        url, dataset_id = ERDDAP.process_url(target)
+        erddap = ERDDAP(url)
 
         if just_list:  # If set, just list datasets and exit
-            datasets = erddap.dataset_list()
+            erddap_datasets = erddap.dataset_list()
             rich.print("[green]Listing datasets in ERDDAP:")
-            for i in range(len(datasets)):
-                rich.print(f"    {i:02d} - {datasets[i]}")
+            for i in range(len(erddap_datasets)):
+                rich.print(f"    {i:02d} - {erddap_datasets[i]}")
             exit()
 
-        # Get all Metadata from all datasets
+        if dataset_id:  # Run tests on ONE dataset
+            datasets.append({"file": "", "url": url, "dataset_id": dataset_id, "metadata": {}})
+        else:  # test ALL datasets
+            for dataset_id in erddap.dataset_list():
+                datasets.append({"file": "", "url": url, "dataset_id": dataset_id, "metadata": {}})
+
+        tasks = [(d["dataset_id"],) for d in datasets]
         t = time.time()
-        tasks = [(dataset_id,) for dataset_id in datasets]
         datasets_metadata = threadify(tasks, erddap.dataset_metadata, max_threads=5)
+        for dataset, metadata in zip(datasets, datasets_metadata):
+            dataset["metadata"] = metadata
+
+
         rich.print(f"Getting metadata from ERDDDAP took {time.time() - t:.02f} seconds")
 
     # Processing NetCDF file
     elif target.endswith(".nc"):
         rich.print(f"Loading metadata from file {target}")
-        metadata = get_netcdf_metadata(target)
-        datasets_metadata = [metadata]
-
-    # Processing JSON file
-    elif target.endswith(".json"):
-        rich.print(f"Loading metadata from file {target}")
-        with open(target) as f:
-            metadata = json.load(f)
-        datasets_metadata = [metadata]  # an array with only one value
-    else:
-        rich.print("[red]Invalid arguments! Expected an ERDDAP url, a NetCDF file or a JSON file")
+        datasets.append({
+            "file": target, "url": "", "dataset_id": "", "metadata": get_netcdf_metadata(target)
+        })
 
     if just_print:
         for d in datasets_metadata:
@@ -116,8 +123,8 @@ def metadata_report(target,
     institution = []
     emso_facility = []
     dataset_id = []
-    for i in range(len(datasets_metadata)):
-        metadata = datasets_metadata[i]
+    for d in datasets:
+        metadata = d["metadata"]
         r = tests.validate_dataset(metadata, verbose=verbose, store_results=report, variable_filter=variables, ignore_ok=ignore_ok)
         total.append(r["total"])
         required.append(r["required"])
@@ -125,6 +132,15 @@ def metadata_report(target,
         institution.append(r["institution"])
         emso_facility.append(r["emso_facility"])
         dataset_id.append(r["dataset_id"])
+
+        print("")
+        if d["file"]:
+            rich.print("Load NetCDF file")
+            wf = WaterFrame.from_netcdf(d["file"])
+        else:
+            wf = WaterFrame.from_erddap(d["url"], d["dataset_id"])
+        operational_tests(wf)
+
 
     tests = pd.DataFrame(
         {
@@ -140,5 +156,6 @@ def metadata_report(target,
         rich.print(f"Storing tests results in {output}...", end="")
         tests.to_csv(output, index=False, sep="\t")
         rich.print("[green]done")
+
 
 

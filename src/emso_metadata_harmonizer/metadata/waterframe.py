@@ -11,6 +11,7 @@ created: 6/6/24
 """
 import datetime
 import logging
+import os.path
 from typing import assert_type
 import numpy as np
 import pandas as pd
@@ -26,7 +27,7 @@ from src.emso_metadata_harmonizer.metadata.constants import iso_time_format
 from src.emso_metadata_harmonizer.metadata.metadata_templates import dimension_metadata, quality_control_metadata, \
     dimension_metadata_keys, dimension_metadata_dtype
 from src.emso_metadata_harmonizer.metadata.utils import LoggerSuperclass, CYN
-
+import requests
 emso = None
 
 
@@ -170,7 +171,7 @@ class WaterFrame(LoggerSuperclass):
                     self.vocabulary[variable] = dimension_metadata(variable)
                 else:
                     self.error(f"'{variable}' must be defined for multi-platform datasets!",
-                               exception=self.permissive)
+                               exception=not self.permissive)
 
         # If we do not have a sensor_id column, we should have exactly one sensor
         if self._sensor_id not in df.columns and len(sensors) > 1:
@@ -184,7 +185,7 @@ class WaterFrame(LoggerSuperclass):
 
         # If we do not have a platform_id column, we should have exactly one platform
         if len(platforms) == 0:
-            self.error("Missing platform metadata", exception=self.permissive)
+            self.error("Missing platform metadata", exception= not self.permissive)
         elif self._platform_id not in df.columns and  len(platforms) > 1:
             self.error("platform_id column is required for datasets with more than one sensor", exception=self.permissive)
         elif self._platform_id not in df.columns and  len(platforms) == 1:
@@ -217,10 +218,11 @@ class WaterFrame(LoggerSuperclass):
         meta_elements = list(self.vocabulary.keys())
         for col in self.data.columns:
             if col not in meta_elements:
-                self.error(f"No metadata for column '{col}'", exception=ValueError)
+
+                self.error(f"No metadata for column '{col}'", exception=not self.permissive)
 
         self.cf_data_type = ""
-        self.cf_alignment()
+        self.cf_alignment(strict=not self.permissive)
         self.sort()
         self.__nc_dimensions = {}
 
@@ -571,7 +573,7 @@ class WaterFrame(LoggerSuperclass):
             self.info(f"Detected Discrete Sampling Geometry: {cf_data_type}")
         return cf_data_type
 
-    def cf_alignment(self):
+    def cf_alignment(self, strict=False):
         """
         Tries to align the dataset with the Climate and Forecast NetCDF conventions.
         """
@@ -615,7 +617,7 @@ class WaterFrame(LoggerSuperclass):
             self.vocabulary[self._platform_id]["cf_role"] = "trajectory_id"
 
         else:
-            raise ValueError(f"Unimplemented type {self.cf_data_type}")
+            self.error(f"Unimplemented type {self.cf_data_type}", exception=not self.permissive)
 
 
         if "CF-1.8" not in self.metadata["Conventions"]:
@@ -633,9 +635,10 @@ class WaterFrame(LoggerSuperclass):
             df = df.set_index([self._time, self._depth])
             df = df.sort_index()
         else:
-            raise ValueError(f"Unimplemented CF type '{self.cf_data_type}'")
+            self.error(f"Unimplemented CF type '{self.cf_data_type}'", exception=not self.permissive)
         df = df.reset_index()
-        assert "index" not in df.columns
+        if "index" in df.columns:
+            del df["index"]
         self.data = df
 
     def populate_var_metadata(self, varname, var: nc.Variable, ignore=[]):
@@ -853,7 +856,28 @@ class WaterFrame(LoggerSuperclass):
         self.metadata["time_coverage_end"] = self.data[self._time].max().strftime(iso_time_format)
 
     @staticmethod
+    def from_erddap(url, dataset_id, protocol="tabledap", permissive=True) -> "WaterFrame":
 
+        url = f"{url}/{protocol}/{dataset_id}.nc"
+        rich.print(f"[blue]Downloading NetCDF file fom erddap: {url}")
+        r = requests.get(url)
+        if r.status_code > 300:
+            raise ValueError(f"Cannot retrieve WaterFrame from {url}")
+        nbytes = 0
+        local_file = f"{dataset_id}.nc"
+        with open(local_file, 'wb') as f:
+            for chunk in r.iter_content(chunk_size=1024):
+                if chunk:
+                    nbytes += 1024
+                    print(f"Downloaded {nbytes / (1024**2):.02f} MB...", end="\r")
+                    f.write(chunk)
+        print("")
+        wf = WaterFrame.from_netcdf(local_file, permissive=permissive)
+        os.remove(local_file)
+        rich.print(f"[blue]WaterFrame created from ERDDAP!")
+        return wf
+
+    @staticmethod
     def from_netcdf(filename, decode_times=True, mapper:dict = {}, permissive=False) -> "WaterFrame":
         logger = logging.getLogger("emh")
         logger.info(f"Creating WaterFrame from NetCDF file '{filename}'")
@@ -940,21 +964,9 @@ class WaterFrame(LoggerSuperclass):
                 info_str = ""
 
             s += f"    {v} ({info_str})\n"
-        s += "==== Data ===="
+        s += "==== Data ====\n"
         s += self.data.__repr__()
         return s
-
-    def operational_tests(self):
-        """
-        Ensures that the current WaterFrame is operationally sound. The following tests are preformed:
-            1. All variables have the variable_type attribute with a valid value
-            2. Ensure that we have coordinates with the following names: time, depth, latitude, longitude, sensor_id, platform_id
-            3. sensor_id and platform_id values are resolvable identifiers of sensors and platforms metadata variables
-        """
-
-        __valid_variable_types = [""]
-
-
 
 
 def __merge_timeseries_waterframes(waterframes: list) -> pd.DataFrame:
@@ -1070,3 +1082,73 @@ def collect_platform_metadata(metadata:dict, df: pd.DataFrame) -> dict:
     return __collect_metadata(metadata, df, "platform")
 
 
+
+def operational_tests(wf: WaterFrame) -> bool:
+    """
+    Ensures that the current WaterFrame is operationally sound. The following tests are preformed:
+        1. All variables have the variable_type attribute with a valid value
+        2. Ensure that we have coordinates with the following names: time, depth, latitude, longitude, sensor_id, platform_id
+        3. sensor_id and platform_id values are resolvable identifiers of sensors and platforms metadata variables
+    """
+    errors = []
+    warnings = []
+    infos = []
+    __valid_coordinates = ["time", "depth", "latitude", "longitude", "sensor_id", "platform_id", "precise_latitude", "precise_longitude"]
+    __valid_variable_types = ["environmental", "biological", "technical", "coordinate", "quality_control", "sensor", "platform"]
+
+    rich.print("\n")
+    rich.print("[cyan]===== Running Operational tests ====")
+
+
+    for varname, meta in wf.vocabulary.items():
+        if "variable_type" not in meta.keys():
+            errors.append(f"variable '{varname}' does not have the mandatory variable_type attribute")
+        elif  meta["variable_type"] not in __valid_variable_types:
+            errors.append(f"variable '{varname}' does not have a valid variable_type attribute: '{meta['variable_type']}'")
+        elif meta["variable_type"] == "coordinate" and varname not in __valid_coordinates:
+            errors.append(f"not a valid coordinate name: '{varname}'")
+
+    # Check that sensor_id values are resolvable
+
+    if "sensor_id" in wf.data.keys():
+        sensor_ids = wf.data["sensor_id"].unique().astype(str)
+        for sensor_id in sensor_ids:
+            if sensor_id not in wf.sensors.keys():
+                errors.append(f"sensor_id not found in sensors metadata: '{sensor_id}'")
+    else:
+        errors.append("Coordinate 'sensor_id' not found!")
+
+    # Check that sensor_id values are resolvable
+    if "platform_id" in wf.data.keys():
+        platform_ids = wf.data["platform_id"].unique().astype(str)
+        for platform_id in platform_ids:
+            if platform_id not in wf.platforms.keys():
+                errors.append(f"not a valid platform_id: '{platform_id}'")
+    else:
+        errors.append("Coordinate 'platform_id' not found!")
+
+
+    if len(errors) > 0:
+        print(wf)
+
+
+    rich.print(f"ERRORS: {len(errors)}")
+    for e in errors:
+        rich.print(f"[red]    ERROR: {e}[/red]")
+
+    rich.print(f"WARNINGS: {len(warnings)}")
+    for w in warnings:
+        rich.print(f"[yellow]{w}")
+
+    rich.print(f"INFO: {len(warnings)}")
+    for i in infos:
+        rich.print(f"[cyan]{i}")
+    print("")
+
+    if len(errors) == 0:
+        rich.print(f"✅ the NetCDF file is operationally sound!")
+        return True
+    else:
+
+        rich.print(f"❌ the NetCDF file is not operationally valid")
+        return True

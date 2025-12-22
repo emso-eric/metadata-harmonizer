@@ -39,6 +39,41 @@ class ERDDAP:
         else:
             return json.loads(r.text)
 
+    @staticmethod
+    def process_url(target):
+        """
+        Processes an ERDDAP url and returns the base url and the dataset_id. If the url does not point to a specific
+        dataset, returns an empty string
+        """
+        if "?" in target:
+            target = target.split("?")[0]  # get rid of URL parameters
+            print(f"clearing URL parameters: {target}")
+        splits = target.split("/")
+        url = "/".join(splits[0:4])
+
+        if len(splits) == 7 and  splits[4] == "info":
+            dataset_id  = splits[5]
+
+        elif len(splits) == 5 and splits[4] == "":
+            dataset_id = ""
+
+        elif len(splits) == 6 and  splits[4] == "tabledap":
+            dataset_id  = splits[5].split(".")[0]
+
+        elif len(splits) == 6 and  splits[4] == "info" and splits[5] == "index.html":
+            dataset_id  = ""
+
+        elif len(splits) == 4 and splits[3] == "erddap":
+            dataset_id = ""
+
+        elif len(splits) == 4 and splits[3] == "erddap":
+            dataset_id = ""
+        else:
+            raise ValueError(f"Could not process url: '{target}'")
+
+        return url, dataset_id
+
+
     def dataset_list(self) -> list:
         """
         Returns a list of dataset IDs

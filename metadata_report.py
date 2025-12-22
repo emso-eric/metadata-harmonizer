@@ -15,7 +15,6 @@ from src.emso_metadata_harmonizer import metadata_report
 if __name__ == "__main__":
     argparser = ArgumentParser()
     argparser.add_argument("target", type=str, help="ERDDAP service URL, NetCDF file or JSON metadata file", default="", nargs='?')
-    argparser.add_argument("-d", "--datasets", type=str, help="List of datasets to check", nargs="+", default=[])
     argparser.add_argument("-l", "--list", action="store_true", help="List dataset in ERDDAP and exit")
     argparser.add_argument("-p", "--print", action="store_true", help="Just pretty-print the metadata")
     argparser.add_argument("-v", "--verbose", action="store_true", help="Shows more info")
@@ -32,7 +31,6 @@ if __name__ == "__main__":
     args = argparser.parse_args()
     metadata_report(
         args.target,
-        datasets=args.datasets,
         just_list=args.list,
         just_print=args.print,
         verbose=args.verbose,

@@ -53,9 +53,11 @@ def group_metadata_variables(metadata):
     for varname, var in m["variables"].items():
         if "variable_type" not in var.keys():
             d["unclassified"][varname] = var
+
         if "variable_type" not in var.keys():
-            raise ValueError(f"Variable '{varname}' does not have variable_type attribute")
-        vartype = var["variable_type"]
+            vartype = "unclassified"
+        else:
+            vartype = var["variable_type"]
 
         if vartype not in d.keys():
             d["unclassified"][varname] = var
@@ -214,10 +216,12 @@ class LoggerSuperclass:
         mystr = "[%s] " % self.__logger_name + str(*args)
         self.__logger.error(RED + mystr + RST)
         if exception:
-            if isinstance(exception(), Exception):
-                raise exception(mystr)
-            else:
+            if isinstance(exception, bool):
                 raise ValueError(mystr)
+            else:
+                raise exception(mystr)
+
+
 
 
     def debug(self, *args):
