@@ -6,14 +6,13 @@ The tools provided here are:
 * `erddap_config.py`: integrates NetCDF files into an ERDDAP server
 * `metadata_report.py`: check the compliance of a dataset with the specifications.
 
-## How to use this repository 
-This repository tools provided here are intended to create and publish EMSO-compliant datasets. The typical workflow would be:
+In order to  create and publish an EMSO-compliant dataset, the typical workflow is:
 1. Prepare CSV data and YAML metadata
 2. Generate EMSO-compliant NetCDF files using `generator.py`
 3. Integrate datasets into your ERDDAP deployment using `erddap_config.py`
 4. Validate metadata and operational compliance using `metadata_report.py`
 
-⚠️ WARNING: this work is based on the draft of the new EMSO Metadata Specifications. It has not yet formally approved by the DMSG.  
+⚠️ _WARNING: this work is based on the draft of the new EMSO Metadata Specifications. It has not yet been formally approved by the DMSG_
 
 ## 🚀 Project Setup ##
 ### Prerequisites
@@ -121,8 +120,8 @@ To run the same tests for the publicly available ERDDAP dataset:
 ```bash
 python3 metadata_report.py https://netcdf-dev.obsea.es/erddap/tabledap/01.html
 ```
-⚠️ WARNING: when assessing the compliance of the dataset, the metadata reporting tool will download the **whole 
-dataset** as a big NetCDF file locally, checking subsets of data is currently not implemented.
+⚠️ _WARNING: when assessing the compliance of the dataset, the metadata reporting tool will download the **whole 
+dataset** as a big NetCDF file locally, checking subsets of data is currently not implemented._
 
 The report provides mainly two outputs, a **metadata** harmonization score and its **operational** validity. **Metadata** tests ensure
 that the proper attributes can be found, including variable attributes. The metadata tests provide a harmonization score
