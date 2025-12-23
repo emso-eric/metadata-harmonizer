@@ -31,12 +31,12 @@ git clone https://github.com/emso-eric/metadata-harmonizer
 cd metadata-harmonizer
 ```
 
-3. Change to develop branch 
+3. ⚠️ Change to develop branch! This step will be removed in the definitive version
 ```bash
 git checkout develop
 ```
 
-4Install the requirements:
+4. Install the requirements:
 ```bash
 pip3 install -r requirements.txt
 ```
