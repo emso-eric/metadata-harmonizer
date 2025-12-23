@@ -30,7 +30,13 @@ git clone https://github.com/emso-eric/metadata-harmonizer
 ```bash
 cd metadata-harmonizer
 ```
-3. Install the requirements:
+
+3. Change to develop branch 
+```bash
+git checkout develop
+```
+
+4Install the requirements:
 ```bash
 pip3 install -r requirements.txt
 ```
@@ -38,8 +44,8 @@ pip3 install -r requirements.txt
 ## 🛠 NetCDF Generator ##
 
 The NetCDF generator creates EMSO-compliant NetCDF datasets from one or more CSV files. The basic workflow is as follows:
-1. Encode your **data** as csv files, preferably one file per sensor. Add a `sensor_id` with the identifier of your sensor. Remember to add your QC columns as well 
-2. Write the **metadata** for your dataset in one or more yaml files. It should include the following sections `global`, `variables`, `platforms` and `sensors`.
+1. Encode your **data** as csv files, preferably one file per sensor. Add a `sensor_id` with the identifier of your sensor. Remember to add your QC columns as well. 
+2. Write the **metadata** for your dataset in one or more yaml files. The following sections are required:  `global`, `variables`, `platforms` and `sensors`.
 3. Run the `generator.py` script:
 
 ```bash 
@@ -81,21 +87,21 @@ where:
 * `dataset_id`, identifier assigned to the ERDDAP dataset.
 * `source` source folder to scan for `.nc`  files.
 
-The `source` value will be set in the `<fileDir>` option of the dataset configuration. Note that if the ERDDAP server is 
+The `source` value will be set in the `<fileDir>` option of the dataset configuration. This is the path where the ERDDAP
+server will scan for .nc files to be included in the dataset. Note that if the ERDDAP server is 
 deployed inside a docker container, the paths inside the container and the paths in the host will most likely be 
 different. Check the official [docker documentation](https://docs.docker.com/engine/storage/volumes/) on volumes and the  
 [ERDDAP documentation](https://erddap.github.io/docs/server-admin/datasets#eddtablefromfilenames-data) 
 for more information.
 
 
-
 #### Additional Options:
 * `--xml` path to the `datasets.xml` to automatically integrate the dataset
-* `-v` or `--verbose`: Verbose output
+* `-v` or `--verbose`: verbose output
 * `-o` or `--output`: store the xml chunk in a file
 * `-m` or `--mapping`: provide a mapping file to finetune the dataset source/destination names and attributes.   
 
-The `--mapping` option allows you to create EMSO-compliant dataset from NetCDF files that do not follow the EMSO Metadata
+The `--mapping` option allows you to create EMSO-compliant datasets from NetCDF files that do not follow the EMSO Metadata
 Specifications. This achieved by specifying the source and destination variable names and by adding/overloading 
 attributes. Check the examples [13](https://github.com/emso-eric/metadata-harmonizer/tree/develop/examples/13) and
 [14](https://github.com/emso-eric/metadata-harmonizer/tree/develop/examples/14) for additional info. 
@@ -116,7 +122,7 @@ To run the metadata report against an example NetCDF file:
 python3 metadata_report.py examples/01/example01.nc
 ```
 
-To run the same tests for the publicly available ERDDAP dataset:
+To run the metadata report against a public ERDDAP dataset:
 ```bash
 python3 metadata_report.py https://netcdf-dev.obsea.es/erddap/tabledap/01.html
 ```
@@ -126,14 +132,15 @@ dataset** as a big NetCDF file locally, checking subsets of data is currently no
 The report provides mainly two outputs, a **metadata** harmonization score and its **operational** validity. **Metadata** tests ensure
 that the proper attributes can be found, including variable attributes. The metadata tests provide a harmonization score
 as a percentage for required and optional tests. The desired harmonization score is 100% for required tests. The score
-for optional tests should be taken as qualitative information, since optional fields may not be of interest. 
+for optional tests should be taken as qualitative information, since optional metadata fields may not be relevant in 
+certain circumstances. 
 
-On the other hand, **operational** tests ensure that the dataset is technically sound, it has all the expected coordinates and sensor /
-platform metadata is traceable. It shows errors, warning and information messages, but ultimately it 
+On the other hand, **operational** tests ensure that the dataset is technically sound, it has the expected coordinate reference system and 
+all the sensor / platform metadata is traceable. It shows errors, warning and information messages, but ultimately 
 provides a binary output, whether the dataset is operationally valid or not.
 
 #### Additional Options:
-* `-v` or `--verbose`: Verbose output
+* `-v` or `--verbose`: verbose output
 * `-o` or `--output`: store the results as a csv file
 * `-i` or `--ignore-ok`: do not show successful metadata tests, used to reduce the reports's verbosity
 * `-V` or `--variables`: list of variables to test, other variables will be ignored.
