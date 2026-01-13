@@ -9,6 +9,9 @@ mapping:
     emso_regional_facility_uri: "https://w3id.org/earthsemantics/OSO#Western_Mediterranean_Sea"
     emso_site_name: "W1M3A"
     emso_site_uri: "https://w3id.org/earthsemantics/OSO#W1M3A"
+    doi: "10.5281/zenodo.13141951 10.5281/zenodo.8421765"
+    projects: "AMRIT MINKE"
+    project_codes: "101132013 101008724"
 
   variables:
   # Use the mapping file to edit the source / destinations of the ERDDAP configuration. The structure is as follows:
@@ -17,7 +20,7 @@ mapping:
   # attributes: (optional)
   #   key: value
 
-    #======== Coordinates:=======#
+    #======== Coordinates =======#
     - source: TIME
       destination: "time"
       attributes:

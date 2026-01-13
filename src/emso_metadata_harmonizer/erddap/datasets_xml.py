@@ -35,7 +35,7 @@ def erddap_config(file: str, dataset_id: str, source_path: str, output: str = ""
     :param params: Force the use of file as the metadata source in ERDDAP
 
     """
-    wf = WaterFrame.from_netcdf(file)
+    wf = WaterFrame.from_netcdf(file, permissive=True)
 
     if isinstance(mapping, str) and mapping:
         with open(mapping) as f:
