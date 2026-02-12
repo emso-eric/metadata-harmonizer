@@ -25,6 +25,8 @@ if __name__ == "__main__":
     argparser.add_argument("-x", "--xml", type=str, help="Path to the datasets.xml file, new dataset will be overwritten or appended", default="")
     argparser.add_argument("-v", "--verbose", action="store_true", help="Verbose output")
     argparser.add_argument("-m", "--mapping", type=str, help="Create a metadata-only NetCDF file to overwrite NetCDF's parameters", default="")
+    argparser.add_argument("-r", "--regex", type=str,
+                           help="Regex expression to be passed to ERDDAP's fileNameRegexCreate (default .*)", default=".*")
 
     args = argparser.parse_args()
     log = setup_log("emh", "log")
@@ -38,4 +40,4 @@ if __name__ == "__main__":
         with open(args.mapping) as f:
             mapping = yaml.safe_load(f)
 
-    erddap_config(args.file, args.dataset_id, args.source, output=args.output, datasets_xml_file=args.xml, mapping=mapping)
+    erddap_config(args.file, args.dataset_id, args.source, output=args.output, datasets_xml_file=args.xml, mapping=mapping, filename_regex=args.regex)

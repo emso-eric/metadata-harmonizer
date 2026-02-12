@@ -5,3 +5,7 @@
 venv
 tests/**
 do-no-sync
+log
+BACKUPS
+do-not-sync
+dist

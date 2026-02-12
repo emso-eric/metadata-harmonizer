@@ -10,7 +10,7 @@ mapping:
     emso_site_name: "W1M3A"
     emso_site_uri: "https://w3id.org/earthsemantics/OSO#W1M3A"
     doi: "10.5281/zenodo.13141951 10.5281/zenodo.8421765"
-    projects: "AMRIT MINKE"
+    project: "AMRIT MINKE"
     project_codes: "101132013 101008724"
 
   variables:

@@ -22,7 +22,7 @@ import rich
 
 
 def erddap_config(file: str, dataset_id: str, source_path: str, output: str = "", datasets_xml_file: str = "",
-                  mapping: dict={}):
+                  mapping: dict={}, filename_regex=".*"):
     """
     Configures an ERDDAP dataset based on an input NetCDF file
 
@@ -41,7 +41,7 @@ def erddap_config(file: str, dataset_id: str, source_path: str, output: str = ""
         with open(mapping) as f:
             mapping = yaml.safe_load(f)
 
-    xml_chunk = generate_erddap_dataset(wf, source_path, dataset_id=dataset_id, mapping=mapping)
+    xml_chunk = generate_erddap_dataset(wf, source_path, dataset_id=dataset_id, filename_regex=filename_regex, mapping=mapping)
 
     if output:
         with open(output, "w") as f:
@@ -67,7 +67,7 @@ def get_erddap_data_type(series: pd.Series):
         dtype = "double"
     return dtype
 
-def generate_erddap_dataset(wf: WaterFrame, directory, dataset_id, file_access=True, mapping={}):
+def generate_erddap_dataset(wf: WaterFrame, directory, dataset_id, file_access=True, filename_regex=".*", mapping={}):
     """
     Generates a XML chunk to add it into ERDDAP's datasets.xml. The Variables are going to be ordered as follows:
     1. Coordinates
@@ -294,7 +294,7 @@ def generate_erddap_dataset(wf: WaterFrame, directory, dataset_id, file_access=T
     <reloadEveryNMinutes>10080</reloadEveryNMinutes>
     <updateEveryNMillis>10000</updateEveryNMillis>
     <fileDir>{directory}</fileDir>
-    <fileNameRegex>.*</fileNameRegex>
+    <fileNameRegex>{filename_regex}</fileNameRegex>
     <recursive>false</recursive>    
     <pathRegex>.*</pathRegex>
     <metadataFrom>last</metadataFrom>

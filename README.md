@@ -68,7 +68,7 @@ python3 generator.py -m examples/01/*.yaml -d examples/01/*.csv --out example01.
 By default, the `generator.py` will convert the coordinate variable names to lower case (e.g. time, depth...). If the
 user wants to explicitly retain the source names, the `--keep-names` option can be used. Note that the NetCDF files 
 won't be compliant with the EMSO metadata specifications, although it is still possible to create an ERDDAP-compliant 
-dataset if the proper mappings are used (see next section)
+dataset if the proper mappings are used (see next section).
 
 
 ## ⚙️ ERDDAP Configurator ##
@@ -78,9 +78,9 @@ work editing ERDDAP’s XML configurations. It reads NetCDF metadata and generat
 dataset. If the `datasets.xml` path is passed, it will automatically append or update dataset configuration. 
 
 In order to run the ERDDAP configurator:
-
+  
 ```bash
-python3 erddap_config <nc_file> <dataset_id> <source> 
+python3 erddap_config.py <nc_file> <dataset_id> <source> 
 ```
 where:
 * `nc_file` is the path to a NetCDF to extract its metadata and structure
@@ -151,6 +151,6 @@ provides a binary output, whether the dataset is operationally valid or not.
 ### Contact info ###
 
 * **author**: Enoc Martínez  
-* **version**: v1.0.0-DRAFT    
+* **version**: v1.0.0    
 * **organization**: Universitat Politècnica de Catalunya (UPC)    
 * **contact**: enoc.martinez@upc.edu  

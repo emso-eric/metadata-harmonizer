@@ -33,29 +33,92 @@ if __name__ == "__main__":
     g = Graph()
     g.parse(".emso/oso.ttl", format="turtle")  # or other formats: xml, n3, nt, json-ld
 
+#           #---- BBOX RFs ----#
+    #           ?regionalFacility :hasBoundingBox ?bbox .
+    #           ?bbox :hasEastLongitude ?east .
+    #           ?bbox :hasWestLongitude ?west .
+    #           ?bbox :hasNorthLatitude ?north .
+    #           ?bbox :hasSouthLatitude ?south .
 
     # Query for instances
-    query = f"""
-        SELECT ?instance ?label
+
+    if args.cls == "RFs":
+
+        query = f"""
+      SELECT ?regionalFacility ?label ?east ?west ?north ?south ?depth
         WHERE {{
-            ?instance a <{class_uri}> .
-            OPTIONAL {{
-                ?instance rdfs:label ?label .
+          ?regionalFacility rdf:type :RegionalFacility .
+          ?regionalFacility rdfs:label ?label .
+          ?regionalFacility :Regional_Facility_is_part_of_EMSO_ERIC :EMSO .      
+          # FILTER(LANG(?label) = "en"  || LANG(?label) = "")
+            
+          OPTIONAL {{
+              ?regionalFacility :maxWaterDepth ?depth .
+          }}
+          OPTIONAL {{
+              #-- Point RFs --#
+              ?regionalFacility :hasEastLongitude ?east .
+              ?regionalFacility :hasEastLongitude ?west .
+              ?regionalFacility :hasNorthLatitude ?north .
+              ?regionalFacility :hasNorthLatitude ?south .           
             }}
+        
+          OPTIONAL {{
+              ?regionalFacility :hasBoundingBox ?bbox .
+              ?bbox :hasEastLongitude ?east .
+              ?bbox :hasWestLongitude ?west .
+              ?bbox :hasNorthLatitude ?north .
+              ?bbox :hasSouthLatitude ?south .     
+            }}
+        
+          # Get the actual depth
+          OPTIONAL {{ }}
+          OPTIONAL {{ ?regionalFacility :hasBoundingBox ?bbox }}
+        
         }}
+        GROUP BY ?regionalFacility
     """
 
     results = g.query(query)
-    table = Table(title="Dataset Test Report")
-    table.add_column("Label", justify="left", no_wrap=True, style="cyan")
-    table.add_column("URI", justify="left")
-    instances = []
-    for row in results:
-        label = str(row.label)
-        instance = str(row.instance)
-        if instance in instances:
-            continue
-        instances.append(instance)
-        table.add_row(f"'{row.label}'", row.instance)
+    table = Table(title="Regional Facilities")
+
+    cols = ["label", "east", "west", "north", "south", "depth"]
+    for col in cols:
+        table.add_column(col, justify="right", style="cyan", no_wrap=True)
+
+    for i, row in enumerate(results):
+        # Use get() method or check for None
+        regional_facility = row.regionalFacility
+        label = row.label
+
+        east = getattr(row, 'east', None)
+        west = getattr(row, 'west', None)
+        north = getattr(row, 'north', None)
+        south = getattr(row, 'south', None)
+        depth = getattr(row, 'depth', None)
+        table.add_row(label, east, west, north, south, depth)
+
     console = Console()
     console.print(table)
+
+
+    input()
+elif args.cls == "platforms":
+
+
+
+else:
+    pass
+    # table = Table(title="Dataset Test Report")
+    # table.add_column("Label", justify="left", no_wrap=True, style="cyan")
+    # table.add_column("URI", justify="left")
+    # instances = []
+    # for row in results:
+    #     label = str(row.label)
+    #     instance = str(row.instance)
+    #     if instance in instances:
+    #         continue
+    #     instances.append(instance)
+    #     table.add_row(f"'{row.label}'", row.instance)
+    # console = Console()
+    # console.print(table)
