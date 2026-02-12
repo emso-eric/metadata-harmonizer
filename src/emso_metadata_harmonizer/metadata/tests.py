@@ -36,7 +36,7 @@ class EmsoMetadataTester:
     def __init__(self, specifications=""):
         """
         This class implements the tests to ensure that the metadata in a particular ERDDAP is harmonized with the EMSO
-        metadata standards. The tests are configured in the 'EMSO_metadata.md' document. There should be 2 different
+        metadata standards. The tests are configured in the 'EMSO_Metadata_Specifications.md' document. There should be 2 different
         tables with the tests defined, one for the global attributes and another one for tests to be carreid
         """
         # Dict to store all erddap. KEY is the test identifier while value is the method

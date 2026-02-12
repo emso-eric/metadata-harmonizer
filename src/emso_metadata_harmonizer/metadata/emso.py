@@ -10,7 +10,7 @@ license: MIT
 created: 3/3/23
 """
 import os
-import ssl
+import time
 import requests
 import rich
 import pandas as pd
@@ -20,15 +20,8 @@ from rdflib import Graph
 
 emso_version = "develop"
 
-metadata_specifications_resources = "https://raw.githubusercontent.com/emso-eric/emso-metadata-specifications/refs/heads/develop/external-resources/resources.json"
-
-# List of URLs
-emso_metadata_url = f"https://raw.githubusercontent.com/emso-eric/emso-metadata-specifications/{emso_version}/EMSO_metadata.md"
-oceansites_codes_url = f"https://raw.githubusercontent.com/emso-eric/emso-metadata-specifications/{emso_version}/OceanSites_codes.md"
-emso_codes_url = f"https://raw.githubusercontent.com/emso-eric/emso-metadata-specifications/{emso_version}/EMSO_codes.md"
-datacite_codes_url = f"https://raw.githubusercontent.com/emso-eric/emso-metadata-specifications/{emso_version}/DataCite_codes.md"
-
-
+metadata_specifications_resources = f"https://raw.githubusercontent.com/emso-eric/emso-metadata-specifications/refs/heads/{emso_version}/external-resources/resources.json"
+emso_metadata_url = f"https://raw.githubusercontent.com/emso-eric/emso-metadata-specifications/refs/heads/{emso_version}/EMSO_Metadata_Specifications.md"
 
 spdx_licenses_github = "https://raw.githubusercontent.com/spdx/license-list-data/main/licenses.md"
 
@@ -221,11 +214,16 @@ class EmsoMetadata:
         previous_wdir = os.getcwd()
         os.chdir(".emso")
 
+        self.local_resources = {}
+
         __resources_file = "resources.json"
 
         if not os.path.exists(__resources_file):
-            rich.print("[purple]resources.json file not found, downloading...")
-            self.local_resources = {}
+            rich.print("[yellow]resources.json file not found, downloading...")
+        # If file is older than 1 day force update
+        elif time.time() - os.path.getmtime(__resources_file) > 24*3600:
+            rich.print("[yellow]resources.json is older than 1 day, forcing download")
+            force_update = True
         else:
             rich.print("loading cached resources.json")
             self.local_resources = load_json(__resources_file)
@@ -237,6 +235,7 @@ class EmsoMetadata:
 
         # Get the remote resources list
         remote_resources = requests.get(metadata_specifications_resources).json()
+        rich.print(remote_resources)
         for name, remote_resource in remote_resources.items():
             if name not in self.local_resources.keys():
                 rich.print(f"resources {name} not found locally, downloading from github!")
@@ -287,11 +286,9 @@ class EmsoMetadata:
         # Return to the old working dir
         os.chdir(previous_wdir)
 
-        emso_metadata_file = os.path.join(".emso", "EMSO_metadata.md")
-        oceansites_file = os.path.join(".emso", "OceanSites_codes.md")
-        emso_sites_file = os.path.join(".emso", "EMSO_codes.md")
-
-        datacite_codes_file = os.path.join(".emso", "DataCite_codes.md")
+        emso_metadata_file = os.path.join(".emso", "EMSO_Metadata_Specifications.md")
+        oceansites_file = os.path.join(".emso", "oceansites", "OceanSites_codes.md")
+        datacite_codes_file = os.path.join(".emso", "datacite", "DataCite_codes.md")
 
         spdx_licenses_file = os.path.join(".emso", "spdx_licenses.md")
 
@@ -300,10 +297,6 @@ class EmsoMetadata:
 
         tasks = [
             [emso_metadata_url, emso_metadata_file, "EMSO metadata"],
-            [oceansites_codes_url, oceansites_file, "OceanSites"],
-            [emso_codes_url, emso_sites_file, "EMSO codes"],
-            [datacite_codes_url, datacite_codes_file, "DataCite codes"],
-            #[edmo_codes, edmo_codes_jsonld, "EDMO codes"],
             [spdx_licenses_github, spdx_licenses_file, "spdx licenses"],
             [dwc_terms_url, dwc_terms_file, "DwC terms"],
             [oso_ontology_url, oso_ontology_file, "OSO"]
@@ -335,10 +328,6 @@ class EmsoMetadata:
         self.oceansites_sensor_orientation = tables["Sensor Orientation"]["sensor_orientation"].to_list()
         self.oceansites_data_modes = tables["Data Modes"]["Value"].to_list()
         self.oceansites_data_types = tables["Data Types"]["Data type"].to_list()
-
-        tables = process_markdown_file(emso_sites_file)
-        self.emso_regional_facilities = tables["EMSO Regional Facilities"]["EMSO Regional Facilities"].to_list()
-        self.emso_sites = tables["EMSO Sites"]["EMSO Site"].to_list()
 
         tables = process_markdown_file(datacite_codes_file)
         self.datacite_contributor_roles = tables["DataCite Contributor Type"]["Type"].to_list()
