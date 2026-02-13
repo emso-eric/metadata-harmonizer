@@ -12,23 +12,27 @@ created: 6/6/24
 import datetime
 import logging
 import os.path
-from typing import assert_type
+from .utils import assert_type
 import numpy as np
 import pandas as pd
 import netCDF4 as nc
 import xarray as xr
 import rich
 import warnings
-from src.emso_metadata_harmonizer.metadata.metadata_templates import \
-    time_valid_names, depth_valid_names, latitude_valid_names, longitude_valid_names, sensor_id_valid_names, \
-    platform_id_valid_names, is_coordinate
-from src.emso_metadata_harmonizer.metadata import EmsoMetadata, init_emso_metadata
-from src.emso_metadata_harmonizer.metadata.constants import iso_time_format
-from src.emso_metadata_harmonizer.metadata.metadata_templates import dimension_metadata, quality_control_metadata, \
-    dimension_metadata_keys, dimension_metadata_dtype
-from src.emso_metadata_harmonizer.metadata.utils import LoggerSuperclass, CYN
+from .metadata_templates import time_valid_names, depth_valid_names, latitude_valid_names, longitude_valid_names, sensor_id_valid_names, platform_id_valid_names, is_coordinate
+from . import init_emso_metadata
+from .constants import iso_time_format
+from .metadata_templates import dimension_metadata, quality_control_metadata
+from .utils import LoggerSuperclass, CYN
 import requests
-emso = None
+
+try:
+    from datetime import UTC  # Python 3.11+
+except ImportError:
+    UTC = datetime.timezone.utc        # Python ≤ 3.10
+
+
+emso = None  # Global variable used to avoid duplicated EMSO metadata objects in different waterframes
 
 
 # Make sure that we have all the coordinates
@@ -306,7 +310,7 @@ class WaterFrame(LoggerSuperclass):
         meta = self.metadata
         if "date_created" not in meta.keys():
             self.debug("Derivating date_created")
-            self.metadata["date_created"] = datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%d")
+            self.metadata["date_created"] = datetime.datetime.now(UTC).strftime("%Y-%m-%d")
 
         # EDMO codes
         if "institution_edmo_code" in meta.keys() and "institution_edmo_uri" not in meta.keys():

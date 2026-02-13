@@ -10,7 +10,7 @@ license: MIT
 created: 3/3/23
 """
 import os
-import ssl
+import time
 import requests
 import rich
 import pandas as pd
@@ -18,17 +18,9 @@ import json
 from .utils import download_files, get_file_list, download_file
 from rdflib import Graph
 
-emso_version = "develop"
+emso_version = "main"
 
-metadata_specifications_resources = "https://raw.githubusercontent.com/emso-eric/emso-metadata-specifications/refs/heads/develop/external-resources/resources.json"
-
-# List of URLs
-emso_metadata_url = f"https://raw.githubusercontent.com/emso-eric/emso-metadata-specifications/{emso_version}/EMSO_metadata.md"
-oceansites_codes_url = f"https://raw.githubusercontent.com/emso-eric/emso-metadata-specifications/{emso_version}/OceanSites_codes.md"
-emso_codes_url = f"https://raw.githubusercontent.com/emso-eric/emso-metadata-specifications/{emso_version}/EMSO_codes.md"
-datacite_codes_url = f"https://raw.githubusercontent.com/emso-eric/emso-metadata-specifications/{emso_version}/DataCite_codes.md"
-
-
+metadata_specifications_resources = f"https://raw.githubusercontent.com/emso-eric/emso-metadata-specifications/refs/heads/{emso_version}/external-resources/resources.json"
 
 spdx_licenses_github = "https://raw.githubusercontent.com/spdx/license-list-data/main/licenses.md"
 
@@ -178,20 +170,23 @@ class OSO:
         return str(uri)
 
 
-def download_resource(name, data):
+def download_resource(data):
     """
     Download the resources in data, possible keys are
     """
-    rich.print(f"Downloading resource [cyan]'{name}'")
     data = data.copy()
     for key, url in data.items():
-        if key == "hash": # Get all elements except the hash
-            continue
-        filename = url.split("external-resources/")[1]
-        os.makedirs(os.path.dirname(filename), exist_ok=True)
-        rich.print(f"    downloading to [cyan]{filename}[/cyan]...", end="")
-        download_file(url, filename)
-        rich.print(f"[green]done!")
+        try:
+            filename = url.split("external-resources/")[1]
+            os.makedirs(os.path.dirname(filename), exist_ok=True)
+        except IndexError:
+            # No subfolders
+            filename = url.split("/")[-1]
+
+        if key != "hash":  # Get all elements except the hash
+            rich.print(f"    downloading to [cyan]{filename}[/cyan]...", end="")
+            download_file(url, filename)
+            rich.print(f"[green]done!")
 
         # Overwrite the remote URL with the local file
         data[key] = filename
@@ -221,11 +216,24 @@ class EmsoMetadata:
         previous_wdir = os.getcwd()
         os.chdir(".emso")
 
+        self.local_resources = {}
+
         __resources_file = "resources.json"
 
+        remote_resources = {}
+        update_resources = False
+
         if not os.path.exists(__resources_file):
-            rich.print("[purple]resources.json file not found, downloading...")
-            self.local_resources = {}
+            rich.print("[yellow]resources.json file not found, downloading...")
+            remote_resources = requests.get(metadata_specifications_resources).json()
+            download_manifest = True
+        # If file is older than 1 day force update
+        elif time.time() - os.path.getmtime(__resources_file) > 24*3600:
+            rich.print("[cyan]resources.json is older than 1 day, forcing download")
+            try:
+                remote_resources = requests.get(metadata_specifications_resources).json()
+            except requests.exceptions.ConnectionError:
+                rich.print("[yellow]Could not download resources.json! Using local files")
         else:
             rich.print("loading cached resources.json")
             self.local_resources = load_json(__resources_file)
@@ -235,17 +243,19 @@ class EmsoMetadata:
             rich.print("[purple]loading local resource files...")
             self.local_resources = load_json(__resources_file)
 
-        # Get the remote resources list
-        remote_resources = requests.get(metadata_specifications_resources).json()
-        for name, remote_resource in remote_resources.items():
-            if name not in self.local_resources.keys():
-                rich.print(f"resources {name} not found locally, downloading from github!")
-                self.local_resources[name] = download_resource(name, remote_resource)
-            elif self.local_resources[name]["hash"] != remote_resource["hash"]:
-                rich.print(f"resources {name} has been updated, download!")
-                self.local_resources[name] = download_resource(name, remote_resource)
-            else:
-                rich.print(f"[grey42]no update for {name} required...")
+        if remote_resources:
+            for name, remote_resource in remote_resources.items():
+                if name not in self.local_resources.keys():
+                    rich.print(f"resources {name} not found locally, downloading from github!")
+                    self.local_resources[name] = download_resource(remote_resource)
+                    update_resources = True
+                elif self.local_resources[name]["hash"] != remote_resource["hash"]:
+                    rich.print(f"resources {name} has been updated, download!")
+                    self.local_resources[name] = download_resource(remote_resource)
+                    update_resources = True
+                else:
+                    rich.print(f"[grey42]no update for {name} required...")
+
 
         sdn_vocabs = ["P01", "P02", "P06", "P07", "L05", "L06", "L22", "L35"]
 
@@ -259,6 +269,7 @@ class EmsoMetadata:
         self.sdn_vocabs_uris = {}
 
         rich.print(f"[purple]Loading EMSO metadata resources:")
+
         # ==== Load all SDN vocabularies ==== #
         for vocab in sdn_vocabs:
             rich.print(f"    loading SDN vocabulary {vocab}")
@@ -281,17 +292,16 @@ class EmsoMetadata:
 
 
         # ==== Storing current resources ==== #
-        with open(__resources_file, "w") as f:
-            f.write(json.dumps(self.local_resources, indent=2))
+        if update_resources:
+            with open(__resources_file, "w") as f:
+                f.write(json.dumps(self.local_resources, indent=2))
 
         # Return to the old working dir
         os.chdir(previous_wdir)
 
-        emso_metadata_file = os.path.join(".emso", "EMSO_metadata.md")
-        oceansites_file = os.path.join(".emso", "OceanSites_codes.md")
-        emso_sites_file = os.path.join(".emso", "EMSO_codes.md")
-
-        datacite_codes_file = os.path.join(".emso", "DataCite_codes.md")
+        emso_metadata_file = os.path.join(".emso", "EMSO_Metadata_Specifications.md")
+        oceansites_file = os.path.join(".emso", "oceansites", "OceanSites_codes.md")
+        datacite_codes_file = os.path.join(".emso", "datacite", "DataCite_codes.md")
 
         spdx_licenses_file = os.path.join(".emso", "spdx_licenses.md")
 
@@ -299,11 +309,6 @@ class EmsoMetadata:
         oso_ontology_file = os.path.join(".emso", "oso.ttl")
 
         tasks = [
-            [emso_metadata_url, emso_metadata_file, "EMSO metadata"],
-            [oceansites_codes_url, oceansites_file, "OceanSites"],
-            [emso_codes_url, emso_sites_file, "EMSO codes"],
-            [datacite_codes_url, datacite_codes_file, "DataCite codes"],
-            #[edmo_codes, edmo_codes_jsonld, "EDMO codes"],
             [spdx_licenses_github, spdx_licenses_file, "spdx licenses"],
             [dwc_terms_url, dwc_terms_file, "DwC terms"],
             [oso_ontology_url, oso_ontology_file, "OSO"]
@@ -336,10 +341,6 @@ class EmsoMetadata:
         self.oceansites_data_modes = tables["Data Modes"]["Value"].to_list()
         self.oceansites_data_types = tables["Data Types"]["Data type"].to_list()
 
-        tables = process_markdown_file(emso_sites_file)
-        self.emso_regional_facilities = tables["EMSO Regional Facilities"]["EMSO Regional Facilities"].to_list()
-        self.emso_sites = tables["EMSO Sites"]["EMSO Site"].to_list()
-
         tables = process_markdown_file(datacite_codes_file)
         self.datacite_contributor_roles = tables["DataCite Contributor Type"]["Type"].to_list()
 
@@ -364,11 +365,7 @@ class EmsoMetadata:
                                        "UWND", "VAVH", "VAVT", "VCUR", "VDEN", "VDIR", "VWND", "WDIR", "WSPD"]
         # Convert P02 IDs to 4-letter codes
         self.sdn_p02_names = [code.split(":")[-1] for code in self.sdn_vocabs_ids["P02"]]
-
         self.oso = OSO(oso_ontology_file)
-
-
-
 
     @staticmethod
     def clear_downloads():
@@ -379,7 +376,6 @@ class EmsoMetadata:
         for f in files:
             if os.path.isfile(f):
                 os.remove(f)
-
 
     @staticmethod
     def harmonize_uri(uri):
