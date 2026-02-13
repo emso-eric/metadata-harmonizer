@@ -1,0 +1,54 @@
+mapping:
+  attributes:
+
+  variables:
+  - source: LATITUDE
+    destination: precise_latitude
+    attributes:
+      standard_name: deployment_latitude
+      ancillary_variables: "POSITION_QC"
+
+  - source: LONGITUDE
+    destination: precise_longitude
+    attributes:
+      standard_name: deployment_longitude
+      ancillary_variables: "POSITION_QC"
+
+  # This variable value will be hardcoded using the NcML virtual dataset
+  - source: nominal_latitude
+    destination: latitude
+    dataType: "double"
+    attributes:
+      standard_name: latitude
+      units: degrees_north
+      variable_type: coordinates
+
+  # This variable value will be hardcoded using the NcML virtual dataset
+  - source: nominal_longitude
+    destination: longitude
+    dataType: "double"
+    attributes:
+      standard_name: longitude
+      units: degrees_east
+      variable_type: coordinates
+
+
+  - source: SENSOR_ID
+    destination: sensor_id
+    attributes:
+      variable_type: coordinates
+
+  - source: platform_id
+    attributes:
+      variable_type: coordinates
+
+  - source: "DEPTH"
+    destination: depth
+
+    attributes:
+      ancillary_variables: "DEPTH_QC"
+
+  - source: "TIME"
+    destination: time
+    attributes:
+      ancillary_variables: "TIME_QC"

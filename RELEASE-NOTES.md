@@ -1,3 +1,12 @@
+## version 1.0 ##
+1. Major modifications in all the project to adapt to the new metadata specifications
+2. Using unique metadata YAML files instead of the old .min.json / .full.json files
+3. Major changes in WaterFrame class
+4. Adding operational tests to ensure data usage
+5. Adding oso viewer
+6. Adding 15 examples
+7. Ensuring compatibility with Climate and Forecast
+
 ## version 0.4.7 ##
 1. Adding multisensor metadata option to keep the sensor metadata sensors even if one of them has no data. 
 

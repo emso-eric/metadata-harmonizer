@@ -8,53 +8,73 @@ email: enoc.martinez@upc.edu
 license: MIT
 created: 26/4/23
 """
+from logging.handlers import TimedRotatingFileHandler
+import requests
 import rich
-from rich.progress import Progress
 import urllib
 import concurrent.futures as futures
 import os
-from .constants import dimensions
-import numpy as np
+import logging
+
+# Color codes
+GRN = "\x1B[32m"
+RST = "\033[0m"
+BLU = "\x1B[34m"
+YEL = "\x1B[33m"
+RED = "\x1B[31m"
+MAG = "\x1B[35m"
+CYN = "\x1B[36m"
+WHT = "\x1B[37m"
+NRM = "\x1B[0m"
+PRL = "\033[95m"
+RST = "\033[0m"
 
 
 def group_metadata_variables(metadata):
     """
-    Takes a dictionary with all the variables in the "variable" and groups them into "variables", "qualityControl" and
-    "dimensions"
+    Takes a dictionary with all the variables and groups them according to their variable_type attribute
     """
 
     m = metadata.copy()
 
-    vars = list(m["variables"].keys())
+    d = {
+        "global": {"global": m["global"]},  # add an additional global level to keep the same structure
+        "coordinate": {},
+        "environmental": {},
+        "biological": {},
+        "quality_control": {},
+        "technical": {},
+        "platform": {},
+        "sensor": {},
 
-    qcs = {key: m["variables"].pop(key) for key in vars if key.upper().endswith("_QC")}
-    stds = {key: m["variables"].pop(key) for key in vars if key.upper().endswith("_STD")}
-    dims = {key: m["variables"].pop(key) for key in vars if key.upper() in dimensions}
-
-    technical = {}
-    for key in vars:
-        try:
-            if "technical_data" in m["variables"][key].keys():
-                rich.print(f"variable {key} is 'technical'")
-                technical[key] = m["variables"].pop(key)
-        except KeyError:
-            rich.print(f"variable {key} is 'scientific'")
-
-    m = {
-        "global": m["global"],
-        "variables": m["variables"],
-        "qc": qcs,
-        "dimensions": dims,
-        "std": stds,
-        "technical": technical
+        "unclassified": {},  # Unclassified variables are ALL errors!
     }
-    return m
+
+    for varname, var in m["variables"].items():
+        if "variable_type" not in var.keys():
+            d["unclassified"][varname] = var
+
+        if "variable_type" not in var.keys():
+            vartype = "unclassified"
+        else:
+            vartype = var["variable_type"]
+
+        if vartype not in d.keys():
+            d["unclassified"][varname] = var
+        else:
+            d[vartype][varname] = var
+
+    for section in d.keys():
+        for varname in d[section].keys():
+            d[section][varname]["$name"] = varname
+
+    return d
 
 
 def __threadify_index_handler(index, handler, args):
     """
     This function adds the index to the return of the handler function. Useful to sort the results of a
-    multi-threaded operation
+    multithreaded operation
     :param index: index to be returned
     :param handler: function handler to be called
     :param args: list with arguments of the function handler
@@ -120,66 +140,6 @@ def download_files(tasks, force_download=False):
     threadify(args, download_file)
 
 
-def drop_duplicates(df, timestamp="time"):
-    """
-    useful for datasets that have duplicated values with consecutive timestamps (e.g. data is generated minutely, but
-    inserted into a database every 20 secs). So the following dataframe:
-
-                                col1      col2    col3
-        timestamp
-        2020-01-01 00:00:00    13.45    475.45    12.7
-        2020-01-01 00:00:00    13.45    475.45    12.7
-        2020-01-01 00:00:00    13.45    475.45    12.7
-        2020-01-01 00:01:00    12.89    324.12    78.8
-        2020-01-01 00:01:00    12.89    324.12    78.8
-        2020-01-01 00:01:00    12.89    324.12    78.8
-        ...
-
-    will be simplified to:
-
-                                col1      col2    col3
-        timestamp
-        2020-01-01 00:00:00    13.45    475.45    12.7
-        2020-01-01 00:01:00    12.89    324.12    78.8
-
-    :param df: input dataframe
-    :return: simplified dataframe
-    """
-    if df.empty:
-        rich.print("[yellow]WARNING empty dataframe")
-        return df
-    columns = [col for col in df.columns if col != timestamp]
-    del_array = np.zeros(len(df))  # create an empty array
-    duplicates = 0
-    with Progress() as progress:  # Use Progress() to show a nice progress bar
-        task = progress.add_task("Detecting duplicates", total=len(df))
-        init = True
-        for index, row in df.iterrows():
-            progress.update(task, advance=1)
-            if init:
-                init = False
-                last_valid_row = row
-                continue
-
-            diff = False  # flag to indicate if the current column is different from the last valid
-            for column in columns:  # compare value by value
-                if row[column] != last_valid_row[column]:
-                    # column is different
-                    last_valid_row = row
-                    diff = True
-
-                    break
-            if not diff:  # there's no difference between columns, so this one needs to be deleted
-                del_array[duplicates] = index
-                duplicates += 1
-
-    print(f"Duplicated lines {duplicates} from {len(df)}, ({100*duplicates/len(df):.02f} %)")
-    del_array = del_array[:duplicates]  # keep only the part of the array that has been filled
-    rich.print("dropping rows...")
-    df.drop(del_array, inplace=True)
-    return df
-
-
 def avoid_filename_collision(filename):
     """
     Takes a filename (e.g. data.txt) and converts it to an available filename (e.g. data(1).txt).
@@ -218,3 +178,208 @@ def get_file_list(dir_name):
         else:
             all_files.append(full_path)
     return all_files
+
+def get_dir_list(dir_name):
+    """
+     create a list of file and sub directories names in the given directory
+     :param dir_name: directory name
+     :returns: list of all files with relative path
+     """
+    file_list = os.listdir(dir_name)
+    all_dirs = list()
+    for entry in file_list:
+        full_path = os.path.join(dir_name, entry)
+        if os.path.isdir(full_path):
+            all_dirs.append(full_path)
+            all_dirs = all_dirs + get_dir_list(full_path)
+
+    all_dirs = sorted(all_dirs, reverse=True)
+    return all_dirs
+
+
+class LoggerSuperclass:
+    def __init__(self, logger: logging.Logger, name: str, colour=NRM):
+        """
+        SuperClass that defines logging as class methods adding a heading name
+        """
+        self.__logger_name = name
+        self.__logger = logger
+        if not logger:
+            self.__logger = logging  # if not assign the generic module
+        self.__log_colour = colour
+
+    def warning(self, *args):
+        mystr = YEL + "[%s] " % self.__logger_name + str(*args) + RST
+        self.__logger.warning(mystr)
+
+    def error(self, *args, exception: any = False):
+        mystr = "[%s] " % self.__logger_name + str(*args)
+        self.__logger.error(RED + mystr + RST)
+        if exception:
+            if isinstance(exception, bool):
+                raise ValueError(mystr)
+            else:
+                raise exception(mystr)
+
+
+
+
+    def debug(self, *args):
+        mystr = self.__log_colour + "[%s] " % self.__logger_name + str(*args) + RST
+        self.__logger.debug(mystr)
+
+    def info(self, *args):
+        mystr = self.__log_colour + "[%s] " % self.__logger_name + str(*args) + RST
+        self.__logger.info(mystr)
+
+    def setLevel(self, level):
+        self.__logger.setLevel(level)
+
+
+def setup_log(name, path="log", log_level="debug"):
+    """
+    Setups the logging module
+    :param name: log name (.log will be appended)
+    :param path: where the logs will be stored
+    :param log_level: log level as string, it can be "debug, "info", "warning" and "error"
+    """
+
+    logging.getLogger("requests").setLevel(logging.WARNING)
+    logging.getLogger("urllib3").setLevel(logging.WARNING)
+
+    # Check arguments
+    if len(name) < 1 or len(path) < 1:
+        raise ValueError("name \"%s\" not valid", name)
+    elif len(path) < 1:
+        raise ValueError("name \"%s\" not valid", name)
+
+    # Convert to logging level
+    if log_level == 'debug':
+        level = logging.DEBUG
+    elif log_level == 'info':
+        level = logging.INFO
+    elif log_level == 'warning':
+        level = logging.WARNING
+    elif log_level == 'error':
+        level = logging.ERROR
+    else:
+        raise ValueError("log level \"%s\" not valid" % log_level)
+
+    if not os.path.exists(path):
+        os.makedirs(path)
+
+    filename = os.path.join(path, name)
+    if not filename.endswith(".log"):
+        filename += ".log"
+    print("Creating log", filename)
+    print("name", name)
+
+    logger = logging.getLogger()
+    logger.setLevel(level)
+    log_formatter = logging.Formatter('%(asctime)s.%(msecs)03d %(levelname)-7s: %(message)s',
+                                      datefmt='%Y/%m/%d %H:%M:%S')
+    handler = TimedRotatingFileHandler(filename, when="midnight", interval=1, backupCount=7)
+    handler.setFormatter(log_formatter)
+    logger.addHandler(handler)
+
+    consoleHandler = logging.StreamHandler()
+    consoleHandler.setFormatter(log_formatter)
+    logger.addHandler(consoleHandler)
+
+    logger.info("")
+    logger.info(f"===== {name} =====")
+
+    return logger
+
+
+def assert_dict(conf: dict, required_keys: dict, verbose=False):
+    """
+    Checks if all the expected keys in a dictionary are there. The expected format is field name as key and type as
+    value:
+        { "name": str, "importantNumber": int}
+
+    One level of nesting is supported:
+    value:
+        { "someData/nestedData": str}
+    expects something like
+        {
+        "someData": {
+            "nestedData": "hi"
+            }
+        }
+
+    :param conf: dict with configuration to be checked
+    :param required_keys: dictionary with required keys
+    :raises: AssertionError if the input does not match required_keys
+    """
+    for key, expected_type in required_keys.items():
+        if "/" in key:
+            pass
+        elif key not in conf.keys():
+            raise AssertionError(f"Required key \"{key}\" not found in configuration")
+
+        # Check for nested dicts
+        if "/" in key:
+            parent, son = key.split("/")
+            if parent not in conf.keys():
+                msg =f"Required key \"{parent}\" not found!"
+                if verbose:
+                    rich.print(f"[red]{msg}")
+                raise AssertionError(msg)
+
+            if type(conf[parent]) != dict:
+                msg = f"Value for key \"{parent}\" wrong type, expected type dict, but got {type(conf[parent])}"
+                if verbose:
+                    rich.print(f"[red]{msg}")
+                raise AssertionError(msg)
+            if son not in conf[parent].keys():
+                msg =f"Required key \"{son}\" not found in configuration/{parent}"
+                if verbose:
+                    rich.print(f"[red]{msg}")
+                raise AssertionError(msg)
+            value = conf[parent][son]
+        else:
+            value = conf[key]
+
+        if type(value) != expected_type:
+            msg = f"Value for key \"{key}\" wrong type, expected type {expected_type}, but got '{type(value)}'"
+            if verbose:
+                rich.print(f"[red]{msg}")
+            raise AssertionError(msg)
+
+
+def assert_type(obj, valid_type):
+    """
+    Asserts that obj is of type <valid_type>
+    :param obj:  any object
+    :param valid_type:  any type
+    """
+    assert isinstance(obj, valid_type), f"Expected {valid_type}, but got {type(obj)} instead"
+
+
+def assert_types(obj, valid_types: list):
+    """
+    Asserts that obj is of type <valid_type>
+    :param obj:  any object
+    :param valid_types:  list of types
+    """
+    assert isinstance(valid_types, list), "valid_types should be a list of types!"
+    valid_string = ", ".join([str(t) for t in valid_types])
+    valid_string = valid_string.replace("<class ", "").replace(">", "")
+    assert type(obj) in valid_types, f"Expected on of {valid_string}, but got {type(obj)} instead"
+
+
+def check_url(url):
+    """
+    Checks if a URL is reachable without downloading its contents
+    """
+    assert type(url) is str, f"Expected string got {type(url)}"
+    try:
+        response = requests.head(url)
+        if response.status_code == 200:
+            return True
+        else:
+            return False
+    except requests.ConnectionError:
+        return False
+
