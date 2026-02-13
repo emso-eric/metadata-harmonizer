@@ -9,7 +9,7 @@ build-backend = "setuptools.build_meta"  # If not defined, then legacy behavior 
 [project]
 
 name = "emso-metadata-harmonizer"  # REQUIRED, is the only field that cannot be marked as dynamic.
-version = "1.0.1a0"
+version = "1.0.1a4"
 description = " Toolbox for creating/assessing EMSO-compliant NetCDF datasets and integrate them into ERDDAP services"
 readme = "pypi.md"
 requires-python = ">=3.8"
@@ -58,7 +58,7 @@ classifiers = [
 dependencies = [
   "certifi>=2022.12.7",
   "cfchecker>=4.1.0",
-  "cftime>=1.6.5",
+  "cftime>=1.6.4",
   "cfunits>=3.3.7",
   "charset-normalizer>=3.1.0",
   "idna>=3.4",
@@ -66,11 +66,11 @@ dependencies = [
   "lxml>=6.0.2",
   "markdown-it-py>=2.2.0",
   "mdurl>=0.1.2",
-  "netCDF4>=1.7.3",
+  "netCDF4>=1.7.2",
   "numpy>=1.24.2",
-  "pandas>=2.3.3",
+  "pandas>=2.0.3",
   "Pygments>=2.14.0",
-  "pyparsing>=3.2.5",
+  "pyparsing>=3.1.4",
   "python-dateutil>=2.8.2",
   "pytz>=2022.7.1",
   "PyYAML==6.0.3",
@@ -78,11 +78,10 @@ dependencies = [
   "requests>=2.28.2",
   "rich>=13.3.2",
   "six>=1.16.0",
-  "typing_extensions>=4.5.0",
   "tzdata>=2025.3",
   "urllib3>=1.26.14",
   "openpyxl>=3.1.2",
-  "xarray>=2025.12.0"
+  "xarray>=2023.1.0"
 ]
 
 [project.urls]

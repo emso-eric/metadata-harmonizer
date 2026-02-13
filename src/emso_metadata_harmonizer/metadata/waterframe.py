@@ -12,7 +12,7 @@ created: 6/6/24
 import datetime
 import logging
 import os.path
-from typing import assert_type
+from .utils import assert_type
 import numpy as np
 import pandas as pd
 import netCDF4 as nc
@@ -25,6 +25,12 @@ from .constants import iso_time_format
 from .metadata_templates import dimension_metadata, quality_control_metadata
 from .utils import LoggerSuperclass, CYN
 import requests
+
+try:
+    from datetime import UTC  # Python 3.11+
+except ImportError:
+    UTC = datetime.timezone.utc        # Python ≤ 3.10
+
 
 emso = None  # Global variable used to avoid duplicated EMSO metadata objects in different waterframes
 
@@ -304,7 +310,7 @@ class WaterFrame(LoggerSuperclass):
         meta = self.metadata
         if "date_created" not in meta.keys():
             self.debug("Derivating date_created")
-            self.metadata["date_created"] = datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%d")
+            self.metadata["date_created"] = datetime.datetime.now(UTC).strftime("%Y-%m-%d")
 
         # EDMO codes
         if "institution_edmo_code" in meta.keys() and "institution_edmo_uri" not in meta.keys():
