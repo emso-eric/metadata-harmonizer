@@ -2,26 +2,34 @@
 This repository contains a set of tools that can be used to create NetCDF files, integrate them into an ERDDAP server 
 and to ensure the compliance with the [EMSO Metadata Specifications](https://github.com/emso-eric/emso-metadata-specifications/tree/develop).
 The tools provided here are:
-* `generator.py`: creates EMSO-compliant NetCDF files from `.csv` and `.yaml` files  
-* `erddap_config.py`: integrates NetCDF files into an ERDDAP server
-* `metadata_report.py`: check the compliance of a dataset with the specifications.
+* `generator`: creates EMSO-compliant NetCDF files from `.csv` and `.yaml` files  
+* `erddap_config`: integrates NetCDF files into an ERDDAP server
+* `metadata_report`: check the compliance of a dataset with the specifications.
+
+The tools in this repository can be used in two different ways:
+
+1. **From this repository** (source code) – by cloning this project and running the scripts locally (instructions below).
+2. **As a Python package** – by installing the released version from PyPI.
+
+> ⚠️ **Important:**  
+> The installation instructions in this README refer to cloning and using the source code from this repository. If you only want to use the toolbox as a Python package via `pip`, please install it from PyPI instead:  
+> 👉 https://pypi.org/project/emso-metadata-harmonizer/
 
 In order to  create and publish an EMSO-compliant dataset, the typical workflow is:
 1. Prepare CSV data and YAML metadata
-2. Generate EMSO-compliant NetCDF files using `generator.py`
-3. Integrate datasets into your ERDDAP deployment using `erddap_config.py`
-4. Validate metadata and operational compliance using `metadata_report.py`
-
-⚠️ _WARNING: this work is based on the draft of the new EMSO Metadata Specifications. It has not yet been formally approved by the DMSG_
+2. Generate EMSO-compliant NetCDF files using `generator`
+3. Integrate datasets into your ERDDAP deployment using `erddap_config`
+4. Validate metadata and operational compliance using `metadata_report`
 
 ## 🚀 Project Setup ##
-### Prerequisites
+### Installing this repository
+
+
 Previous requirements are `python 3.8+`,`git` and `pip`. All commands here are for unix-like OS, for Windows users it 
 is recommended to use [Ubuntu WSL](https://ubuntu.com/desktop/wsl). If PowerShell or Windows cli is used make sure to change the
 unix-like paths (`path/to/file.csv`) to Windows-like paths (`.\path\to\file.csv`).
 
-### Installation
-To use this repository, just clone and install its requirements: 
+Alternatively, you can use this repository, just clone and install its requirements:
 1. Clone this repository
 ```bash
 git clone https://github.com/emso-eric/metadata-harmonizer
@@ -31,15 +39,11 @@ git clone https://github.com/emso-eric/metadata-harmonizer
 cd metadata-harmonizer
 ```
 
-3. ⚠️ Change to develop branch! This step will be removed in the definitive version
-```bash
-git checkout develop
-```
-
-4. Install the requirements:
+3. Install the requirements:
 ```bash
 pip3 install -r requirements.txt
 ```
+
 
 ## 🛠 NetCDF Generator ##
 
@@ -151,6 +155,6 @@ provides a binary output, whether the dataset is operationally valid or not.
 ### Contact info ###
 
 * **author**: Enoc Martínez  
-* **version**: v1.0.0    
+* **version**: v1.0.1   
 * **organization**: Universitat Politècnica de Catalunya (UPC)    
 * **contact**: enoc.martinez@upc.edu  

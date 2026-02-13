@@ -1,3 +1,7 @@
+## version 1.0.1 ##
+1. Fixing URLs pointing to develop branch
+2. Improved README
+
 ## version 1.0 ##
 1. Major modifications in all the project to adapt to the new metadata specifications
 2. Using unique metadata YAML files instead of the old .min.json / .full.json files
