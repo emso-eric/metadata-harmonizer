@@ -15,8 +15,7 @@ import pandas as pd
 import yaml
 
 from .metadata.dataset import load_data
-from .metadata import EmsoMetadata
-from .metadata.utils import assert_type, LoggerSuperclass
+from .metadata.utils import assert_type, LoggerSuperclass, setup_log
 from .metadata.waterframe import WaterFrame, get_coordinates_from_dataframe
 
 global_elements = (
@@ -158,11 +157,19 @@ def consolidate_metadata(metadata_files: list):
     return metadata
 
 
-def generate_dataset(data_files: list, metadata_files: list, output: str, log: logging.Logger, keep_names=False):
+def generate_dataset(data_files: list, metadata_files: list, output: str, log: logging.Logger=None, keep_names=False):
     """
     Generates an EMSO-compliant NetCDF dataset from the input data and metadata
+    :param data_files: list of csv data files
+    :param metadata_files: list of metadata yaml files
+    :param output: output NetCDF file
+    :keep_names: whether to keep the names of the coordinates, by default convert coordinate names to lowercase
     """
-    log = LoggerSuperclass(log, "VLD")
+    if not log:
+        log = setup_log("generator")
+        log.setLevel(logging.INFO)
+
+    log = LoggerSuperclass(log, "GEN")
 
     log.info(f"Generating NetCDF dataset {output}")
     log.debug("Checking arguments...")

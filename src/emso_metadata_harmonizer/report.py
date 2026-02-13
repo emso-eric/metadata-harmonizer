@@ -9,12 +9,10 @@ email: enoc.martinez@upc.edu
 license: MIT
 created: 23/2/23
 """
-import json
-import os
 import rich
 import time
 
-from src.emso_metadata_harmonizer.metadata.waterframe import operational_tests
+from .metadata.waterframe import operational_tests
 from . import WaterFrame
 from .erddap import ERDDAP
 import pandas as pd

@@ -11,7 +11,7 @@ created: 15/5/23
 """
 import logging
 from argparse import ArgumentParser
-from src.emso_metadata_harmonizer.erddap import erddap_config
+from src.emso_metadata_harmonizer import erddap_config
 from src.emso_metadata_harmonizer.metadata.utils import setup_log
 import yaml
 

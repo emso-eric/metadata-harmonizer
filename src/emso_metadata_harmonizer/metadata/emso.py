@@ -21,7 +21,6 @@ from rdflib import Graph
 emso_version = "develop"
 
 metadata_specifications_resources = f"https://raw.githubusercontent.com/emso-eric/emso-metadata-specifications/refs/heads/{emso_version}/external-resources/resources.json"
-emso_metadata_url = f"https://raw.githubusercontent.com/emso-eric/emso-metadata-specifications/refs/heads/{emso_version}/EMSO_Metadata_Specifications.md"
 
 spdx_licenses_github = "https://raw.githubusercontent.com/spdx/license-list-data/main/licenses.md"
 
@@ -171,20 +170,23 @@ class OSO:
         return str(uri)
 
 
-def download_resource(name, data):
+def download_resource(data):
     """
     Download the resources in data, possible keys are
     """
-    rich.print(f"Downloading resource [cyan]'{name}'")
     data = data.copy()
     for key, url in data.items():
-        if key == "hash": # Get all elements except the hash
-            continue
-        filename = url.split("external-resources/")[1]
-        os.makedirs(os.path.dirname(filename), exist_ok=True)
-        rich.print(f"    downloading to [cyan]{filename}[/cyan]...", end="")
-        download_file(url, filename)
-        rich.print(f"[green]done!")
+        try:
+            filename = url.split("external-resources/")[1]
+            os.makedirs(os.path.dirname(filename), exist_ok=True)
+        except IndexError:
+            # No subfolders
+            filename = url.split("/")[-1]
+
+        if key != "hash":  # Get all elements except the hash
+            rich.print(f"    downloading to [cyan]{filename}[/cyan]...", end="")
+            download_file(url, filename)
+            rich.print(f"[green]done!")
 
         # Overwrite the remote URL with the local file
         data[key] = filename
@@ -218,12 +220,20 @@ class EmsoMetadata:
 
         __resources_file = "resources.json"
 
+        remote_resources = {}
+        update_resources = False
+
         if not os.path.exists(__resources_file):
             rich.print("[yellow]resources.json file not found, downloading...")
+            remote_resources = requests.get(metadata_specifications_resources).json()
+            download_manifest = True
         # If file is older than 1 day force update
         elif time.time() - os.path.getmtime(__resources_file) > 24*3600:
-            rich.print("[yellow]resources.json is older than 1 day, forcing download")
-            force_update = True
+            rich.print("[cyan]resources.json is older than 1 day, forcing download")
+            try:
+                remote_resources = requests.get(metadata_specifications_resources).json()
+            except requests.exceptions.ConnectionError:
+                rich.print("[yellow]Could not download resources.json! Using local files")
         else:
             rich.print("loading cached resources.json")
             self.local_resources = load_json(__resources_file)
@@ -233,18 +243,19 @@ class EmsoMetadata:
             rich.print("[purple]loading local resource files...")
             self.local_resources = load_json(__resources_file)
 
-        # Get the remote resources list
-        remote_resources = requests.get(metadata_specifications_resources).json()
-        rich.print(remote_resources)
-        for name, remote_resource in remote_resources.items():
-            if name not in self.local_resources.keys():
-                rich.print(f"resources {name} not found locally, downloading from github!")
-                self.local_resources[name] = download_resource(name, remote_resource)
-            elif self.local_resources[name]["hash"] != remote_resource["hash"]:
-                rich.print(f"resources {name} has been updated, download!")
-                self.local_resources[name] = download_resource(name, remote_resource)
-            else:
-                rich.print(f"[grey42]no update for {name} required...")
+        if remote_resources:
+            for name, remote_resource in remote_resources.items():
+                if name not in self.local_resources.keys():
+                    rich.print(f"resources {name} not found locally, downloading from github!")
+                    self.local_resources[name] = download_resource(remote_resource)
+                    update_resources = True
+                elif self.local_resources[name]["hash"] != remote_resource["hash"]:
+                    rich.print(f"resources {name} has been updated, download!")
+                    self.local_resources[name] = download_resource(remote_resource)
+                    update_resources = True
+                else:
+                    rich.print(f"[grey42]no update for {name} required...")
+
 
         sdn_vocabs = ["P01", "P02", "P06", "P07", "L05", "L06", "L22", "L35"]
 
@@ -258,6 +269,7 @@ class EmsoMetadata:
         self.sdn_vocabs_uris = {}
 
         rich.print(f"[purple]Loading EMSO metadata resources:")
+
         # ==== Load all SDN vocabularies ==== #
         for vocab in sdn_vocabs:
             rich.print(f"    loading SDN vocabulary {vocab}")
@@ -280,8 +292,9 @@ class EmsoMetadata:
 
 
         # ==== Storing current resources ==== #
-        with open(__resources_file, "w") as f:
-            f.write(json.dumps(self.local_resources, indent=2))
+        if update_resources:
+            with open(__resources_file, "w") as f:
+                f.write(json.dumps(self.local_resources, indent=2))
 
         # Return to the old working dir
         os.chdir(previous_wdir)
@@ -296,7 +309,6 @@ class EmsoMetadata:
         oso_ontology_file = os.path.join(".emso", "oso.ttl")
 
         tasks = [
-            [emso_metadata_url, emso_metadata_file, "EMSO metadata"],
             [spdx_licenses_github, spdx_licenses_file, "spdx licenses"],
             [dwc_terms_url, dwc_terms_file, "DwC terms"],
             [oso_ontology_url, oso_ontology_file, "OSO"]
@@ -353,11 +365,7 @@ class EmsoMetadata:
                                        "UWND", "VAVH", "VAVT", "VCUR", "VDEN", "VDIR", "VWND", "WDIR", "WSPD"]
         # Convert P02 IDs to 4-letter codes
         self.sdn_p02_names = [code.split(":")[-1] for code in self.sdn_vocabs_ids["P02"]]
-
         self.oso = OSO(oso_ontology_file)
-
-
-
 
     @staticmethod
     def clear_downloads():
@@ -368,7 +376,6 @@ class EmsoMetadata:
         for f in files:
             if os.path.isfile(f):
                 os.remove(f)
-
 
     @staticmethod
     def harmonize_uri(uri):

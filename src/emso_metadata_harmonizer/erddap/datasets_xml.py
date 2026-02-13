@@ -21,37 +21,7 @@ import rich
 
 
 
-def erddap_config(file: str, dataset_id: str, source_path: str, output: str = "", datasets_xml_file: str = "",
-                  mapping: dict={}, filename_regex=".*"):
-    """
-    Configures an ERDDAP dataset based on an input NetCDF file
 
-    :param file: NetCDF file to read metadata from
-    :param dataset_id: ID assigned to the dataset in ERDDAP
-    :param source_path: Source path where ERDDAP will look for nc files
-    :param output: Write the XML chunk into a file
-    :param datasets_xml_file: If the path to the datasets.xml is passed here, it will automatically be updated with the new dataset
-    :param mapping: mapping file with the source/destination links for mapped datasets
-    :param params: Force the use of file as the metadata source in ERDDAP
-
-    """
-    wf = WaterFrame.from_netcdf(file, permissive=True)
-
-    if isinstance(mapping, str) and mapping:
-        with open(mapping) as f:
-            mapping = yaml.safe_load(f)
-
-    xml_chunk = generate_erddap_dataset(wf, source_path, dataset_id=dataset_id, filename_regex=filename_regex, mapping=mapping)
-
-    if output:
-        with open(output, "w") as f:
-            f.write(xml_chunk)
-
-    if datasets_xml_file:
-        add_dataset(datasets_xml_file, xml_chunk)
-
-    if not datasets_xml_file and not output:
-        rich.print(xml_chunk)
 
 def get_erddap_data_type(series: pd.Series):
     # Get the data type

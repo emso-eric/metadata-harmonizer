@@ -20,7 +20,6 @@ import time
 import inspect
 import logging
 from cfchecker.cfchecks import CFChecker
-import numpy as np
 
 try:
     from src.emso_metadata_harmonizer import generate_dataset, erddap_config, WaterFrame
