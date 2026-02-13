@@ -71,7 +71,7 @@ dataset.
 ```python3
 import emso_metadata_harmonizer as emh
 
-emh.erddap_config("dataset2.nc", "MyDatasetIdentifier", "/path/to/dataset/files")
+emh.erddap_config("dataset.nc", "MyDatasetIdentifier", "/path/to/dataset/files")
 ```
 
 To automatically append a new dataset into an existing ERDDAP deployment, the path to the `datasets.xml` file should
