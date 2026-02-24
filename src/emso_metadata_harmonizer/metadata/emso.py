@@ -19,7 +19,7 @@ from rdflib import Graph
 from .utils import download_files, get_file_list, download_file
 
 
-emso_version = "main"
+emso_version = "develop"
 
 log = logging.getLogger("emso_metadata_harmonizer")
 
