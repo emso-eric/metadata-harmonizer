@@ -271,13 +271,11 @@ def setup_log(name, path="log", log_level="debug"):
     filename = os.path.join(path, name)
     if not filename.endswith(".log"):
         filename += ".log"
-    print("Creating log", filename)
-    print("name", name)
 
     logger = logging.getLogger()
     logger.setLevel(level)
     log_formatter = logging.Formatter('%(asctime)s.%(msecs)03d %(levelname)-7s: %(message)s',
-                                      datefmt='%Y/%m/%d %H:%M:%S')
+                                      datefmt='%Y-%m-%d %H:%M:%S')
     handler = TimedRotatingFileHandler(filename, when="midnight", interval=1, backupCount=7)
     handler.setFormatter(log_formatter)
     logger.addHandler(handler)
@@ -285,10 +283,6 @@ def setup_log(name, path="log", log_level="debug"):
     consoleHandler = logging.StreamHandler()
     consoleHandler.setFormatter(log_formatter)
     logger.addHandler(consoleHandler)
-
-    logger.info("")
-    logger.info(f"===== {name} =====")
-
     return logger
 
 

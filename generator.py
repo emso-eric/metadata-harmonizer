@@ -24,8 +24,10 @@ if __name__ == "__main__":
     argparser.add_argument("-k", "--keep-names", help="Keep source variable names (by default forces ERDDAP-like varnames)", action="store_true")
     argparser.add_argument("-o", "--output", type=str, help="Output NetCDF file", required=False, default="out.nc")
     argparser.add_argument("--clear", action="store_true", help="Clears all downloads", required=False)
+    argparser.add_argument("-l", "--log-level", type=str, help="Setting log level (debug, info, warn, error or critical)", required=False, default="")
 
     args = argparser.parse_args()
-    log = setup_log("emh", "log")
-
-    generate_dataset(args.data, args.metadata,  args.output, log, keep_names=args.keep_names)
+    log = setup_log("emh", "log", log_level="info")
+    if args.log_level:
+        log.setLevel(args.log_level.upper())
+    generate_dataset(args.data, args.metadata,  args.output, keep_names=args.keep_names)

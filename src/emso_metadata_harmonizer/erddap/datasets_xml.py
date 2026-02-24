@@ -12,15 +12,11 @@ import os
 import shutil
 import lxml.etree as etree
 import pandas as pd
-import yaml
+from datetime import datetime
+import rich
 from ..metadata.metadata_templates import coordinate_default_name
 from ..metadata.waterframe import WaterFrame
 from ..metadata.xmlutils import get_element
-from datetime import datetime
-import rich
-
-
-
 
 
 def get_erddap_data_type(series: pd.Series):
@@ -265,7 +261,7 @@ def generate_erddap_dataset(wf: WaterFrame, directory, dataset_id, file_access=T
     <updateEveryNMillis>10000</updateEveryNMillis>
     <fileDir>{directory}</fileDir>
     <fileNameRegex>{filename_regex}</fileNameRegex>
-    <recursive>false</recursive>    
+    <recursive>true</recursive>    
     <pathRegex>.*</pathRegex>
     <metadataFrom>last</metadataFrom>
     <metadataFrom>last</metadataFrom>

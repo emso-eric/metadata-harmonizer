@@ -15,8 +15,10 @@ import pandas as pd
 import yaml
 
 from .metadata.dataset import load_data
-from .metadata.utils import assert_type, LoggerSuperclass, setup_log
+from .metadata.utils import assert_type, LoggerSuperclass
 from .metadata.waterframe import WaterFrame, get_coordinates_from_dataframe
+
+logger = logging.getLogger("emso_metadata_harmonizer")
 
 global_elements = (
     # Array with attribute_name, type, mandatory (True, False), additional_checks
@@ -157,7 +159,7 @@ def consolidate_metadata(metadata_files: list):
     return metadata
 
 
-def generate_dataset(data_files: list, metadata_files: list, output: str, log: logging.Logger=None, keep_names=False):
+def generate_dataset(data_files: list, metadata_files: list, output: str, keep_names=False):
     """
     Generates an EMSO-compliant NetCDF dataset from the input data and metadata
     :param data_files: list of csv data files
@@ -165,14 +167,9 @@ def generate_dataset(data_files: list, metadata_files: list, output: str, log: l
     :param output: output NetCDF file
     :keep_names: whether to keep the names of the coordinates, by default convert coordinate names to lowercase
     """
-    if not log:
-        log = setup_log("generator")
-        log.setLevel(logging.INFO)
 
-    log = LoggerSuperclass(log, "GEN")
-
-    log.info(f"Generating NetCDF dataset {output}")
-    log.debug("Checking arguments...")
+    logger.info(f"Generating NetCDF dataset {output}")
+    logger.debug("Checking arguments...")
     assert_type(data_files, list)
     [assert_type(f, str) for f in data_files]
     [assert_type(f, str) for f in metadata_files]
@@ -202,7 +199,7 @@ def generate_dataset(data_files: list, metadata_files: list, output: str, log: l
 
     _time, _depth, _latitude, _longitude, _sensor_id, _platform_id = get_coordinates_from_dataframe(df)
 
-    log.info("Validating metadata...")
+    logger.info("Validating metadata...")
     errors = []
     warnings = []
     infos = []
@@ -231,16 +228,16 @@ def generate_dataset(data_files: list, metadata_files: list, output: str, log: l
     # Validate that global attributes are compliant with the schemas
 
     for i in infos:
-        log.info(i)
+        logger.info(i)
 
     for w in warnings:
-        log.warning(w)
+        logger.warning(w)
 
     for e in errors:
-        log.error(e)
+        logger.error(e)
 
     if len(errors) > 0:
-        log.error("Got errors in dataset generation", exception=ValueError)
+        logger.error("Got errors in dataset generation", exception=ValueError)
 
     wf = WaterFrame(df, metadata)
     wf.to_netcdf(output, keep_names=keep_names)

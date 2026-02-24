@@ -9,16 +9,19 @@ email: enoc.martinez@upc.edu
 license: MIT
 created: 3/3/23
 """
+import logging
 import os
 import time
 import requests
-import rich
 import pandas as pd
 import json
-from .utils import download_files, get_file_list, download_file
 from rdflib import Graph
+from .utils import download_files, get_file_list, download_file
+
 
 emso_version = "main"
+
+log = logging.getLogger("emso_metadata_harmonizer")
 
 metadata_specifications_resources = f"https://raw.githubusercontent.com/emso-eric/emso-metadata-specifications/refs/heads/{emso_version}/external-resources/resources.json"
 
@@ -148,8 +151,8 @@ class OSO:
         try:
             uri = df.loc[df["label"] == name]["uri"].values[0]
         except (KeyError, IndexError):
-            rich.print(f"[red]ERROR: OSO does not have any '{cls}' with label '{name}', valid names:")
-            [rich.print(f"[red]    - '{a}'") for a in df['label'].unique()]
+            log.error(f"ERROR: OSO does not have any '{cls}' with label '{name}', valid names:")
+            [log.error(f"    - '{a}'") for a in df['label'].unique()]
             return ""
         return str(uri)
 
@@ -164,8 +167,8 @@ class OSO:
         try:
             uri = df.loc[df["uri"] == uri]["label"].values[0]
         except (KeyError, IndexError):
-            rich.print(f"[red]ERROR: OSO does not have any '{cls}' with uri '{uri}', valid uris:")
-            [rich.print(f"[red]    - '{a}'") for a in df['uri'].unique()]
+            log.error(f"ERROR: OSO does not have any '{cls}' with uri '{uri}', valid uris:")
+            [log.info(f"    - '{a}'") for a in df['uri'].unique()]
             return ""
         return str(uri)
 
@@ -184,9 +187,8 @@ def download_resource(data):
             filename = url.split("/")[-1]
 
         if key != "hash":  # Get all elements except the hash
-            rich.print(f"    downloading to [cyan]{filename}[/cyan]...", end="")
+            log.info(f"    downloading to {filename}...")
             download_file(url, filename)
-            rich.print(f"[green]done!")
 
         # Overwrite the remote URL with the local file
         data[key] = filename
@@ -211,7 +213,7 @@ def init_emso_metadata(force_update=False, specifications=""):
 
 class EmsoMetadata:
     def __init__(self, force_update=False, specifications=""):
-        rich.print("[purple]Loading EMSO Metadata resources...")
+        log.info("Loading EMSO Metadata resources...")
         os.makedirs(".emso", exist_ok=True)  # create a conf dir to store Markdown and other stuff
         previous_wdir = os.getcwd()
         os.chdir(".emso")
@@ -224,37 +226,37 @@ class EmsoMetadata:
         update_resources = False
 
         if not os.path.exists(__resources_file):
-            rich.print("[yellow]resources.json file not found, downloading...")
+            log.info("resources.json file not found, downloading...")
             remote_resources = requests.get(metadata_specifications_resources).json()
             download_manifest = True
-        # If file is older than 1 day force update
+        # If the file is older than 1 day, force update
         elif time.time() - os.path.getmtime(__resources_file) > 24*3600:
-            rich.print("[cyan]resources.json is older than 1 day, forcing download")
+            log.info("resources.json is older than 1 day, forcing download")
             try:
                 remote_resources = requests.get(metadata_specifications_resources).json()
             except requests.exceptions.ConnectionError:
-                rich.print("[yellow]Could not download resources.json! Using local files")
+                log.warning("Could not download resources.json! Using local files")
         else:
-            rich.print("loading cached resources.json")
+            log.info("loading cached resources.json")
             self.local_resources = load_json(__resources_file)
 
         # Load local resources file
         if not force_update and os.path.exists(__resources_file):
-            rich.print("[purple]loading local resource files...")
+            log.info("loading local resource files...")
             self.local_resources = load_json(__resources_file)
 
         if remote_resources:
             for name, remote_resource in remote_resources.items():
                 if name not in self.local_resources.keys():
-                    rich.print(f"resources {name} not found locally, downloading from github!")
+                    log.info(f"resources {name} not found locally, downloading from github!")
                     self.local_resources[name] = download_resource(remote_resource)
                     update_resources = True
                 elif self.local_resources[name]["hash"] != remote_resource["hash"]:
-                    rich.print(f"resources {name} has been updated, download!")
+                    log.info(f"resources {name} has been updated, download!")
                     self.local_resources[name] = download_resource(remote_resource)
                     update_resources = True
                 else:
-                    rich.print(f"[grey42]no update for {name} required...")
+                    log.info(f"no update for {name} required...")
 
 
         sdn_vocabs = ["P01", "P02", "P06", "P07", "L05", "L06", "L22", "L35"]
@@ -268,11 +270,11 @@ class EmsoMetadata:
         self.sdn_vocabs_ids = {}
         self.sdn_vocabs_uris = {}
 
-        rich.print(f"[purple]Loading EMSO metadata resources:")
+        log.info(f"Loading EMSO metadata resources:")
 
         # ==== Load all SDN vocabularies ==== #
         for vocab in sdn_vocabs:
-            rich.print(f"    loading SDN vocabulary {vocab}")
+            log.debug(f"    loading SDN vocabulary {vocab}")
             df = pd.read_csv(self.local_resources[vocab]["csv"])
             self.sdn_vocabs[vocab] = df
             self.sdn_vocabs_narrower[vocab] = self.local_resources[vocab]["narrower"]
@@ -285,9 +287,9 @@ class EmsoMetadata:
 
 
         # ==== Load Copernicus Variables ==== #
-        rich.print(f"    loading Copernicus Parameters")
+        log.debug(f"    loading Copernicus Parameters")
         self.copernicus_variables = load_json(self.local_resources["Copernicus Parameters"]["json"])
-        rich.print(f"    loading EDMO codes")
+        log.debug(f"    loading EDMO codes")
         self.edmo_codes = pd.read_csv(self.local_resources["EDMO"]["csv"])
 
 
@@ -315,7 +317,7 @@ class EmsoMetadata:
         ]
 
         if specifications:
-            rich.print(f"[yellow]WARNING: Using custom specifications file: {specifications}")
+            log.warning("Using custom specifications file: {specifications}")
             tasks = tasks[1:]
             emso_metadata_file = specifications
 
@@ -393,6 +395,8 @@ class EmsoMetadata:
         """
         Search in vocab <vocab_id> for the element with matching uri and return element identified by key
         """
+        log = logging.getLogger()
+
         uri = self.harmonize_uri(uri)
         __allowed_keys = ["prefLabel", "id", "definition", "altLabel"]
         if key not in __allowed_keys:
@@ -402,7 +406,7 @@ class EmsoMetadata:
         row = df.loc[df["uri"] == uri]
         if row.empty:
             #raise LookupError(f"Could not get {key} for '{uri}' in vocab {vocab_id}")
-            rich.print(f"[red]Could not get {key} for '{uri}' in vocab {vocab_id}")
+            log.warning(f"Could not get {key} for '{uri}' in vocab {vocab_id}")
             return
 
         return row[key].values[0]
@@ -450,6 +454,7 @@ class EmsoMetadata:
         :param target_vocab: id of the vocabulary terms that we want to find
         :returns: list with matches
         """
+        log = logging.getLogger()
         __valid_relations = ["narrower", "broader", "related"]
         uri = self.harmonize_uri(uri)
 
@@ -466,7 +471,7 @@ class EmsoMetadata:
         try:
             uri_relations = relations[uri]
         except KeyError:
-            rich.print(f"[red]relation {relation} for {uri} not found!")
+            log.warning(f"relation {relation} for {uri} not found!")
             return ""
 
         if type(uri_relations) is str:  # make sure it's a list
@@ -482,9 +487,10 @@ class EmsoMetadata:
         """
         The same as get relations but throws an error if more than one element are found
         """
+        log = logging.getLogger()
         results = self.get_relations(vocab_id, uri, relation, target_vocab)
         if len(results) == 0:
-            rich.print(f"[red]Could not find relation {relation} for {uri}")
+            log.warning(f"Could not find relation {relation} for {uri}")
             return ""
         elif len(results) != 1:
             raise LookupError(f"Expected 1 value, got {len(results)}")

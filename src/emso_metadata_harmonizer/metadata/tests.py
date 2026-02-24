@@ -12,6 +12,7 @@ created: 1/3/23
 """
 
 import rich
+import logging
 from rich.console import Console
 from rich.table import Table
 from rich.style import Style
@@ -19,11 +20,14 @@ from rich.progress import Progress
 import pandas as pd
 import re
 from . import EmsoMetadata, init_emso_metadata
-from .utils import group_metadata_variables, check_url
+from .utils import group_metadata_variables, check_url, CYN, RST
 import inspect
 import numpy as np
 from dataclasses import dataclass
 from urllib.parse import urlparse
+
+logger = logging.getLogger("emso_metadata_harmonizer")
+
 
 @dataclass
 class Context:
@@ -40,7 +44,7 @@ class EmsoMetadataTester:
         tables with the tests defined, one for the global attributes and another one for tests to be carreid
         """
         # Dict to store all erddap. KEY is the test identifier while value is the method
-        rich.print("[blue]Setting up EMSO Metadata Tests...")
+        logger.info("Setting up EMSO Metadata Tests...")
 
         self.metadata = init_emso_metadata(force_update=True, specifications=specifications)
         self.context = None  # here info about the current attribute being tested will be stored
@@ -53,7 +57,7 @@ class EmsoMetadataTester:
             elif inspect.ismethod(element) and not name.startswith("_"):
                 self.implemented_tests[name] = element
 
-        rich.print(f"Currently there are {len(self.implemented_tests)} tests implemented")
+        logger.debug(f"Currently there are {len(self.implemented_tests)} tests implemented")
 
         # ensure that all required test are implemented...
         all_tests = self.metadata.global_attr["Compliance test"].to_list()
@@ -69,7 +73,7 @@ class EmsoMetadataTester:
         error = False
         for test in all_tests:
             if test not in self.implemented_tests.keys():
-                rich.print(f"[red]ERROR test {test} not implemented!")
+                logging.error(f"[red]ERROR test {test} not implemented!")
                 error = True
         if error:
             pass # TODO implement tests and uncoment exception
@@ -79,7 +83,6 @@ class EmsoMetadataTester:
         # https://cfconventions.org/cf-conventions/cf-conventions.html#discrete-sampling-geometries
         self.valid_cf_dsg_types = ["point", "timeSeries", "trajectory", "profile", "timeSeriesProfile",
                                    "trajectoryProfile"]
-
 
 
     def __process_results(self, df, verbose=False, ignore_ok=False) -> (float, float, float):
@@ -202,7 +205,7 @@ class EmsoMetadataTester:
 
         if attribute in metadata.keys():
             if test_name not in self.implemented_tests.keys():
-                rich.print(f"[red]Test '{test_name}' not implemented!")
+                logging.error(f"Test '{test_name}' not implemented!")
 
             else:
                 implemented = True
@@ -237,8 +240,7 @@ class EmsoMetadataTester:
                     try:
                         p, m = test_method(v, args)  # apply test method
                     except Exception as e:
-                        rich.print(
-                            f"[red]Error when executing test '{test_name}' with arguments '{args}' and value '{v}'")
+                        logging.error(f"Error when executing test '{test_name}' with arguments '{args}' and value '{v}'")
                         raise e
                     if not m:
                         m = "ok"  # instead of empty message just leave ok
@@ -320,7 +322,7 @@ class EmsoMetadataTester:
             multiple = row["Multiple"]
             annotation = row["annotations"]
             if not test_name:
-                rich.print(f"[yellow]WARNING: test for {attribute} not implemented!")
+                logging.warning(f"WARNING: test for {attribute} not implemented!")
                 continue
 
             args = []
@@ -362,7 +364,7 @@ class EmsoMetadataTester:
         else:
             dataset_id = global_attr["title"]
 
-        rich.print(f"#### Validating dataset [cyan]{global_attr['title']}[/cyan] ####")
+        logging.info(f"==== Validating dataset {CYN}{global_attr['title']}{RST} ====")
 
         # Test global attributes
         if "global" in variable_filter or not variable_filter:
@@ -425,7 +427,7 @@ class EmsoMetadataTester:
     # ------------ EDMO -------- #
     def edmo_code(self, value, args):
         if type(value) == str:
-            rich.print("[yellow]WARNING: EDMO code should be integer! converting from string to int")
+            logging.warning("WARNING: EDMO code should be integer! converting from string to int")
             try:
                 value = int(value)
             except ValueError:

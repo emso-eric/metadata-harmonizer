@@ -11,15 +11,18 @@ created: 23/2/23
 """
 import rich
 import time
+import pandas as pd
+import logging
 
 from .metadata.waterframe import operational_tests
 from . import WaterFrame
 from .erddap import ERDDAP
-import pandas as pd
 from .metadata import  EmsoMetadata
 from .metadata.utils import threadify
 from .metadata.dataset import get_netcdf_metadata
 from .metadata.tests import EmsoMetadataTester
+
+logger = logging.getLogger("emso_metadata_harmonizer")
 
 
 def metadata_report(target,
@@ -44,13 +47,13 @@ def metadata_report(target,
     param: excel_table:  prints the results in a excel compatible table
     """
     if clear:
-        rich.print("Clearing downloaded files...", end="")
+        logger.info("Clearing downloaded files...", end="")
         EmsoMetadata.clear_downloads()
-        rich.print("[green]done")
+        logger.info("done")
         exit()
 
     if not target:
-        rich.print("[red]ERDDAP URL, NetCDF file or JSON file required!")
+        logger.error("ERDDAP URL, NetCDF file or JSON file required!")
         exit()
 
     datasets = [
@@ -58,7 +61,7 @@ def metadata_report(target,
     ]
 
     if target.startswith("http"):
-        rich.print(f"Processing ERDDAP URL {target}")
+        logger.info(f"Processing ERDDAP URL {target}")
 
         url, dataset_id = ERDDAP.process_url(target)
         erddap = ERDDAP(url)
@@ -76,11 +79,11 @@ def metadata_report(target,
             dataset["metadata"] = metadata
 
 
-        rich.print(f"Getting metadata from ERDDDAP took {time.time() - t:.02f} seconds")
+        logger.info(f"Getting metadata from ERDDDAP took {time.time() - t:.02f} seconds")
 
     # Processing NetCDF file
     elif target.endswith(".nc"):
-        rich.print(f"Loading metadata from file {target}")
+        logger.info(f"Loading metadata from file {target}")
         datasets.append({
             "file": target, "url": "", "dataset_id": "", "metadata": get_netcdf_metadata(target)
         })
@@ -106,7 +109,7 @@ def metadata_report(target,
         dataset_id.append(r["dataset_id"])
 
         if d["file"]:
-            rich.print("Load NetCDF file")
+            logger.info("Load NetCDF file")
             wf = WaterFrame.from_netcdf(d["file"])
         else:
             wf = WaterFrame.from_erddap(d["url"], d["dataset_id"])
@@ -124,9 +127,9 @@ def metadata_report(target,
         })
 
     if output:
-        rich.print(f"Storing tests results in {output}...", end="")
+        logger.info(f"Storing tests results in {output}...")
         tests.to_csv(output, index=False, sep="\t")
-        rich.print("[green]done")
+
 
 
 

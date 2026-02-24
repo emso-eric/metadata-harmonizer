@@ -12,6 +12,9 @@ created: 6/6/24
 import datetime
 import logging
 import os.path
+
+from emso_metadata_harmonizer.metadata.utils import assert_types
+
 from .utils import assert_type
 import numpy as np
 import pandas as pd
@@ -33,6 +36,8 @@ except ImportError:
 
 
 emso = None  # Global variable used to avoid duplicated EMSO metadata objects in different waterframes
+
+logger = logging.getLogger("emso_metadata_harmonizer")
 
 
 # Make sure that we have all the coordinates
@@ -84,7 +89,6 @@ class WaterFrame(LoggerSuperclass):
         self._time, self._depth, self._latitude, self._longitude, self._sensor_id, self._platform_id = \
             get_coordinates_from_dataframe(df)
 
-        logger = logging.getLogger("emh")
         LoggerSuperclass.__init__(self, logger, "WF", colour=CYN)
         global emso
         if not emso:
@@ -883,7 +887,6 @@ class WaterFrame(LoggerSuperclass):
 
     @staticmethod
     def from_netcdf(filename, decode_times=True, mapper:dict = {}, permissive=False) -> "WaterFrame":
-        logger = logging.getLogger("emh")
         logger.info(f"Creating WaterFrame from NetCDF file '{filename}'")
         time_units = ""
         if decode_times:
@@ -984,7 +987,8 @@ def __merge_timeseries_waterframes(waterframes: list) -> pd.DataFrame:
     return df
 
 
-def __merge_timeseries_profile_waterframes(waterframes: [WaterFrame, ])  -> pd.DataFrame:
+def __merge_timeseries_profile_waterframes(waterframes: list)  -> pd.DataFrame:
+    [assert_type(wf, WaterFrame)for wf in waterframes]
     dataframes = []
     for wf in waterframes:
         assert isinstance(wf, WaterFrame)
@@ -993,15 +997,15 @@ def __merge_timeseries_profile_waterframes(waterframes: [WaterFrame, ])  -> pd.D
         dataframes.append(wf.data)
 
     df = pd.concat(dataframes)
-    # if self._time not in df.columns:
-    #     df = df.reset_index()
     return df
 
 
-def merge_waterframes(waterframes):
+def merge_waterframes(waterframes: list):
     """
     Merges data and metadata from several WaterFrames
     """
+    [assert_type(wf, WaterFrame)for wf in waterframes]
+
     if len(waterframes) == 1:
         return waterframes[0]
 
