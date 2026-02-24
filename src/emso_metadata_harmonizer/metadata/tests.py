@@ -85,7 +85,7 @@ class EmsoMetadataTester:
                                    "trajectoryProfile"]
 
 
-    def __process_results(self, df, verbose=False, ignore_ok=False) -> (float, float, float):
+    def __process_results(self, df, show=True, ignore_ok=False) -> (float, float, float):
         """
         Prints the results in a nice-looking table using rich
         :param df: DataFrame with test results
@@ -127,8 +127,9 @@ class EmsoMetadataTester:
                 continue
             table.add_row(variable, attribute, required, passed, message, value, style=style)
 
-        console = Console()
-        console.print(table)
+        if show:
+            console = Console()
+            console.print(table)
 
         df["required"] = df["required"].astype(bool)
         df["passed"] = df["passed"].astype(bool)
@@ -143,9 +144,10 @@ class EmsoMetadataTester:
 
         total_tests = len(df)
         total_passed = len(df[df["passed"]])
-        rich.print(f"Required tests passed: {req_passed} of {req_tests}")
-        rich.print(f"Required tests passed: {opt_passed} of {opt_tests}")
-        rich.print(f"   [bold]Total tests passed: {total_passed} of {total_tests}")
+        if show:
+            rich.print(f"Required tests passed: {req_passed} of {req_tests}")
+            rich.print(f"Required tests passed: {opt_passed} of {opt_tests}")
+            rich.print(f"   [bold]Total tests passed: {total_passed} of {total_tests}")
 
         def generate_bar_col(n):
             if n > 0.95:
@@ -161,11 +163,12 @@ class EmsoMetadataTester:
         t_color = generate_bar_col(total_passed / total_tests)
         r_color = generate_bar_col(req_passed / req_tests)
         o_color = generate_bar_col(opt_passed / opt_tests)
-
+        rich.print("\n[cyan]============= Metadata Test Summary =============")
         with Progress(auto_refresh=False) as progress:
             req_task = progress.add_task(f"[{t_color}]Required tests...", total=req_tests)
             opt_task = progress.add_task(f"[{r_color}]Optional tests...", total=opt_tests)
             total_task = progress.add_task(f"[{o_color}]Total tests...", total=total_tests)
+
 
             progress.update(req_task, advance=req_passed)
             progress.update(opt_task, advance=opt_passed)
@@ -174,6 +177,7 @@ class EmsoMetadataTester:
         total = 100*round(total_passed / total_tests, 2)
         required = 100*round(req_passed / req_tests, 2)
         optional = 100*round(opt_passed / opt_tests, 2)
+        rich.print("[cyan]=================================================\n")
 
         return total, required, optional
 
@@ -348,7 +352,7 @@ class EmsoMetadataTester:
                     results["value"].append(value)
         return results
 
-    def validate_dataset(self, metadata, verbose=True, variable_filter=[], ignore_ok=False):
+    def validate_dataset(self, metadata, verbose=True, variable_filter=[], ignore_ok=False, csv=""):
         """
         Takes the well-formatted JSON metadata from an ERDDAP dataset and processes it
         :param metadata: well-formatted JSON metadta for an ERDDAP dataset
@@ -364,7 +368,7 @@ class EmsoMetadataTester:
         else:
             dataset_id = global_attr["title"]
 
-        logging.info(f"==== Validating dataset {CYN}{global_attr['title']}{RST} ====")
+        logging.info(f"==== Validating dataset '{CYN}{global_attr['title']}{RST}' ====")
 
         # Test global attributes
         if "global" in variable_filter or not variable_filter:
@@ -394,7 +398,11 @@ class EmsoMetadataTester:
                 results = self.__test_group_handler(attributes, metadata, section, varname, verbose, results)
 
         df = pd.DataFrame(results)
-        total, required, optional = self.__process_results(df, verbose=verbose, ignore_ok=ignore_ok)
+        if csv:
+            df.to_csv(csv, index=False)
+        if csv:
+            logger.info(f"Results saved to {csv}!")
+        total, required, optional = self.__process_results(df, ignore_ok=ignore_ok, show=not csv)
         r = {
             "dataset_id": dataset_id,
             "institution": "unknown",
@@ -427,7 +435,7 @@ class EmsoMetadataTester:
     # ------------ EDMO -------- #
     def edmo_code(self, value, args):
         if type(value) == str:
-            logging.warning("WARNING: EDMO code should be integer! converting from string to int")
+            logging.warning("EDMO code should be integer! converting from string to int")
             try:
                 value = int(value)
             except ValueError:
