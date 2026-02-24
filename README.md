@@ -155,6 +155,6 @@ provides a binary output, whether the dataset is operationally valid or not.
 ### Contact info ###
 
 * **author**: Enoc Martínez  
-* **version**: v1.0.1   
+* **version**: v1.0.2   
 * **organization**: Universitat Politècnica de Catalunya (UPC)    
 * **contact**: enoc.martinez@upc.edu  

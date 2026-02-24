@@ -94,6 +94,16 @@ import emso_metadata_harmonizer as emh
 emh.metadata_report("dataset.nc")
 ```
 
+## Logging ##
+
+To control the verbosity of the logging messages:
+
+```python3
+import logging
+logging.getLogger("emso_metadata_harmonizer").setLevel(logging.WARN)
+```
+Where `WARN` is the level of logging messages. Check the [Python logging documentation](https://docs.python.org/3/library/logging.html) for more information.
+
 ### Contact info ###
 
 * **author**: Enoc Martínez  
