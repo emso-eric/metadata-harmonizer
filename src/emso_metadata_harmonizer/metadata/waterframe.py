@@ -598,10 +598,8 @@ class WaterFrame(LoggerSuperclass):
             str_list[0] = str_list[0].lower()  # avoid immutable strings error by converting to list and back to string
             self.cf_data_type = "".join(str_list)
 
-            self.info(f"CF data type already configured: {self.cf_data_type }")
-
         self.sort()
-        self.info(f"CF Data Type: {self.cf_data_type}")
+        self.debug(f"CF Data Type: {self.cf_data_type}")
 
         # Add metadata to Align with ERDDAP CDM data types
         if self.cf_data_type == "timeSeries":
@@ -1104,9 +1102,7 @@ def operational_tests(wf: WaterFrame) -> bool:
     __valid_coordinates = ["time", "depth", "latitude", "longitude", "sensor_id", "platform_id", "precise_latitude", "precise_longitude"]
     __valid_variable_types = ["environmental", "biological", "technical", "coordinate", "quality_control", "sensor", "platform"]
 
-    rich.print("\n")
-    rich.print("[cyan]===== Running Operational tests ====")
-
+    rich.print("[cyan]=========== Running Operational tests ===========")
     for varname, meta in wf.vocabulary.items():
         if "variable_type" not in meta.keys():
             errors.append(f"variable '{varname}' does not have the mandatory variable_type attribute")
@@ -1150,7 +1146,8 @@ def operational_tests(wf: WaterFrame) -> bool:
     rich.print(f"INFO: {len(warnings)}")
     for i in infos:
         rich.print(f"[cyan]{i}")
-    print("")
+
+    rich.print("[cyan]=================================================\n")
 
     if len(errors) == 0:
         rich.print(f"✅ the NetCDF file is operationally sound!")

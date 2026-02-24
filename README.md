@@ -145,16 +145,16 @@ provides a binary output, whether the dataset is operationally valid or not.
 
 #### Additional Options:
 * `-v` or `--verbose`: verbose output
-* `-o` or `--output`: store the results as a csv file
+* `-o` or `--output`: store the summary of the results as a csv file (useful for MULTIPLE datasets assessment)
+* `-c` or `--csv`: store the results as a csv file (useful for SINGLE datasets assessment)
 * `-i` or `--ignore-ok`: do not show successful metadata tests, used to reduce the reports's verbosity
 * `-V` or `--variables`: list of variables to test, other variables will be ignored.
-* `-c` or `--clear`: clear cached resources, mainly SDN/BODC vocabularies
 * `--specs`: Used a local file to read the EMSO Metadata Specifications instead of the public file in github
 
 
 ### Contact info ###
 
 * **author**: Enoc Martínez  
-* **version**: v1.0.1   
+* **version**: v1.0.2   
 * **organization**: Universitat Politècnica de Catalunya (UPC)    
 * **contact**: enoc.martinez@upc.edu  
