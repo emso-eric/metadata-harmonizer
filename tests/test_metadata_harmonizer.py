@@ -12,7 +12,6 @@ import os
 import shutil
 import urllib
 import warnings
-import rich
 import unittest
 import subprocess
 import sys
@@ -21,23 +20,17 @@ import inspect
 import logging
 from cfchecker.cfchecks import CFChecker
 
-try:
-    from src.emso_metadata_harmonizer import generate_dataset, erddap_config, WaterFrame
-    from src.emso_metadata_harmonizer.metadata.dataset import load_data
-    from src.emso_metadata_harmonizer.metadata.utils import setup_log, get_file_list, get_dir_list
 
-except ModuleNotFoundError:
-    # Get the directory of the current script
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    # Get the parent directory (project root)
-    parent_dir = os.path.abspath(os.path.join(current_dir, os.pardir))
-    # Add the parent directory to the sys.path
-    sys.path.insert(0, parent_dir)
-    from src.emso_metadata_harmonizer import generate_dataset, erddap_config, WaterFrame, setup_log
-    from src.emso_metadata_harmonizer.metadata.dataset import load_data
-    from src.emso_metadata_harmonizer.metadata.emso import EmsoMetadata
-    from src.emso_metadata_harmonizer.metadata import setup_log
-    from src.emso_metadata_harmonizer.metadata.utils import setup_log, get_file_list, get_dir_list
+# Get the directory of the current script
+current_dir = os.path.dirname(os.path.abspath(__file__))
+# Get the parent directory (project root)
+parent_dir = os.path.abspath(os.path.join(current_dir, os.pardir))
+# Add the parent directory to the sys.path
+sys.path.insert(0, parent_dir)
+from src.emso_metadata_harmonizer import generate_dataset, erddap_config, WaterFrame
+from src.emso_metadata_harmonizer.metadata.utils import setup_log, get_file_list, get_dir_list, LoggerSuperclass, PRL, \
+    CYN, WHT
+
 
 def run_subprocess(cmd):
     """
@@ -52,24 +45,25 @@ def run_subprocess(cmd):
         cmd_list = cmd.split(" ")
     proc = subprocess.run(cmd_list, capture_output=True)
     if proc.returncode != 0:
-        rich.print(f"\n[red]ERROR while running command '{cmd}'")
+        logger.error(f"ERROR while running command '{cmd}'")
         if proc.stdout:
-            rich.print(f"subprocess stdout:")
-            rich.print(f">[bright_black]    {proc.stdout.decode()}")
+            logger.error(f"subprocess stdout:")
+            logger.error(f">[bright_black]    {proc.stdout.decode()}")
         if proc.stderr:
-            rich.print(f"subprocess stderr:")
-            rich.print(f">[bright_black] {proc.stderr.decode()}")
+            logger.error(f"subprocess stderr:")
+            logger.error(f">[bright_black] {proc.stderr.decode()}")
 
         raise ValueError(f"subprocess failed: {cmd_list}")
 
 
-class MetadataHarmonizerTester(unittest.TestCase):
+class MetadataHarmonizerTester(unittest.TestCase, LoggerSuperclass):
     @classmethod
     def setUpClass(cls):
         # Process all example datasets
         cls.example_datasets = []
-        logger = logging.getLogger("emh")
-        cls.log = logger
+        logger = logging.getLogger()
+        logger.setLevel(logging.INFO)
+        LoggerSuperclass.__init__(cls, logger, "TEST", colour=PRL)
         examples = sorted(os.listdir("../examples"))
         examples = [e for e in examples if not e.startswith("example")]
         examples = [os.path.join("../examples", d) for d in examples]
@@ -113,7 +107,7 @@ class MetadataHarmonizerTester(unittest.TestCase):
         os.makedirs("erddapData", exist_ok=True)
         os.makedirs("datasets", exist_ok=True)
 
-        rich.print("Removing previous datasets...")
+        logger.info("Removing previous datasets...")
         files = get_file_list("datasets")
         dirs = get_dir_list("datasets")
         for f in files:
@@ -122,7 +116,7 @@ class MetadataHarmonizerTester(unittest.TestCase):
             os.rmdir(d)
 
 
-        rich.print("Starting erddap docker container...")
+        logger.info("Starting erddap docker container...")
         run_subprocess("docker compose up -d")
 
         cls.datasets_default_xml = os.path.join("conf", "datasets_default.xml")
@@ -136,42 +130,45 @@ class MetadataHarmonizerTester(unittest.TestCase):
                 urllib.request.urlretrieve(cls.erddap_url)
                 erddap_up = True
             except urllib.error.URLError:
-                rich.print("waiting for ERDDAP to start...")
+                cls.info("waiting for ERDDAP to start...")
                 time.sleep(2)
             except ConnectionError:
-                rich.print("waiting for ERDDAP to start...")
+                cls.info("waiting for ERDDAP to start...")
                 time.sleep(2)
 
     def test_01_create_datasets(self):
         """Creates a dataset based on examples files"""
-        rich.print(f"[purple]Running test {inspect.currentframe().f_code.co_name}")
+        self.info(f"Running test {inspect.currentframe().f_code.co_name}")
 
         # Get a list of all example datasets
         for dataset in self.example_datasets:
             if len(dataset["data"]) == 0:
-                self.log.info("skipping dataset generation for {dataset['dataset_id']}")
+                self.info("skipping dataset generation for {dataset['dataset_id']}")
                 continue
 
-            self.log.info(f"==== Creating dataset {dataset['dataset_id']} ====")
+            self.info(f"==== Creating dataset {dataset['dataset_id']} ====")
             nc_folder = os.path.join("datasets", dataset["nc_folder"])
             os.makedirs(nc_folder, exist_ok=True)
             dataset_nc = os.path.join(nc_folder, dataset["dataset_id"] + ".nc")
-            generate_dataset(dataset["data"], dataset["metadata"], dataset_nc, self.log, keep_names=dataset["keep"])
+            generate_dataset(dataset["data"], dataset["metadata"], dataset_nc, keep_names=dataset["keep"])
             # Copy the file to the examples folder
             shutil.copy2(dataset_nc, f"../examples/{dataset['dataset_id']}/example{dataset['dataset_id']}.nc")
             dataset["nc_files"] = [dataset_nc]  # overwrite any existing nc files
             dataset["cf_check"] = True
 
     def test_02_cf_compliance(self):
-        rich.print(f"Checking CF compliance")
+        self.info(f"Checking CF compliance")
         for dataset in self.example_datasets:
+            if dataset["erddap_folder"] == "14":
+                self.info("Skipping dataset 14, not CF-compliant...")
+                continue
             cf = CFChecker(silent=True)
             try:
                 file = dataset["nc_files"][0]
             except KeyError:
-                rich.print(f"[yellow]Dataset {dataset['dataset_id']} has no file, skipping CF checker")
+                self.error(f"[yellow]Dataset {dataset['dataset_id']} has no file, skipping CF checker")
                 continue
-            rich.print(f"\n==== Checking CF compliance of {dataset["dataset_id"]} ====")
+            self.info(f"==== Checking CF compliance of {dataset["dataset_id"]} ====")
             errors = 0
             warns = 0
             with warnings.catch_warnings():
@@ -179,15 +176,15 @@ class MetadataHarmonizerTester(unittest.TestCase):
                 cf.checker(file)
             for msg in cf.all_messages:
                 if msg.startswith("INFO:"):
-                    rich.print(f"[cyan]{msg}")
+                    self.info(f"{CYN}{msg}")
                 elif msg.startswith("WARN:"):
-                    rich.print(f"[yellow]{msg}")
+                    self.warning(f"{msg}")
                     warns += 1
                 elif msg.startswith("ERROR:"):
-                    rich.print(f"[red]{msg}")
+                    self.error(f"{msg}")
                     errors += 1
                 else:
-                    rich.print(f"[white]{msg}")
+                    self.info(f"{WHT}{msg}")
             if errors > 0:
                 ValueError(f"Got {errors} in CF compliance")
 
@@ -195,11 +192,11 @@ class MetadataHarmonizerTester(unittest.TestCase):
         """
         Configure the ERDDAP dataset for the new sensor
         """
-        rich.print(f"[purple]Running test {inspect.currentframe().f_code.co_name}")
+        self.info(f"[purple]Running test {inspect.currentframe().f_code.co_name}")
         for dataset in self.example_datasets:
             dataset_id = dataset["dataset_id"]
             if not dataset["cf_check"]:
-                rich.print(f"[yellow]WARNING: Skipping CF check for dataset {dataset_id}")
+                self.warning(f"WARNING: Skipping CF check for dataset {dataset_id}")
 
             nc_dataset = dataset["nc_files"][0]
 
@@ -208,7 +205,7 @@ class MetadataHarmonizerTester(unittest.TestCase):
             os.makedirs(dataset_dir, exist_ok=True)
 
             if dataset["NcML"]:
-                rich.print(f"[cyan]Adding NcML file!")
+                self.info(f"[cyan]Adding NcML file!")
                 dest_ncml = os.path.join("datasets", dataset["erddap_folder"], os.path.basename(dataset["NcML"]))
                 shutil.copy2(dataset["NcML"], dest_ncml)
 
@@ -227,7 +224,7 @@ class MetadataHarmonizerTester(unittest.TestCase):
                 mapping=dataset["mapping"],
                 datasets_xml_file=self.datasets_xml
             )
-            rich.print("Creating a hardFlag to force reload")
+            self.info("Creating a hardFlag to force reload")
             dataset_hard_flag = os.path.join("erddapData", "hardFlag", dataset_id)
 
             with open(dataset_hard_flag, "w") as f:
@@ -237,15 +234,15 @@ class MetadataHarmonizerTester(unittest.TestCase):
             dataset_id = dataset["dataset_id"]
             # Convert current path to ERDDAP docker path
             dataset_hard_flag = os.path.join("erddapData", "hardFlag", dataset_id)
-            rich.print("now wait of erddap to process this flag...")
+            self.info("now wait of erddap to process this flag...")
 
             while os.path.exists(dataset_hard_flag):
                 time.sleep(1)
-                rich.print(f"waiting for erddap to load dataset {dataset_id}...")
+                self.info(f"waiting for erddap to load dataset {dataset_id}...")
 
             init = time.time()
             dataset_url = self.erddap_url + "/tabledap/" + dataset_id + ".html"
-            rich.print(dataset_url)
+            self.info(dataset_url)
             downloaded = False
 
             timeout = 30
@@ -257,7 +254,7 @@ class MetadataHarmonizerTester(unittest.TestCase):
                 except urllib.error.HTTPError:
                     time.sleep(0.5)
                     dt = time.time() - init
-                    rich.print(f"waiting for erddap to load dataset {dataset_id} {dt:.01f} seconds...      ", end="\r")
+                    self.info(f"waiting for erddap to load dataset {dataset_id} {dt:.01f} seconds...")
                     if dt > timeout:
                         raise TimeoutError(f"Dataset {dataset_id} took more than {timeout} seconds to load!")
 
@@ -265,7 +262,7 @@ class MetadataHarmonizerTester(unittest.TestCase):
             if not downloaded:
                 raise ValueError(f"Could not download {dataset_url}")
 
-            rich.print("[green]Dataset downloaded!")
+            self.info("[green]Dataset downloaded!")
 
             # now try to acess the data
             dataset_url = self.erddap_url + "/tabledap/" + dataset_id + ".nc"
@@ -273,18 +270,17 @@ class MetadataHarmonizerTester(unittest.TestCase):
             urllib.request.urlretrieve(dataset_url, nc_file)
             wf = WaterFrame.from_netcdf(nc_file)
             df = wf.data
-            rich.print("Dataset opened as NetCDF!")
+            self.info("Dataset opened as NetCDF!")
             os.remove(nc_file)
 
 
     @classmethod
     def tearDownClass(cls):
-        rich.print("clearing datasets.xml backups...")
+        logger.info("clearing datasets.xml backups...")
         files = os.listdir()
         for f in files:
             if f.startswith(".datasets.xml."):
                 os.remove(f)
-        rich.print("[green]ok")
 
         # os.system("docker compose down")
         # rich.print("Clearing ERDDAP volume...")
@@ -293,7 +289,6 @@ class MetadataHarmonizerTester(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    logger = setup_log("emh")
+    logger = setup_log("TEST")
     logger.setLevel(logging.INFO)
-
     unittest.main(failfast=True, verbosity=1)

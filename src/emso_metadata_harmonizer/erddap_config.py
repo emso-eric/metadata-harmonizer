@@ -9,11 +9,14 @@ license: MIT
 created: 28/4/23
 """
 
-from .metadata.waterframe import WaterFrame
 import yaml
-from .erddap.datasets_xml import generate_erddap_dataset, add_dataset
+import logging
 import rich
 
+from .erddap.datasets_xml import generate_erddap_dataset, add_dataset
+from .metadata.waterframe import WaterFrame
+
+logger = logging.getLogger("emso_metadata_harmonizer")
 
 def erddap_config(file: str, dataset_id: str, source_path: str, output: str = "", datasets_xml_file: str = "",
                   mapping: dict={}, filename_regex=".*"):

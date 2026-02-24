@@ -27,11 +27,12 @@ if __name__ == "__main__":
     argparser.add_argument("-m", "--mapping", type=str, help="Create a metadata-only NetCDF file to overwrite NetCDF's parameters", default="")
     argparser.add_argument("-r", "--regex", type=str,
                            help="Regex expression to be passed to ERDDAP's fileNameRegexCreate (default .*)", default=".*")
+    argparser.add_argument("-l", "--log-level", type=str, help="Setting log level (debug, info, warn, error or critical)", required=False, default="")
 
     args = argparser.parse_args()
-    log = setup_log("emh", "log")
-    if args.verbose:
-        log.setLevel(logging.DEBUG)
+    log = setup_log("emh", "log", log_level="info")
+    if args.log_level:
+        log.setLevel(args.log_level.upper())
 
     nc_file = args.file
 

@@ -12,6 +12,7 @@ created: 1/3/23
 """
 
 import rich
+import logging
 from rich.console import Console
 from rich.table import Table
 from rich.style import Style
@@ -19,11 +20,14 @@ from rich.progress import Progress
 import pandas as pd
 import re
 from . import EmsoMetadata, init_emso_metadata
-from .utils import group_metadata_variables, check_url
+from .utils import group_metadata_variables, check_url, CYN, RST
 import inspect
 import numpy as np
 from dataclasses import dataclass
 from urllib.parse import urlparse
+
+logger = logging.getLogger("emso_metadata_harmonizer")
+
 
 @dataclass
 class Context:
@@ -40,7 +44,7 @@ class EmsoMetadataTester:
         tables with the tests defined, one for the global attributes and another one for tests to be carreid
         """
         # Dict to store all erddap. KEY is the test identifier while value is the method
-        rich.print("[blue]Setting up EMSO Metadata Tests...")
+        logger.info("Setting up EMSO Metadata Tests...")
 
         self.metadata = init_emso_metadata(force_update=True, specifications=specifications)
         self.context = None  # here info about the current attribute being tested will be stored
@@ -53,7 +57,7 @@ class EmsoMetadataTester:
             elif inspect.ismethod(element) and not name.startswith("_"):
                 self.implemented_tests[name] = element
 
-        rich.print(f"Currently there are {len(self.implemented_tests)} tests implemented")
+        logger.debug(f"Currently there are {len(self.implemented_tests)} tests implemented")
 
         # ensure that all required test are implemented...
         all_tests = self.metadata.global_attr["Compliance test"].to_list()
@@ -69,7 +73,7 @@ class EmsoMetadataTester:
         error = False
         for test in all_tests:
             if test not in self.implemented_tests.keys():
-                rich.print(f"[red]ERROR test {test} not implemented!")
+                logging.error(f"[red]ERROR test {test} not implemented!")
                 error = True
         if error:
             pass # TODO implement tests and uncoment exception
@@ -81,8 +85,7 @@ class EmsoMetadataTester:
                                    "trajectoryProfile"]
 
 
-
-    def __process_results(self, df, verbose=False, ignore_ok=False) -> (float, float, float):
+    def __process_results(self, df, show=True, ignore_ok=False) -> (float, float, float):
         """
         Prints the results in a nice-looking table using rich
         :param df: DataFrame with test results
@@ -124,8 +127,9 @@ class EmsoMetadataTester:
                 continue
             table.add_row(variable, attribute, required, passed, message, value, style=style)
 
-        console = Console()
-        console.print(table)
+        if show:
+            console = Console()
+            console.print(table)
 
         df["required"] = df["required"].astype(bool)
         df["passed"] = df["passed"].astype(bool)
@@ -140,9 +144,10 @@ class EmsoMetadataTester:
 
         total_tests = len(df)
         total_passed = len(df[df["passed"]])
-        rich.print(f"Required tests passed: {req_passed} of {req_tests}")
-        rich.print(f"Required tests passed: {opt_passed} of {opt_tests}")
-        rich.print(f"   [bold]Total tests passed: {total_passed} of {total_tests}")
+        if show:
+            rich.print(f"Required tests passed: {req_passed} of {req_tests}")
+            rich.print(f"Required tests passed: {opt_passed} of {opt_tests}")
+            rich.print(f"   [bold]Total tests passed: {total_passed} of {total_tests}")
 
         def generate_bar_col(n):
             if n > 0.95:
@@ -158,11 +163,12 @@ class EmsoMetadataTester:
         t_color = generate_bar_col(total_passed / total_tests)
         r_color = generate_bar_col(req_passed / req_tests)
         o_color = generate_bar_col(opt_passed / opt_tests)
-
+        rich.print("\n[cyan]============= Metadata Test Summary =============")
         with Progress(auto_refresh=False) as progress:
             req_task = progress.add_task(f"[{t_color}]Required tests...", total=req_tests)
             opt_task = progress.add_task(f"[{r_color}]Optional tests...", total=opt_tests)
             total_task = progress.add_task(f"[{o_color}]Total tests...", total=total_tests)
+
 
             progress.update(req_task, advance=req_passed)
             progress.update(opt_task, advance=opt_passed)
@@ -171,6 +177,7 @@ class EmsoMetadataTester:
         total = 100*round(total_passed / total_tests, 2)
         required = 100*round(req_passed / req_tests, 2)
         optional = 100*round(opt_passed / opt_tests, 2)
+        rich.print("[cyan]=================================================\n")
 
         return total, required, optional
 
@@ -202,7 +209,7 @@ class EmsoMetadataTester:
 
         if attribute in metadata.keys():
             if test_name not in self.implemented_tests.keys():
-                rich.print(f"[red]Test '{test_name}' not implemented!")
+                logging.error(f"Test '{test_name}' not implemented!")
 
             else:
                 implemented = True
@@ -237,8 +244,7 @@ class EmsoMetadataTester:
                     try:
                         p, m = test_method(v, args)  # apply test method
                     except Exception as e:
-                        rich.print(
-                            f"[red]Error when executing test '{test_name}' with arguments '{args}' and value '{v}'")
+                        logging.error(f"Error when executing test '{test_name}' with arguments '{args}' and value '{v}'")
                         raise e
                     if not m:
                         m = "ok"  # instead of empty message just leave ok
@@ -320,7 +326,7 @@ class EmsoMetadataTester:
             multiple = row["Multiple"]
             annotation = row["annotations"]
             if not test_name:
-                rich.print(f"[yellow]WARNING: test for {attribute} not implemented!")
+                logging.warning(f"WARNING: test for {attribute} not implemented!")
                 continue
 
             args = []
@@ -346,7 +352,7 @@ class EmsoMetadataTester:
                     results["value"].append(value)
         return results
 
-    def validate_dataset(self, metadata, verbose=True, variable_filter=[], ignore_ok=False):
+    def validate_dataset(self, metadata, verbose=True, variable_filter=[], ignore_ok=False, csv=""):
         """
         Takes the well-formatted JSON metadata from an ERDDAP dataset and processes it
         :param metadata: well-formatted JSON metadta for an ERDDAP dataset
@@ -362,7 +368,7 @@ class EmsoMetadataTester:
         else:
             dataset_id = global_attr["title"]
 
-        rich.print(f"#### Validating dataset [cyan]{global_attr['title']}[/cyan] ####")
+        logging.info(f"==== Validating dataset '{CYN}{global_attr['title']}{RST}' ====")
 
         # Test global attributes
         if "global" in variable_filter or not variable_filter:
@@ -392,7 +398,11 @@ class EmsoMetadataTester:
                 results = self.__test_group_handler(attributes, metadata, section, varname, verbose, results)
 
         df = pd.DataFrame(results)
-        total, required, optional = self.__process_results(df, verbose=verbose, ignore_ok=ignore_ok)
+        if csv:
+            df.to_csv(csv, index=False)
+        if csv:
+            logger.info(f"Results saved to {csv}!")
+        total, required, optional = self.__process_results(df, ignore_ok=ignore_ok, show=not csv)
         r = {
             "dataset_id": dataset_id,
             "institution": "unknown",
@@ -425,7 +435,7 @@ class EmsoMetadataTester:
     # ------------ EDMO -------- #
     def edmo_code(self, value, args):
         if type(value) == str:
-            rich.print("[yellow]WARNING: EDMO code should be integer! converting from string to int")
+            logging.warning("EDMO code should be integer! converting from string to int")
             try:
                 value = int(value)
             except ValueError:

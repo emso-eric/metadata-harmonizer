@@ -12,15 +12,14 @@ import os
 import shutil
 import lxml.etree as etree
 import pandas as pd
-import yaml
+from datetime import datetime
+import rich
+import logging
 from ..metadata.metadata_templates import coordinate_default_name
 from ..metadata.waterframe import WaterFrame
 from ..metadata.xmlutils import get_element
-from datetime import datetime
-import rich
 
-
-
+logger = logging.getLogger("emso_metadata_harmonizer")
 
 
 def get_erddap_data_type(series: pd.Series):
@@ -88,7 +87,7 @@ def generate_erddap_dataset(wf: WaterFrame, directory, dataset_id, file_access=T
     #---- Step 2. Create new entries in vocabulary for the missing metadata
     for varname, mapping in var_mapping.items():
         if varname not in wf.vocabulary.keys():
-            rich.print(f"[grey42]Variable {varname} not defined in WaterFrame, using mapping config")
+            logger.info(f"Variable {varname} not defined in WaterFrame, using mapping config")
             attributes = {}
             if "attributes" in mapping.keys():
                 attributes = mapping["attributes"]
@@ -265,7 +264,7 @@ def generate_erddap_dataset(wf: WaterFrame, directory, dataset_id, file_access=T
     <updateEveryNMillis>10000</updateEveryNMillis>
     <fileDir>{directory}</fileDir>
     <fileNameRegex>{filename_regex}</fileNameRegex>
-    <recursive>false</recursive>    
+    <recursive>true</recursive>    
     <pathRegex>.*</pathRegex>
     <metadataFrom>last</metadataFrom>
     <metadataFrom>last</metadataFrom>

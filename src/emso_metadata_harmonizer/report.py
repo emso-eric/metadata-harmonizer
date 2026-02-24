@@ -11,46 +11,41 @@ created: 23/2/23
 """
 import rich
 import time
+import pandas as pd
+import logging
 
 from .metadata.waterframe import operational_tests
 from . import WaterFrame
 from .erddap import ERDDAP
-import pandas as pd
 from .metadata import  EmsoMetadata
 from .metadata.utils import threadify
 from .metadata.dataset import get_netcdf_metadata
 from .metadata.tests import EmsoMetadataTester
 
+logger = logging.getLogger("emso_metadata_harmonizer")
+
 
 def metadata_report(target,
                     verbose: bool = False,
                     output: str = "",
-                    clear: bool = False,
                     specifications="",
                     variables=[],
-                    ignore_ok=False
+                    ignore_ok=False,
+                    csv=""
                     ):
     """
 
     :param target: ERDDAP service URL, NetCDF file or JSON metadata file
-    :param datasets: List of datasets to check (by default check all of them)
-    :param just_list: Just list the available datasets and exit
-    :param just_print: Just pretty-print the dataset metadata
-    :param verbose: Shows more info
-    :param save_metadata: Save dataset's metadata into the specified folder
-    :param output: file to store the report of all the datasets
-    :param report: Generate a CSV file for every test
-    :param clear: Clears the downloaded files
-    param: excel_table:  prints the results in a excel compatible table
+    :param output: If passed a summary of ALL datasets will be stored)
+    :param specifications: use a different EMSO_Metadata_Specifications.md file (only for development)
+    :param variables: process only a subset of variables
+    :param ignore_ok: do not print correct lines, reduces the output
+    param: csv:  store the results in a CSV file (only useful when analyzing single datasets)
     """
-    if clear:
-        rich.print("Clearing downloaded files...", end="")
-        EmsoMetadata.clear_downloads()
-        rich.print("[green]done")
-        exit()
+
 
     if not target:
-        rich.print("[red]ERDDAP URL, NetCDF file or JSON file required!")
+        logger.error("ERDDAP URL, NetCDF file or JSON file required!")
         exit()
 
     datasets = [
@@ -58,7 +53,7 @@ def metadata_report(target,
     ]
 
     if target.startswith("http"):
-        rich.print(f"Processing ERDDAP URL {target}")
+        logger.info(f"Processing ERDDAP URL {target}")
 
         url, dataset_id = ERDDAP.process_url(target)
         erddap = ERDDAP(url)
@@ -76,11 +71,11 @@ def metadata_report(target,
             dataset["metadata"] = metadata
 
 
-        rich.print(f"Getting metadata from ERDDDAP took {time.time() - t:.02f} seconds")
+        logger.info(f"Getting metadata from ERDDDAP took {time.time() - t:.02f} seconds")
 
     # Processing NetCDF file
     elif target.endswith(".nc"):
-        rich.print(f"Loading metadata from file {target}")
+        logger.info(f"Loading metadata from file {target}")
         datasets.append({
             "file": target, "url": "", "dataset_id": "", "metadata": get_netcdf_metadata(target)
         })
@@ -95,9 +90,14 @@ def metadata_report(target,
     institution = []
     emso_facility = []
     dataset_id = []
+    if len(datasets) > 1 and csv:
+        logger.warning("CSV reports will be overwritten if multiple datasets are specified!")
+    elif csv:
+        logger.info(f"Storing tests results in {csv}...")
+
     for d in datasets:
         metadata = d["metadata"]
-        r = tests.validate_dataset(metadata, verbose=verbose, variable_filter=variables, ignore_ok=ignore_ok)
+        r = tests.validate_dataset(metadata, verbose=verbose, variable_filter=variables, ignore_ok=ignore_ok, csv=csv)
         total.append(r["total"])
         required.append(r["required"])
         optional.append(r["optional"])
@@ -106,12 +106,10 @@ def metadata_report(target,
         dataset_id.append(r["dataset_id"])
 
         if d["file"]:
-            rich.print("Load NetCDF file")
             wf = WaterFrame.from_netcdf(d["file"])
         else:
             wf = WaterFrame.from_erddap(d["url"], d["dataset_id"])
         operational_tests(wf)
-
 
     tests = pd.DataFrame(
         {
@@ -124,9 +122,9 @@ def metadata_report(target,
         })
 
     if output:
-        rich.print(f"Storing tests results in {output}...", end="")
+        logger.info(f"Storing tests results in {output}...")
         tests.to_csv(output, index=False, sep="\t")
-        rich.print("[green]done")
+
 
 
 
