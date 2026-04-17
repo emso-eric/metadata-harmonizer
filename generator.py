@@ -27,7 +27,11 @@ if __name__ == "__main__":
     argparser.add_argument("-l", "--log-level", type=str, help="Setting log level (debug, info, warn, error or critical)", required=False, default="")
 
     args = argparser.parse_args()
-    log = setup_log("emh", "log", log_level="info")
+
+    lvl = "info"
     if args.log_level:
-        log.setLevel(args.log_level.upper())
+        lvl = args.log_level.lower()
+    if args.verbose:
+        lvl = "debug"
+    log = setup_log("emh", "log", log_level=lvl)
     generate_dataset(args.data, args.metadata,  args.output, keep_names=args.keep_names)
