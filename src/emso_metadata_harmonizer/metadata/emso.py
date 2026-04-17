@@ -27,9 +27,6 @@ metadata_specifications_resources = f"https://raw.githubusercontent.com/emso-eri
 
 spdx_licenses_github = "https://raw.githubusercontent.com/spdx/license-list-data/main/licenses.md"
 
-# Copernicus INS TAC Parameter list v3.2
-copernicus_param_list = "https://archimer.ifremer.fr/doc/00422/53381/108480.xlsx"
-
 cf_standard_name_units_url = "https://cfconventions.org/Data/cf-standard-names/90/src/cf-standard-name-table.xml"
 
 dwc_terms_url = "https://raw.githubusercontent.com/tdwg/dwc/refs/heads/master/vocabulary/term_versions.csv"
@@ -288,7 +285,9 @@ class EmsoMetadata:
 
         # ==== Load Copernicus Variables ==== #
         log.debug(f"    loading Copernicus Parameters")
-        self.copernicus_variables = load_json(self.local_resources["Copernicus Parameters"]["json"])
+        tables = process_markdown_file(self.local_resources["Copernicus Parameters"]["md"])
+
+        self.copernicus_parameters = tables["Copernicus variables"]["variable name"].to_list()
         log.debug(f"    loading EDMO codes")
         self.edmo_codes = pd.read_csv(self.local_resources["EDMO"]["csv"])
 

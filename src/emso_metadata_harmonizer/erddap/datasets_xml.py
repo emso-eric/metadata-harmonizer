@@ -178,6 +178,7 @@ def generate_erddap_dataset(wf: WaterFrame, directory, dataset_id, file_access=T
     get_variable_config("precise_longitude", coordinates)
     get_variable_config("deployment_latitude", coordinates)
     get_variable_config("deployment_longitude", coordinates)
+    get_variable_config("time_end", coordinates)
 
     # Get variables
     for varname in list(all_variables.keys()):

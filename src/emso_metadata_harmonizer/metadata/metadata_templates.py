@@ -34,6 +34,17 @@ __dimension_metadata = {
         "units": "seconds since 1970-01-01 00:00:00",
         "variable_type": "coordinate"
     },
+    "time_end": {
+        "long_name": "time end of measurements",
+        # UNIX time: seconds since 1970
+        "sdn_parameter_uri": "",
+        "sdn_parameter_urn": "",
+        "sdn_parameter_name": "",
+        "standard_name": "",
+        "sdn_uom_uri": "http://vocab.nerc.ac.uk/collection/P06/current/UTBB/",
+        "units": "seconds since 1970-01-01 00:00:00",
+        "variable_type": "coordinate"
+    },
     "depth": {
         "long_name": "depth of measurements",
         "sdn_parameter_uri": "https://vocab.nerc.ac.uk/collection/P01/current/ADEPZZ01",
@@ -84,6 +95,7 @@ __dimension_metadata = {
 
 __dimension_metadata_dtypes = {
     "time": "datetime64[ns]",
+    "time_end": "datetime64[ns]",
     "depth": float,
     "latitude": float,
     "longitude": float,
@@ -102,11 +114,12 @@ sensor_id_valid_names = ["sensor_id", "SENSOR_ID"]
 platform_id_valid_names = ["platform_id", "PLATFORM_ID", "station_id", "STATION_ID"]
 precise_latitude_valid_names = ["precise_latitude", "precise_lat", "PRECISE_LATITUDE"]
 precise_longitude_valid_names = ["precise_longitude", "precise_lon", "PRECISE_LONGITUDE"]
+time_end_valid_names = ["time_end"]
 
 # List of lists of all possible coordinates
 coordinates_array = [time_valid_names, depth_valid_names, latitude_valid_names, longitude_valid_names,
                      sensor_id_valid_names, platform_id_valid_names, precise_latitude_valid_names,
-                     precise_longitude_valid_names]
+                     precise_longitude_valid_names, time_end_valid_names]
 
 def dimension_metadata(dim):
     for dimension_names in coordinates_array:

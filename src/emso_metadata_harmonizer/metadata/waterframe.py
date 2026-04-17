@@ -121,7 +121,7 @@ class WaterFrame(LoggerSuperclass):
         metadata_entries = list(metadata["variables"].keys()) + list(metadata["sensors"].keys()) + list(metadata["platforms"].keys())
 
         # Possible dimensions
-        coordinates = [self._time, self._depth, self._latitude, self._longitude, self._sensor_id, self._platform_id, "precise_latitude", "precise_longitude"]
+        coordinates = [self._time, self._depth, self._latitude, self._longitude, self._sensor_id, self._platform_id, "precise_latitude", "precise_longitude", "time_end"]
 
         for var in df.columns:
             # ensure that every column is a listed in metadata or is variable
@@ -725,7 +725,6 @@ class WaterFrame(LoggerSuperclass):
         _sensor_id = self._sensor_id
         _platform_id = self._platform_id
 
-        coordinates = [self._time, self._depth, self._latitude, self._longitude, self._sensor_id, self._platform_id]
         self.info(f"Creating NetCDF {filename}")
         self.autofill_metadata()
 
@@ -814,20 +813,25 @@ class WaterFrame(LoggerSuperclass):
 
         # Floats
         if str(series.name).endswith("_QC"):
+            self.debug(f"  varname {varname} -> uint8 (qc)")
             series = series.copy()  # copy to avoid SettingWithCopy warning
             series[series.isna()] = 9
             series = series.astype("u1")
             return "u1", 255, True, series.to_numpy().astype("u1"), ("obs",)
         elif pd.api.types.is_float_dtype(dtype):
+            self.debug(f"  varname {varname} -> float")
             return "double", -9999.99, True, series.to_numpy(), ("obs",)
         # QC data
         elif pd.api.types.is_unsigned_integer_dtype(dtype):
+            self.debug(f"  varname {varname} -> uint4")
             return "u4", 4294967295, True, series.to_numpy(), ("obs",)
 
         elif pd.api.types.is_integer_dtype(dtype):
+            self.debug(f"  varname {varname} -> int4")
             return "i4", -2147483648, True, series.to_numpy(), ("obs",)
 
         elif pd.api.types.is_string_dtype(dtype):
+            self.debug(f"  varname {varname} -> string")
             # Strings are special in Climate and Forecast, they need to be a matrix of chars with a strlen dimension
             # ["car", "dog"] -> [['c', 'a', 'r'], ['d', 'o', 'g']],
             values, strlen = self.__nc_compatible_string(series)
@@ -838,6 +842,7 @@ class WaterFrame(LoggerSuperclass):
             return "S1", " ", False, values, ("obs", dimension_name)
 
         elif pd.api.types.is_datetime64_any_dtype(dtype):
+            self.debug(f"  varname {varname} -> time")
             # Ignore the annoying FutureWarning
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore", category=FutureWarning)

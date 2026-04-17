@@ -202,18 +202,18 @@ class LoggerSuperclass:
         """
         SuperClass that defines logging as class methods adding a heading name
         """
-        self.__logger_name = name
+        self._logger_name = name
         self.__logger = logger
         if not logger:
             self.__logger = logging  # if not assign the generic module
-        self.__log_colour = colour
+        self._log_colour = colour
 
     def warning(self, *args):
-        mystr = YEL + "[%s] " % self.__logger_name + str(*args) + RST
+        mystr = YEL + "[%s] " % self._logger_name + str(*args) + RST
         self.__logger.warning(mystr)
 
     def error(self, *args, exception: any = False):
-        mystr = "[%s] " % self.__logger_name + str(*args)
+        mystr = "[%s] " % self._logger_name + str(*args)
         self.__logger.error(RED + mystr + RST)
         if exception:
             if isinstance(exception, bool):
@@ -221,15 +221,12 @@ class LoggerSuperclass:
             else:
                 raise exception(mystr)
 
-
-
-
     def debug(self, *args):
-        mystr = self.__log_colour + "[%s] " % self.__logger_name + str(*args) + RST
+        mystr = self._log_colour + "[%s] " % self._logger_name + str(*args) + RST
         self.__logger.debug(mystr)
 
     def info(self, *args):
-        mystr = self.__log_colour + "[%s] " % self.__logger_name + str(*args) + RST
+        mystr = self._log_colour + "[%s] " % self._logger_name + str(*args) + RST
         self.__logger.info(mystr)
 
     def setLevel(self, level):
