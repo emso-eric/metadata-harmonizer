@@ -1,4 +1,9 @@
-## version 1.0.1 ##
+## version 1.0.3 ##
+1. Parse copernicus vars as markdown
+2. Support for time_end
+
+ 
+## version 1.0.2 ##
 1. Force URLs pointint to EMSO specs dev branch, this avoid vocab updates without new EMSO Specs release
 2. Implementing proper way to handle logs using emso_metadata_harmonizer logger
 3. Adding the CSV option to the metadata report, to store individual reports as CSV files
