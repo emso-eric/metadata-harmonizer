@@ -49,6 +49,10 @@ def metadata_report(target,
         logger.error("ERDDAP URL, NetCDF file or JSON file required!")
         exit()
 
+    if specifications:
+        logger.warning(f"forcing EMSO Metadata to load from custom file: {specifications}!")
+        EmsoMetadata.use_custom_file(specifications)
+
     datasets = [
         # {"file": filename, "url": "http://my.server.com/erddap", "dataset_id": "MyDataset"}
     ]
@@ -78,12 +82,13 @@ def metadata_report(target,
     elif target.endswith(".nc"):
         logger.info(f"Loading metadata from file {target}")
         datasets.append({
-            "file": target, "url": "", "dataset_id": "", "metadata": get_netcdf_metadata(target, permissive=True)
+            "file": target, "url": "", "dataset_id": "",
+            "metadata": get_netcdf_metadata(target, permissive=True)
         })
     else:
         raise ValueError(f"Expected .nc file or ERDDAP url, got target='{target}' ")
 
-    tests = EmsoMetadataTester(specifications=specifications)
+    tests = EmsoMetadataTester()
 
     total = []
     required = []
@@ -124,8 +129,6 @@ def metadata_report(target,
         })
     if keywords:
         check_keywords(wf, verbose=verbose)
-
-
 
     if output:
         logger.info(f"Storing tests results in {output}...")

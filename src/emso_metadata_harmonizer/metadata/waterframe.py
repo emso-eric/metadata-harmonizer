@@ -77,7 +77,7 @@ def get_coordinates_from_dataframe(df: pd.DataFrame) -> (str, str, str, str, str
 
 
 class WaterFrame(LoggerSuperclass):
-    def __init__(self, df: pd.DataFrame, metadata: dict, permissive=False):
+    def __init__(self, df: pd.DataFrame, metadata: dict, permissive=False, ignore_extra_cols=False):
         """
         This class is a lightweight re-implementation of WaterFrames, originally from mooda package. It has been
         reimplemented due to lack of maintenance of the original package.
@@ -130,7 +130,11 @@ class WaterFrame(LoggerSuperclass):
             if var.endswith("_QC") or var in coordinates:
                 # skip QC and coordinates for now
                 continue
-            assert var in metadata_entries, f"column {var} not listed in metadata!"
+            if var not in metadata["variables"].keys() and ignore_extra_cols:
+                self.info(f"Deleting extra column {var}")
+                del df[var]
+            else:
+                assert var in metadata_entries, f"column {var} not listed in metadata!"
 
         # Set Constants
         self.flag_values = np.array([0, 1, 2, 3, 4, 7, 8, 9]).astype("u1")
@@ -182,7 +186,6 @@ class WaterFrame(LoggerSuperclass):
                 else:
                     self.error(f"'{variable}' must be defined for multi-platform datasets!",
                                exception=not self.permissive)
-
         # If we do not have a sensor_id column, we should have exactly one sensor
         if self._sensor_id not in df.columns and len(sensors) > 1:
             raise self.error("sensor_id column is required for datasets with more than one sensor",
@@ -243,6 +246,8 @@ class WaterFrame(LoggerSuperclass):
 
             elif key not in self.metadata.keys():
                 self.metadata[key] = []
+
+            self.metadata[key] = [k for k in self.metadata[key] if k]   # avoid empty keys
 
         str_to_list("keywords", separator=",")
         str_to_list("keywords_vocabulary", separator=",")
@@ -908,6 +913,7 @@ class WaterFrame(LoggerSuperclass):
             raise FileNotFoundError(f"File '{filename}' does not exist!")
 
         time_units = ""
+        time_end_units = ""
         if decode_times:
             # decode_times in xarray.open_dataset will erase the unit field from TIME, so store it before it is removed
             ds = xr.open_dataset(filename, decode_times=False)
@@ -915,6 +921,9 @@ class WaterFrame(LoggerSuperclass):
                 if _time in ds.variables and "units" in ds[_time].attrs.keys():
                     time_units = ds[_time].attrs["units"]
                     break
+            if "time_end" in ds.variables and "units" in ds["time_end"].attrs.keys():
+                time_end_units = ds[_time].attrs["units"]
+
 
             ds.close()
 
@@ -955,8 +964,11 @@ class WaterFrame(LoggerSuperclass):
                 new_var = mapper[variable]
                 metadata["variables"][new_var] = metadata["variables"].pop(variable)
 
+        # Avoid NetCDF library to silently delete units
         if time_units:
             metadata["variables"][_time]["units"] = time_units
+        if time_end_units:
+            metadata["variables"]["time_end"]["units"] = time_end_units
 
 
         metadata["sensors"] = collect_sensor_metadata(metadata, df)
@@ -966,6 +978,7 @@ class WaterFrame(LoggerSuperclass):
         sensor_names = list(metadata["sensors"].keys())
         variables = [v for v in df.columns if v not in dimensions and not v.endswith("_QC") and v not in sensor_names]
         df = df.dropna(subset=variables, how="all")
+
         wf =  WaterFrame(df, metadata, permissive=permissive)
         return wf
 
@@ -1223,7 +1236,7 @@ def operational_tests(wf: WaterFrame) -> bool:
     errors = []
     warnings = []
     infos = []
-    __valid_coordinates = ["time", "depth", "latitude", "longitude", "sensor_id", "platform_id", "precise_latitude", "precise_longitude"]
+    __valid_coordinates = ["time", "depth", "latitude", "longitude", "sensor_id", "platform_id", "precise_latitude", "precise_longitude", "time_end"]
     __valid_variable_types = ["environmental", "biological", "technical", "coordinate", "quality_control", "sensor", "platform"]
 
     rich.print("[cyan]=========== Running Operational tests ===========")

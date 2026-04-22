@@ -18,8 +18,8 @@ global:
   principal_investigator: "Homer Simpson"
   principal_investigator_email: "homer.simpson@fake.com"
   license: "CC-BY-4.0"
-  contributor_role: "Bart Simpson, Peter Griffin, Rick Sánchez"
-  contributor_type: "DataCollector DataManager Researcher"
+  contributor_name: "Bart Simpson, Peter Griffin, Rick Sánchez"
+  contributor_role: "DataCollector DataManager Researcher"
   keywords:
     # GEMET keywords
     - 'sound'

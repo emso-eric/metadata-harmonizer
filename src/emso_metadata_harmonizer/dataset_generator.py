@@ -159,12 +159,14 @@ def consolidate_metadata(metadata_files: list):
     return metadata
 
 
-def generate_dataset(data_files: list, metadata_files: list, output: str, keep_names=False, no_keywords=False):
+def generate_dataset(data_files: list, metadata_files: list, output: str, keep_names=False, no_keywords=False, ignore_extra_cols=False):
     """
     Generates an EMSO-compliant NetCDF dataset from the input data and metadata
     :param data_files: list of csv data files
     :param metadata_files: list of metadata yaml files
     :param output: output NetCDF file
+    :param no_keywords: Do not guess additional keywords based on existing metadata
+    :param ignore_extra_cols: Ignore all data columns not listed in metadata
     :keep_names: whether to keep the names of the coordinates, by default convert coordinate names to lowercase
     """
 
@@ -239,7 +241,7 @@ def generate_dataset(data_files: list, metadata_files: list, output: str, keep_n
     if len(errors) > 0:
         logger.error("Got errors in dataset generation", exception=ValueError)
 
-    wf = WaterFrame(df, metadata)
+    wf = WaterFrame(df, metadata, ignore_extra_cols=ignore_extra_cols)
 
     if no_keywords:
         wf.debug("keywords not expanded")

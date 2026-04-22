@@ -41,7 +41,7 @@ global:
     - "physical oceanography"
     - "meteorology"
 
-  keyword_vocabulary:  # The following vocabularies have been detected:
+  keywords_vocabulary:  # The following vocabularies have been detected:
      - GEMET
      - Climate and Forecast Standard Names
      - GCMD Science Keywords
@@ -50,7 +50,7 @@ global:
      - Observatories of the Seas Ontology
      - SeaVoX Platform Categories
 
-  keyword_vocabulary_uri: # The following vocabularies have been detected:
+  keywords_vocabulary_uri: # The following vocabularies have been detected:
     - https://www.eionet.europa.eu/gemet/
     - https://vocab.nerc.ac.uk/collection/P07/current/
     - https://gcmd.earthdata.nasa.gov/

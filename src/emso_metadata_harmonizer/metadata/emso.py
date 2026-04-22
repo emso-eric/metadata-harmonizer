@@ -35,6 +35,9 @@ dwc_terms_url = "https://raw.githubusercontent.com/tdwg/dwc/refs/heads/master/vo
 
 oso_ontology_url = "https://raw.githubusercontent.com/emso-eric/oso-ontology/refs/heads/main/docs/ontology.ttl"
 
+user_defined_specs_file = ""  # used to overload online specifications, used for development only
+
+
 def process_markdown_file(file) -> (dict, dict):
     """
     Processes the Markdown file and parses their tables. Every table is returned as a pandas dataframe.
@@ -132,13 +135,13 @@ def load_json(file):
     return doc
 
 emso_metadata_object = None
-def init_emso_metadata(force_update=False, specifications=""):
+def init_emso_metadata(force_update=False):
     """
     Wrapper to avoid called EmsoMetadata twice
     """
     global emso_metadata_object
     if not emso_metadata_object:
-        emso_metadata_object = EmsoMetadata(force_update=force_update, specifications=specifications)
+        emso_metadata_object = EmsoMetadata(force_update=force_update)
 
     return emso_metadata_object
 
@@ -233,6 +236,9 @@ class KeywordValidator:
         self.used_vocabularies = []  # list of the vocabularies used in the validation
         self.used_vocabularies_uris = []  # list of the vocabularies used in the validation
 
+        self.valid_vocabs = [v.name for v in self.vocabularies]
+        self.valid_vocabs_uri = [v.uri for v in self.vocabularies]
+
     def validate_term(self, term: str):
         assert isinstance(term, str), f"Expected string, got {type(term)}"
 
@@ -274,12 +280,9 @@ class KeywordValidator:
 
 
 class EmsoMetadata:
-    def __init__(self, force_update=False, specifications=""):
+    def __init__(self, force_update=False):
         log.info("Loading EMSO Metadata resources...")
         os.makedirs(".emso", exist_ok=True)  # create a conf dir to store Markdown and other stuff
-        # previous_wdir = os.getcwd()
-        # os.chdir(".emso")
-
         self.local_resources = {}
 
         __resources_file = os.path.join(".emso", "resources.json")
@@ -345,10 +348,9 @@ class EmsoMetadata:
             [oso_ontology_url, oso_ontology_file, "OSO"]
         ]
 
-        if specifications:
-            log.warning("Using custom specifications file: {specifications}")
-            tasks = tasks[1:]
-            emso_metadata_file = specifications
+        if user_defined_specs_file:
+            log.warning(f"Using custom specifications file: {user_defined_specs_file}")
+            emso_metadata_file = user_defined_specs_file
 
         download_files(tasks)
 
@@ -393,6 +395,11 @@ class EmsoMetadata:
         self.sdn_p02_names = [code.split(":")[-1] for code in self.sdn_vocabs_ids["P02"]]
         self.oso = OSO(oso_ontology_file)
         self.keywords = KeywordValidator(self.oso)
+
+    @staticmethod
+    def use_custom_file(filename):
+        global user_defined_specs_file
+        user_defined_specs_file = filename
 
     @staticmethod
     def clear_downloads():
