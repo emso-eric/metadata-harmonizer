@@ -18,8 +18,15 @@ global:
   principal_investigator: "Homer Simpson"
   principal_investigator_email: "homer.simpson@fake.com"
   license: "CC-BY-4.0"
-  contributors: "Bart Simpson, Peter Griffin, Rick Sánchez"
-  contributor_types: "DataCollector DataManager Researcher"
+  contributor_role: "Bart Simpson, Peter Griffin, Rick Sánchez"
+  contributor_type: "DataCollector DataManager Researcher"
+  keywords:
+    # GEMET keywords
+    - 'sound'
+    - 'acoustics'
+    - 'marine environment'
+    - 'marine monitoring'
+    - 'EARTH SCIENCE > OCEANS > OCEAN ACOUSTICS'
 
 platforms:
   OBSEA_seabed_station:

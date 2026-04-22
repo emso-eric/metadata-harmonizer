@@ -18,8 +18,17 @@ global:
   principal_investigator: "Homer Simpson"
   principal_investigator_email: "homer.simpson@fake.com"
   license: "CC-BY-4.0"
-  contributors: "Bart Simpson, Peter Griffin, Rick Sánchez"
-  contributor_types: "DataCollector DataManager Researcher"
+  contributor_name: "Bart Simpson, Peter Griffin, Rick Sánchez"
+  contributor_role: "DataCollector DataManager Researcher"
+  keywords:
+    # GEMET keywords
+    - 'marine monitoring'
+    - 'marine biology'
+    - 'marine ecology'
+    - 'coastal ecosystems'
+    - 'object detection'
+
+
 
 platforms:
   OBSEA_seabed_station:
@@ -43,9 +52,8 @@ sensors:
     sensor_serial_number: "0001"
     sensor_mount: "mounted_on_seafloor_structure"  # mounting from a controlled list
     sensor_orientation: "horizontal"   # may be relevant for the camera
-    sdn_instrument_name: "IPC608UW underwater camera"
-    sensor_manufacturer_name: "Linovision"  # Not found in L35
-    sensor_manufacturer_uri: ""  # Not found in L35
+    sdn_instrument_uri: "https://vocab.nerc.ac.uk/collection/L22/current/TOOL2269/"
+    sensor_manufacturer_uri: "https://vocab.nerc.ac.uk/collection/L35/current/MAN0378/"
     sensor_reference: "https://eu.linovision.com/en-eu/products/ipc608uw"
     sensor_type_uri: "https://vocab.nerc.ac.uk/collection/L05/current/311/"
 

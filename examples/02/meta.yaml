@@ -18,8 +18,42 @@ global:
   principal_investigator: "Homer Simpson"
   principal_investigator_email: "homer.simpson@fake.com"
   license: "CC-BY-4.0"
-  contributors: "Bart Simpson, Peter Griffin, Rick Sánchez"
-  contributor_types: "DataCollector DataManager Researcher"
+  contributor_name: "Bart Simpson, Peter Griffin, Rick Sánchez"
+  contributor_role: "DataCollector DataManager Researcher"
+  keywords:
+    # Previous valid keywords
+    # Suggested  additional keywords
+    - "Balearic Sea"   # found in "Observatories of the Seas Ontology"
+    - "CTD"   # found in "SeaDataNet device categories, Observatories of the Seas Ontology"
+    - "Electrical conductivity of the water column"   # found in "SeaDataNet Parameter Discovery Vocabulary"
+    - "OBSEA"   # found in "Observatories of the Seas Ontology"
+    - "Salinity of the water column"   # found in "SeaDataNet Parameter Discovery Vocabulary"
+    - "Temperature of the water column"   # found in "SeaDataNet Parameter Discovery Vocabulary"
+    - "mooring"   # found in "SeaVoX Platform Categories"
+    - "sea_water_electrical_conductivity"   # found in "Climate and Forecast Standard Names"
+    - "sea_water_pressure"   # found in "Climate and Forecast Standard Names"
+    - "sea_water_temperature"   # found in "Climate and Forecast Standard Names"
+    - # GCMD Science keywords
+    - "EARTH SCIENCE > OCEANS > SALINITY/DENSITY > SALINITY"
+    - "EARTH SCIENCE > OCEANS > OCEAN TEMPERATURE > WATER TEMPERATURE"
+    - "EARTH SCIENCE > OCEANS > OCEAN PRESSURE > WATER PRESSURE"
+    - # GEMET
+    - "physical oceanography"
+
+  keywords_vocabulary:
+    - "Observatories of the Seas Ontology"
+    - "SeaDataNet device categories"
+    - "SeaDataNet Parameter Discovery Vocabulary"
+    - "SeaVoX Platform Categories"
+    - "Climate and Forecast Standard Names"
+
+  keywords_vocabulary_uri:
+    - "https://earthportal.eu/ontologies/OSO"
+    - "https://vocab.nerc.ac.uk/collection/L05/current/"
+    - "https://vocab.nerc.ac.uk/collection/P02/current/"
+    - "https://vocab.nerc.ac.uk/collection/L06/current/"
+    - "https://vocab.nerc.ac.uk/collection/P07/current/"
+
 
 platforms:
   OBSEA_seabed_station:

@@ -95,8 +95,13 @@ def nc_to_dataframe(filename: str) -> pd.DataFrame:
     return df
 
 # -------- Load NetCDF data -------- #
-def load_nc_dataset(filename) -> WaterFrame:
-    return WaterFrame.from_netcdf(filename)
+def load_nc_dataset(filename, permissive=False) -> WaterFrame:
+    """
+    Loads a NetCDF file and returns a WaterFrame.
+    :param filename: path to NetCDF file
+    :param permissive: if set allow errors in the NetCDF metadata
+    """
+    return WaterFrame.from_netcdf(filename, permissive=permissive)
 
 
 def extract_netcdf_metadata(wf):
@@ -114,13 +119,13 @@ def extract_netcdf_metadata(wf):
     return metadata
 
 
-def get_netcdf_metadata(filename):
+def get_netcdf_metadata(filename, permissive=False):
     """
     Returns the metadata from a NetCDF file
     :param: filename
     :returns: dict with the metadata { "global": ..., "variables": {"VAR1": {...},"VAR2":{...}}
     """
-    wf = load_nc_dataset(filename)
+    wf = load_nc_dataset(filename, permissive=permissive)
     metadata = {
         "global": wf.metadata,
         "variables": wf.vocabulary

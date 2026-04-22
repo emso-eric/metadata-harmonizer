@@ -18,8 +18,8 @@ global:
   principal_investigator: "Homer Simpson"
   principal_investigator_email: "homer.simpson@fake.com"
   license: "CC-BY-4.0"
-  contributors: "Bart Simpson, Peter Griffin, Rick Sánchez"
-  contributor_types: "DataCollector DataManager Researcher"
+  contributor_name: "Bart Simpson, Peter Griffin, Rick Sánchez"
+  contributor_role: "DataCollector DataManager Researcher"
   # ====VERY IMPORTANT ==== #
   # if featureType is not set explicitly to timeSeries and the lat/lon change over
   # time, a trajectory type will be probably detected.

@@ -8,6 +8,7 @@ email: enoc.martinez@upc.edu
 license: MIT
 created: 26/4/23
 """
+import hashlib
 from logging.handlers import TimedRotatingFileHandler
 import requests
 import rich
@@ -347,6 +348,9 @@ def assert_type(obj, valid_type):
     """
     assert isinstance(obj, valid_type), f"Expected {valid_type}, but got {type(obj)} instead"
 
+def assert_url(url: str):
+    assert url.startswith("http"), f"Not a valid URL: {url}"
+
 
 def assert_types(obj, valid_types: list):
     """
@@ -374,3 +378,10 @@ def check_url(url):
     except requests.ConnectionError:
         return False
 
+def get_file_md5(filename):
+    md5_hash = hashlib.md5()
+    with open(filename, 'rb') as f:
+        for chunk in iter(lambda: f.read(65536), b""):
+            md5_hash.update(chunk)
+
+    return md5_hash.hexdigest()

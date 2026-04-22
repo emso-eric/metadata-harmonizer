@@ -18,8 +18,12 @@ global:
   principal_investigator: "Homer Simpson"
   principal_investigator_email: "homer.simpson@fake.com"
   license: "CC-BY-4.0"
-  contributors: "Bart Simpson, Peter Griffin, Rick Sánchez"
-  contributor_types: "DataCollector DataManager Researcher"
+  contributor_name: "Bart Simpson, Peter Griffin, Rick Sánchez"
+  contributor_role: "DataCollector DataManager Researcher"
+  keywords:
+    - "EARTH SCIENCE > ATMOSPHERE > OCEANS > OCEAN CIRCULATION > OCEAN CURRENTS > CURRENT PROFILES"
+    - "ocean current"
+    - "autonomous vehicles"
 
 platforms:
   SailBuoy_SN0001:

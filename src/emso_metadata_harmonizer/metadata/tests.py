@@ -10,6 +10,7 @@ email: enoc.martinez@upc.edu
 license: MIT
 created: 1/3/23
 """
+from math import floor
 
 import rich
 import logging
@@ -73,7 +74,7 @@ class EmsoMetadataTester:
         error = False
         for test in all_tests:
             if test not in self.implemented_tests.keys():
-                logging.error(f"[red]ERROR test {test} not implemented!")
+                logging.error(f"ERROR test {test} not implemented!")
                 error = True
         if error:
             pass # TODO implement tests and uncoment exception
@@ -169,6 +170,10 @@ class EmsoMetadataTester:
             opt_task = progress.add_task(f"[{r_color}]Optional tests...", total=opt_tests)
             total_task = progress.add_task(f"[{o_color}]Total tests...", total=total_tests)
 
+            # Floor to avoid 99.7% to be shown as 100%
+            req_passed = req_tests*floor(100*(req_passed/req_tests))/100
+            opt_passed = opt_tests*floor(100*(opt_passed/opt_tests))/100
+            total_passed = total_tests*floor(100*(total_passed/total_tests))/100
 
             progress.update(req_task, advance=req_passed)
             progress.update(opt_task, advance=opt_passed)

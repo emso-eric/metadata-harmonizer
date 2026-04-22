@@ -16,8 +16,10 @@ import requests
 import pandas as pd
 import json
 from rdflib import Graph
-from .utils import download_files, get_file_list, download_file
-
+import rich
+from .keywords import GEMET, GCMD, SeadatanetKeyword, EuroSciVoc
+from .utils import download_files, get_file_list, download_file, assert_type, assert_url, get_file_md5
+from .oso import OSO
 
 emso_version = "develop"
 
@@ -100,74 +102,6 @@ def process_markdown_file(file) -> (dict, dict):
 
 
 
-class OSO:
-    def __init__(self, ttl_file):
-        self.graph = Graph().parse(ttl_file)
-        self.platforms = self.get_instances_as_dataframe("https://w3id.org/earthsemantics/OSO#Platform")
-        self.sites = self.get_instances_as_dataframe("https://w3id.org/earthsemantics/OSO#Site")
-        self.rfs = self.get_instances_as_dataframe("https://w3id.org/earthsemantics/OSO#RegionalFacility")
-        self.platforms.drop_duplicates(keep="first", inplace=True)
-        self.sites.drop_duplicates(keep="first", inplace=True)
-        self.rfs.drop_duplicates(keep="first", inplace=True)
-
-    def get_instances_as_dataframe(self, class_uri):
-        query = f"""
-            SELECT ?instance ?label
-            WHERE {{
-                ?instance a <{class_uri}> .
-                OPTIONAL {{
-                    ?instance rdfs:label ?label .
-                }}
-            }}
-        """
-        results = self.graph.query(query)
-        data = [{"uri": str(row.instance), "label": str(row.label)} for row in results]
-        return pd.DataFrame(data)
-
-    def __check_element(self, df, label, column):
-        assert column in ["uri", "label"], f"OSO DataFrame does not have column '{column}'"
-        return label in df[column].values
-
-    def check_platform(self, this, column):
-        return self.__check_element(self.platforms, this, column)
-
-    def check_site(self, this, column):
-        return self.__check_element(self.sites, this, column)
-
-    def check_rf(self, this, column):
-        return self.__check_element(self.rfs, this, column)
-
-    def get_uri_from_name(self, name, cls):
-        assert cls in ["rfs", "sites", "platforms"]
-        if cls == "rfs":
-            df = self.rfs
-        elif cls == "sites":
-            df = self.sites
-        else:
-            df = self.platforms
-        try:
-            uri = df.loc[df["label"] == name]["uri"].values[0]
-        except (KeyError, IndexError):
-            log.error(f"ERROR: OSO does not have any '{cls}' with label '{name}', valid names:")
-            [log.error(f"    - '{a}'") for a in df['label'].unique()]
-            return ""
-        return str(uri)
-
-    def get_name_from_uri(self, uri, cls):
-        assert cls in ["rfs", "sites", "platforms"]
-        if cls == "rfs":
-            df = self.rfs
-        elif cls == "sites":
-            df = self.sites
-        else:
-            df = self.platforms
-        try:
-            uri = df.loc[df["uri"] == uri]["label"].values[0]
-        except (KeyError, IndexError):
-            log.error(f"ERROR: OSO does not have any '{cls}' with uri '{uri}', valid uris:")
-            [log.info(f"    - '{a}'") for a in df['uri'].unique()]
-            return ""
-        return str(uri)
 
 
 def download_resource(data):
@@ -208,57 +142,162 @@ def init_emso_metadata(force_update=False, specifications=""):
 
     return emso_metadata_object
 
+
+def update_external_resources(resource_url: str, resource_file: str):
+    """
+    Download resources in remote if hash doesn't match with local resources
+    """
+    log = logging.getLogger()
+    assert_type(resource_url, str)
+    assert_type(resource_file, str)
+    assert_url(resource_url)
+    local = {}
+
+    log.debug("Starting update_external_resources...")
+
+    # Download local resource file
+    if os.path.exists(resource_file):
+        with open(resource_file) as f:
+            local = json.load(f)
+    else:
+        log.debug(f"local file {resource_file} does not exist!")
+
+    # if there is no resource file or
+    if not os.path.exists(resource_file) or time.time() - os.path.getmtime(resource_file) > 24*3600:
+        log.info("Downloading resources.json remote file...")
+        remote = requests.get(resource_url).json()
+
+        for key, rmt_resource in remote.items():
+            remote_hash = rmt_resource["hash"]
+            try:
+                local_hash = local[key]["hash"]
+            except KeyError:
+                local_hash = None
+
+            if local_hash == remote_hash:
+                log.debug(f"    {key} is up to date")
+                continue
+            else:
+                log.debug(f"Resource {key} hash do not match local='{local_hash}' remote='{remote_hash}'")
+
+            # At this point, we need to download all files in this resource
+            local[key] = {"hash": remote_hash}
+            for name, url in rmt_resource.items():
+                if name == "hash":
+                    continue
+
+                if "external-resources/" in url:
+                    filename = os.path.join(".emso", url.split("external-resources/")[-1])
+                else:
+                    filename = os.path.join(".emso", url.split("/")[-1])
+
+                log.debug(f"    downloading {key}:{name} to {filename}...")
+                download_file(url, filename)
+
+                local[key][name] = filename
+
+            with open(os.path.join(".emso", "resources.json"), "w") as f:
+                json.dump(local, f, indent=2)
+
+    else:
+        log.info("No need to update resources.json")
+        with open(resource_file) as f:
+            local = json.load(f)  # just load local resources file
+
+    return local
+
+
+class KeywordValidator:
+    def __init__(self, oso: OSO):
+        gcmd = GCMD()
+        euroscivoc = EuroSciVoc()
+        gemet = GEMET()
+        P02 = SeadatanetKeyword(os.path.join(".emso", "sdn", "P02.csv"))
+        L05 = SeadatanetKeyword(os.path.join(".emso", "sdn", "L05.csv"))
+        L06 = SeadatanetKeyword(os.path.join(".emso", "sdn", "L06.csv"))
+        L22 = SeadatanetKeyword(os.path.join(".emso", "sdn", "L22.csv"))
+        P07 = SeadatanetKeyword(os.path.join(".emso", "sdn", "P07.csv"))
+
+        self.vocabularies = [
+            gcmd,
+            euroscivoc,
+            gemet,
+            P02,
+            L05,
+            L06,
+            L22,
+            P07,
+            oso
+        ]
+
+        self.used_vocabularies = []  # list of the vocabularies used in the validation
+        self.used_vocabularies_uris = []  # list of the vocabularies used in the validation
+
+    def validate_term(self, term: str):
+        assert isinstance(term, str), f"Expected string, got {type(term)}"
+
+        # Check term against ALL vocabularies
+        g_perfect_match = False
+        g_partial_match = False
+        perfect_match_vocabs = []  # vocabularies with perfect match
+        partial_match_vocabs = []  # vocabularies with partial match
+        for vocab in self.vocabularies:
+            perfect_match, partial_match = vocab.validate_term(term)
+            if perfect_match:
+                g_perfect_match = True
+                perfect_match_vocabs.append(vocab.name)
+                if vocab.name not in self.used_vocabularies:
+                    self.used_vocabularies.append(vocab.name)
+                    self.used_vocabularies_uris.append(vocab.uri)
+            elif partial_match and not g_perfect_match:
+                g_partial_match = True
+                partial_match_vocabs.append(vocab.name)
+                if vocab.name not in self.used_vocabularies:
+                    self.used_vocabularies.append(vocab.name)
+                if vocab.uri not in self.used_vocabularies_uris:
+                    self.used_vocabularies_uris.append(vocab.uri)
+
+        v = perfect_match_vocabs
+        if len(perfect_match_vocabs) == 0 and len(partial_match_vocabs) > 0:
+            v = partial_match_vocabs
+        return g_perfect_match, g_partial_match, v
+
+    def reset_vocabularies(self):
+        self.used_vocabularies = []
+        self.used_vocabularies_uris = []
+
+    def get_vocabularies(self, term_list: list):
+        self.reset_vocabularies()
+        for term in term_list:
+            self.validate_term(term)
+        return self.used_vocabularies, self.used_vocabularies_uris
+
+
 class EmsoMetadata:
     def __init__(self, force_update=False, specifications=""):
         log.info("Loading EMSO Metadata resources...")
         os.makedirs(".emso", exist_ok=True)  # create a conf dir to store Markdown and other stuff
-        previous_wdir = os.getcwd()
-        os.chdir(".emso")
+        # previous_wdir = os.getcwd()
+        # os.chdir(".emso")
 
         self.local_resources = {}
 
-        __resources_file = "resources.json"
+        __resources_file = os.path.join(".emso", "resources.json")
 
-        remote_resources = {}
-        update_resources = False
-
-        if not os.path.exists(__resources_file):
-            log.info("resources.json file not found, downloading...")
-            remote_resources = requests.get(metadata_specifications_resources).json()
-            download_manifest = True
-        # If the file is older than 1 day, force update
-        elif time.time() - os.path.getmtime(__resources_file) > 24*3600:
-            log.info("resources.json is older than 1 day, forcing download")
-            try:
-                remote_resources = requests.get(metadata_specifications_resources).json()
-            except requests.exceptions.ConnectionError:
-                log.warning("Could not download resources.json! Using local files")
-        else:
-            log.info("loading cached resources.json")
-            self.local_resources = load_json(__resources_file)
-
-        # Load local resources file
-        if not force_update and os.path.exists(__resources_file):
-            log.info("loading local resource files...")
-            self.local_resources = load_json(__resources_file)
-
-        if remote_resources:
-            for name, remote_resource in remote_resources.items():
-                if name not in self.local_resources.keys():
-                    log.info(f"resources {name} not found locally, downloading from github!")
-                    self.local_resources[name] = download_resource(remote_resource)
-                    update_resources = True
-                elif self.local_resources[name]["hash"] != remote_resource["hash"]:
-                    log.info(f"resources {name} has been updated, download!")
-                    self.local_resources[name] = download_resource(remote_resource)
-                    update_resources = True
-                else:
-                    log.info(f"no update for {name} required...")
+        self.local_resources = update_external_resources(metadata_specifications_resources, __resources_file)
 
 
-        sdn_vocabs = ["P01", "P02", "P06", "P07", "L05", "L06", "L22", "L35"]
-
-        self.sdn_vocabs = {}
+        self.sdn_vocabs = {
+            # identifier: title
+            "P01": "BODC Parameter Usage Vocabulary",
+            "P02": "SeaDataNet Parameter Discovery Vocabulary",
+            "P06": "BODC-approved data storage units",
+            "P07": "Climate and Forecast Standard Names",
+            "L05": "SeaDataNet device categories",
+            "L06": "SeaVoX Platform Categories",
+            "L22": "SeaVoX Device Catalogue",
+            "L35": "SenseOcean device developers and manufacturers"
+        }
         self.sdn_vocabs_narrower = {}
         self.sdn_vocabs_broader = {}
         self.sdn_vocabs_related = {}
@@ -270,13 +309,13 @@ class EmsoMetadata:
         log.info(f"Loading EMSO metadata resources:")
 
         # ==== Load all SDN vocabularies ==== #
-        for vocab in sdn_vocabs:
+        for vocab in self.sdn_vocabs.keys():
             log.debug(f"    loading SDN vocabulary {vocab}")
             df = pd.read_csv(self.local_resources[vocab]["csv"])
             self.sdn_vocabs[vocab] = df
-            self.sdn_vocabs_narrower[vocab] = self.local_resources[vocab]["narrower"]
-            self.sdn_vocabs_broader[vocab] = self.local_resources[vocab]["broader"]
-            self.sdn_vocabs_related[vocab] = self.local_resources[vocab]["related"]
+            self.sdn_vocabs_narrower[vocab] = load_json(self.local_resources[vocab]["narrower"])
+            self.sdn_vocabs_broader[vocab] = load_json(self.local_resources[vocab]["broader"])
+            self.sdn_vocabs_related[vocab] = load_json(self.local_resources[vocab]["related"])
             self.sdn_vocabs_pref_label[vocab] = df["prefLabel"].values
             self.sdn_vocabs_alt_label[vocab] = df["altLabel"].values
             self.sdn_vocabs_ids[vocab] = df["id"].values
@@ -287,18 +326,9 @@ class EmsoMetadata:
         log.debug(f"    loading Copernicus Parameters")
         tables = process_markdown_file(self.local_resources["Copernicus Parameters"]["md"])
 
-        self.copernicus_parameters = tables["Copernicus variables"]["variable name"].to_list()
+        self.copernicus_variables = tables["Copernicus variables"]["variable name"].to_list()
         log.debug(f"    loading EDMO codes")
         self.edmo_codes = pd.read_csv(self.local_resources["EDMO"]["csv"])
-
-
-        # ==== Storing current resources ==== #
-        if update_resources:
-            with open(__resources_file, "w") as f:
-                f.write(json.dumps(self.local_resources, indent=2))
-
-        # Return to the old working dir
-        os.chdir(previous_wdir)
 
         emso_metadata_file = os.path.join(".emso", "EMSO_Metadata_Specifications.md")
         oceansites_file = os.path.join(".emso", "oceansites", "OceanSites_codes.md")
@@ -341,6 +371,7 @@ class EmsoMetadata:
         self.oceansites_sensor_orientation = tables["Sensor Orientation"]["sensor_orientation"].to_list()
         self.oceansites_data_modes = tables["Data Modes"]["Value"].to_list()
         self.oceansites_data_types = tables["Data Types"]["Data type"].to_list()
+        self.oceansites_param_codes = tables["Variable Names"]["Parameter"].to_list()
 
         tables = process_markdown_file(datacite_codes_file)
         self.datacite_contributor_roles = tables["DataCite Contributor Type"]["Type"].to_list()
@@ -358,15 +389,10 @@ class EmsoMetadata:
         df = df.rename(columns={"term_localName": "name", "term_iri": "uri"})
         self.dwc_terms = df
 
-
-        # TODO: Move hardcoded list to OceanSITES_codes.md
-        self.oceansites_param_codes = ["AIRT", "CAPH", "CDIR", "CNDC", "CSPD", "depth", "DEWT", "DOX2", "DOXY",
-                                       "DOXY_TEMP", "DYNHT", "FLU2", "HCSP", "HEAT", "ISO17", "LW", "OPBS", "PCO2",
-                                       "PRES", "PSAL", "RAIN", "RAIT", "RELH", "SDFA", "SRAD", "SW", "TEMP", "UCUR",
-                                       "UWND", "VAVH", "VAVT", "VCUR", "VDEN", "VDIR", "VWND", "WDIR", "WSPD"]
         # Convert P02 IDs to 4-letter codes
         self.sdn_p02_names = [code.split(":")[-1] for code in self.sdn_vocabs_ids["P02"]]
         self.oso = OSO(oso_ontology_file)
+        self.keywords = KeywordValidator(self.oso)
 
     @staticmethod
     def clear_downloads():
@@ -379,7 +405,7 @@ class EmsoMetadata:
                 os.remove(f)
 
     @staticmethod
-    def harmonize_uri(uri):
+    def harmonize_sdn_uri(uri):
         """
         Takes a SDN URI and make sure that uses http instead of https and that it finishes with a /
         """
@@ -396,7 +422,7 @@ class EmsoMetadata:
         """
         log = logging.getLogger()
 
-        uri = self.harmonize_uri(uri)
+        uri = self.harmonize_sdn_uri(uri)
         __allowed_keys = ["prefLabel", "id", "definition", "altLabel"]
         if key not in __allowed_keys:
             raise ValueError(f"Key '{key}' not valid, allowed keys: {__allowed_keys}")
@@ -417,7 +443,7 @@ class EmsoMetadata:
         :param uri: uri
         :returns: tuple of (uri, urn, prefLabel, altlabel)
         """
-        uri = self.harmonize_uri(uri)
+        uri = self.harmonize_sdn_uri(uri)
         df = self.sdn_vocabs[vocab_id]
         row = df.loc[df["uri"] == uri]
         if row.empty:
@@ -429,7 +455,7 @@ class EmsoMetadata:
         """
         Search in vocab <vocab_id> for the element with matching uri and return element identified by key
         """
-        uri = self.harmonize_uri(urn)
+        uri = self.harmonize_sdn_uri(urn)
         df = self.sdn_vocabs[vocab_id]
         row = df.loc[df["uri"] == uri]
         if row.empty:
@@ -455,7 +481,7 @@ class EmsoMetadata:
         """
         log = logging.getLogger()
         __valid_relations = ["narrower", "broader", "related"]
-        uri = self.harmonize_uri(uri)
+        uri = self.harmonize_sdn_uri(uri)
 
         if relation not in __valid_relations:
             raise LookupError(f"Not a valid relation: '{relation}', expected one of '{__valid_relations} ")
