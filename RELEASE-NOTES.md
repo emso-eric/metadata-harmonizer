@@ -1,3 +1,8 @@
+## Version 1.0.4 ##
+1. Adding keyword checks 
+2. Adding extensive keywords analysis with --keywords
+3. Improved resource.json dependency download system
+
 ## version 1.0.3 ##
 1. Parse copernicus vars as markdown
 2. Support for time_end
