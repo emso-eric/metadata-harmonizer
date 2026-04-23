@@ -20,6 +20,8 @@ global:
   license: "CC-BY-4.0"
   contributor_name: "Bart Simpson, Peter Griffin, Rick Sánchez"
   contributor_role: "DataCollector DataManager Researcher"
+  data_processing_level: "L0b"
+  data_processing_steps: "L0a L0b"
   keywords:
     # GEMET keywords
     - 'marine monitoring'

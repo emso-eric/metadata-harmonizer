@@ -20,6 +20,8 @@ global:
   license: "CC-BY-4.0"
   contributor_name: "Bart Simpson, Peter Griffin, Rick Sánchez"
   contributor_role: "DataCollector DataManager Researcher"
+  data_processing_level: "L1"
+  data_processing_steps: "L0a L1a L1b"
   # ====VERY IMPORTANT ==== #
   # if featureType is not set explicitly to timeSeries and the lat/lon change over
   # time, a trajectory type will be probably detected.
