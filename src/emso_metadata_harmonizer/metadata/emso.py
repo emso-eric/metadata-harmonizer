@@ -191,6 +191,7 @@ def update_external_resources(resource_url: str, resource_file: str):
                     filename = os.path.join(".emso", url.split("/")[-1])
 
                 log.debug(f"    downloading {key}:{name} to {filename}...")
+                print(url)
                 download_file(url, filename)
 
                 local[key][name] = filename
@@ -282,7 +283,6 @@ class EmsoMetadata:
         self.local_resources = {}
 
         __resources_file = os.path.join(".emso", "resources.json")
-
         self.local_resources = update_external_resources(metadata_specifications_resources, __resources_file)
         # TODO: Move hardcoded levels to proper markdown file
         self.data_processing_levels = ["L0", "L1", "L2"]
