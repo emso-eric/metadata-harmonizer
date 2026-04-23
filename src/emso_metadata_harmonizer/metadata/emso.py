@@ -100,11 +100,7 @@ def process_markdown_file(file) -> (dict, dict):
                 else:
                     table[headers[i]].append(fields[i])
             table[headers[i+1]].append(annotation)
-
     return tables
-
-
-
 
 
 def download_resource(data):
@@ -288,7 +284,9 @@ class EmsoMetadata:
         __resources_file = os.path.join(".emso", "resources.json")
 
         self.local_resources = update_external_resources(metadata_specifications_resources, __resources_file)
-
+        # TODO: Move hardcoded levels to proper markdown file
+        self.data_processing_levels = ["L0", "L1", "L2"]
+        self.data_processing_steps = ["L0a", "L0b", "L1a", "L1b", "L1c", "L1d"]
 
         self.sdn_vocabs = {
             # identifier: title

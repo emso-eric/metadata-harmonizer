@@ -147,7 +147,7 @@ class EmsoMetadataTester:
         total_passed = len(df[df["passed"]])
         if show:
             rich.print(f"Required tests passed: {req_passed} of {req_tests}")
-            rich.print(f"Required tests passed: {opt_passed} of {opt_tests}")
+            rich.print(f"Optional tests passed: {opt_passed} of {opt_tests}")
             rich.print(f"   [bold]Total tests passed: {total_passed} of {total_tests}")
 
         def generate_bar_col(n):
@@ -873,16 +873,28 @@ class EmsoMetadataTester:
         if perfect or partial:
             return True, ""
         else:
-            return False, f"not valid!"
+            return False, f"'{value}' not valid!"
 
     def keyword_vocabs(self, value, args):
         if value in self.metadata.keywords.valid_vocabs:
             return True, ""
         else:
-            return False, f"not valid!"
+            return False, f"'{value}' not valid!"
 
     def keyword_vocabs_uri(self, value, args):
         if value in self.metadata.keywords.valid_vocabs_uri:
             return True, ""
         else:
-            return False, f"not valid!"
+            return False, f"'{value}' not valid!"
+
+    def valid_data_level(self, value, args):
+        if value in self.metadata.data_processing_levels:
+            return True, ""
+        else:
+            return False, f"'{value}' not valid!"
+
+    def valid_data_process(self, value, args):
+        if value in self.metadata.data_processing_steps:
+            return True, ""
+        else:
+            return False, f"'{value}' not valid!"
