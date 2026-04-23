@@ -58,7 +58,7 @@ urllib.request.urlretrieve(data1_url, "data1.csv")
 urllib.request.urlretrieve(data2_url, "data2.csv")
 urllib.request.urlretrieve(meta_url, "meta.yaml")
 
-emh.generate_dataset(["data.csv", "data2.csv"], ["meta.yaml"], "dataset2.nc")
+emh.generate_dataset(["data1.csv", "data2.csv"], ["meta.yaml"], "dataset2.nc")
 
 ```
 
@@ -107,6 +107,6 @@ Where `WARN` is the level of logging messages. Check the [Python logging documen
 ### Contact info ###
 
 * **author**: Enoc Martínez  
-* **version**: v1.0.0    
+* **version**: v1.0.4    
 * **organization**: Universitat Politècnica de Catalunya (UPC)    
 * **contact**: enoc.martinez@upc.edu  

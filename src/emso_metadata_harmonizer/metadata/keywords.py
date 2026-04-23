@@ -1,13 +1,11 @@
 import logging
 import pandas as pd
-from typing import Optional, Dict
 import os
 from rdflib import Graph, Namespace, RDF
 import time
 import gzip
-from src.emso_metadata_harmonizer.metadata.utils import threadify
 from collections import defaultdict
-import requests
+from .utils import download_file
 
 
 def rdf_to_dataframe(file: str) -> pd.DataFrame:
@@ -202,32 +200,6 @@ class EuroSciVoc(KeywordList):
         df.to_csv(csv_file, index=False)
         return df
 
-
-def download_file(url: str, filename: str, headers: Optional[Dict[str, str]] = None, chunk_size: int = 8192) -> None:
-    """
-    Download a file from a URL and save it to disk.
-
-    Args:
-        url: The URL to download from
-        filename: The local path where to save the file
-        headers: Optional HTTP headers to include in the request
-        chunk_size: Size of chunks to stream the download (default 8KB)
-    """
-    if headers is None:
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (compatible; DataDownloader/1.0)',
-            'Accept': '*/*'
-        }
-
-    response = requests.get(url, headers=headers, stream=True)
-    response.raise_for_status()
-
-    os.makedirs(os.path.dirname(filename) if os.path.dirname(filename) else '.', exist_ok=True)
-
-    with open(filename, 'wb') as file:
-        for chunk in response.iter_content(chunk_size=chunk_size):
-            if chunk:
-                file.write(chunk)
 
 class GCMD(KeywordList):
     def __init__(self) -> None:
