@@ -23,12 +23,15 @@ if __name__ == "__main__":
     argparser.add_argument("-V", "--variables", nargs="+", help="Run test only for a variable subset", default=[])
     argparser.add_argument("--specs", type=str, help="Use this file as EMSO Metadata specifications source (use only for development)", default="")
     argparser.add_argument("-l", "--log-level", type=str, help="Setting log level (debug, info, warn, error or critical)", required=False, default="")
+    argparser.add_argument("-k", "--keywords", action="store_true", help="Check the keywords")
 
     args = argparser.parse_args()
 
     log = setup_log("emh", "log", log_level="info")
     if args.log_level:
         log.setLevel(args.log_level.upper())
+    if args.verbose:
+        log.setLevel("DEBUG")
 
     metadata_report(
         args.target,
@@ -37,5 +40,6 @@ if __name__ == "__main__":
         specifications=args.specs,
         variables=args.variables,
         ignore_ok=args.ignore_ok,
-        csv=args.csv
+        csv=args.csv,
+        keywords=args.keywords,
     )

@@ -184,7 +184,7 @@ for (depth, temp, cndc, pres, psal) in data:
         "TEMP": temp, "TEMP_QC": 1,
         "CNDC": cndc, "CNDC_QC": 1,
         "PRES": temp, "PRES_QC": 1,
-        "PSAL": temp, "PRES_QC": 1
+        "PSAL": temp, "PSAL_QC": 1
     })
     to_csv(df, folder, f"SBE37_{depth}m.csv")
 
@@ -500,7 +500,7 @@ guess_command(folder)
 
 
 # ============ Example 15: Two CTDs at different depths, one is unknown ============ #
-folder = "02"
+folder = "15"
 
 temp1 = 20 + 5 * np.sin(2*np.pi*t)
 cndc1 = 5 + np.sin(2*np.pi*t)
@@ -519,7 +519,8 @@ df1 = pd.DataFrame({
     "TEMP": temp1, "TEMP_QC": 1,
     "CNDC": cndc1, "CNDC_QC": 1,
     "PSAL": psal1, "PSAL_QC": 1,
-    "PRES": pres1, "PRES_QC": 1
+    "PRES": pres1, "PRES_QC": 1,
+    "DUMMY_COLUMN": 14  # THIS SHOULD BE IGNORED with the --ignore-extra-cols flag
 })
 
 df2 = pd.DataFrame({

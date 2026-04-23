@@ -8,10 +8,12 @@ email: enoc.martinez@upc.edu
 license: MIT
 created: 26/4/23
 """
+import hashlib
 from logging.handlers import TimedRotatingFileHandler
+from typing import Optional, Dict
+
 import requests
 import rich
-import urllib
 import concurrent.futures as futures
 import os
 import logging
@@ -115,16 +117,31 @@ def threadify(arg_list, handler, max_threads=10):
         return final_results
 
 
-def download_file(url, file):
+def download_file(url: str, filename: str, headers: Optional[Dict[str, str]] = None, chunk_size: int = 8192) -> None:
     """
-    wrapper for urllib.error.HTTPError
+    Download a file from a URL and save it to disk.
+
+    Args:
+        url: The URL to download from
+        filename: The local path where to save the file
+        headers: Optional HTTP headers to include in the request
+        chunk_size: Size of chunks to stream the download (default 8KB)
     """
-    try:
-        return urllib.request.urlretrieve(url, file)
-    except urllib.error.HTTPError as e:
-        rich.print(f"[red]{str(e)}")
-        rich.print(f"[red]Could not download from {url} to file {file}")
-        raise e
+    if headers is None:
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (compatible; DataDownloader/1.0)',
+            'Accept': '*/*'
+        }
+
+    response = requests.get(url, headers=headers, stream=True)
+    response.raise_for_status()
+
+    os.makedirs(os.path.dirname(filename) if os.path.dirname(filename) else '.', exist_ok=True)
+
+    with open(filename, 'wb') as file:
+        for chunk in response.iter_content(chunk_size=chunk_size):
+            if chunk:
+                file.write(chunk)
 
 
 def download_files(tasks, force_download=False):
@@ -347,6 +364,9 @@ def assert_type(obj, valid_type):
     """
     assert isinstance(obj, valid_type), f"Expected {valid_type}, but got {type(obj)} instead"
 
+def assert_url(url: str):
+    assert url.startswith("http"), f"Not a valid URL: {url}"
+
 
 def assert_types(obj, valid_types: list):
     """
@@ -374,3 +394,10 @@ def check_url(url):
     except requests.ConnectionError:
         return False
 
+def get_file_md5(filename):
+    md5_hash = hashlib.md5()
+    with open(filename, 'rb') as f:
+        for chunk in iter(lambda: f.read(65536), b""):
+            md5_hash.update(chunk)
+
+    return md5_hash.hexdigest()

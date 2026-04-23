@@ -21,6 +21,8 @@ import pandas as pd
 import netCDF4 as nc
 import xarray as xr
 import rich
+from rich.text import Text
+from rich.console import Console
 import warnings
 from .metadata_templates import time_valid_names, depth_valid_names, latitude_valid_names, longitude_valid_names, sensor_id_valid_names, platform_id_valid_names, is_coordinate
 from . import init_emso_metadata
@@ -75,7 +77,7 @@ def get_coordinates_from_dataframe(df: pd.DataFrame) -> (str, str, str, str, str
 
 
 class WaterFrame(LoggerSuperclass):
-    def __init__(self, df: pd.DataFrame, metadata: dict, permissive=False):
+    def __init__(self, df: pd.DataFrame, metadata: dict, permissive=False, ignore_extra_cols=False):
         """
         This class is a lightweight re-implementation of WaterFrames, originally from mooda package. It has been
         reimplemented due to lack of maintenance of the original package.
@@ -120,7 +122,7 @@ class WaterFrame(LoggerSuperclass):
 
         metadata_entries = list(metadata["variables"].keys()) + list(metadata["sensors"].keys()) + list(metadata["platforms"].keys())
 
-        # Possible dimensions
+        # Possible dimensionsmetadata
         coordinates = [self._time, self._depth, self._latitude, self._longitude, self._sensor_id, self._platform_id, "precise_latitude", "precise_longitude", "time_end"]
 
         for var in df.columns:
@@ -128,7 +130,11 @@ class WaterFrame(LoggerSuperclass):
             if var.endswith("_QC") or var in coordinates:
                 # skip QC and coordinates for now
                 continue
-            assert var in metadata_entries, f"column {var} not listed in metadata!"
+            if var not in metadata["variables"].keys() and ignore_extra_cols:
+                self.info(f"Deleting extra column {var}")
+                del df[var]
+            else:
+                assert var in metadata_entries, f"column {var} not listed in metadata!"
 
         # Set Constants
         self.flag_values = np.array([0, 1, 2, 3, 4, 7, 8, 9]).astype("u1")
@@ -180,7 +186,6 @@ class WaterFrame(LoggerSuperclass):
                 else:
                     self.error(f"'{variable}' must be defined for multi-platform datasets!",
                                exception=not self.permissive)
-
         # If we do not have a sensor_id column, we should have exactly one sensor
         if self._sensor_id not in df.columns and len(sensors) > 1:
             raise self.error("sensor_id column is required for datasets with more than one sensor",
@@ -233,6 +238,20 @@ class WaterFrame(LoggerSuperclass):
         self.cf_alignment(strict=not self.permissive)
         self.sort()
         self.__nc_dimensions = {}
+
+        # Split keywords into lists
+        def str_to_list(key, separator=" "):
+            if key in self.metadata.keys() and isinstance(self.metadata[key], str):
+                self.metadata[key] = [k.strip() for k in self.metadata[key].split(separator)]
+
+            elif key not in self.metadata.keys():
+                self.metadata[key] = []
+
+            self.metadata[key] = [k for k in self.metadata[key] if k]   # avoid empty keys
+
+        str_to_list("keywords", separator=",")
+        str_to_list("keywords_vocabulary", separator=",")
+        str_to_list("keywords_vocabulary_uri", separator=" ")
 
     def get_coordinate_names(self):
         """
@@ -676,7 +695,11 @@ class WaterFrame(LoggerSuperclass):
         for key, value in self.metadata.items():
             if type(value) == list:
                 values = [str(v) for v in value]
-                value = " ".join(values)
+
+                sep = " "
+                if key in ["keywords", "keywords_vocabulary", "contributor_name"]:
+                    sep = ", "
+                value = sep.join(values)
             ncfile.setncattr(key, value)
 
     def force_lower_case_naming(self):
@@ -813,25 +836,20 @@ class WaterFrame(LoggerSuperclass):
 
         # Floats
         if str(series.name).endswith("_QC"):
-            self.debug(f"  varname {varname} -> uint8 (qc)")
             series = series.copy()  # copy to avoid SettingWithCopy warning
             series[series.isna()] = 9
             series = series.astype("u1")
             return "u1", 255, True, series.to_numpy().astype("u1"), ("obs",)
         elif pd.api.types.is_float_dtype(dtype):
-            self.debug(f"  varname {varname} -> float")
             return "double", -9999.99, True, series.to_numpy(), ("obs",)
         # QC data
         elif pd.api.types.is_unsigned_integer_dtype(dtype):
-            self.debug(f"  varname {varname} -> uint4")
             return "u4", 4294967295, True, series.to_numpy(), ("obs",)
 
         elif pd.api.types.is_integer_dtype(dtype):
-            self.debug(f"  varname {varname} -> int4")
             return "i4", -2147483648, True, series.to_numpy(), ("obs",)
 
         elif pd.api.types.is_string_dtype(dtype):
-            self.debug(f"  varname {varname} -> string")
             # Strings are special in Climate and Forecast, they need to be a matrix of chars with a strlen dimension
             # ["car", "dog"] -> [['c', 'a', 'r'], ['d', 'o', 'g']],
             values, strlen = self.__nc_compatible_string(series)
@@ -842,7 +860,6 @@ class WaterFrame(LoggerSuperclass):
             return "S1", " ", False, values, ("obs", dimension_name)
 
         elif pd.api.types.is_datetime64_any_dtype(dtype):
-            self.debug(f"  varname {varname} -> time")
             # Ignore the annoying FutureWarning
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore", category=FutureWarning)
@@ -891,7 +908,12 @@ class WaterFrame(LoggerSuperclass):
     @staticmethod
     def from_netcdf(filename, decode_times=True, mapper:dict = {}, permissive=False) -> "WaterFrame":
         logger.info(f"Creating WaterFrame from NetCDF file '{filename}'")
+        if not os.path.exists(filename):
+            logger.error(f"File '{filename}' does not exist!")
+            raise FileNotFoundError(f"File '{filename}' does not exist!")
+
         time_units = ""
+        time_end_units = ""
         if decode_times:
             # decode_times in xarray.open_dataset will erase the unit field from TIME, so store it before it is removed
             ds = xr.open_dataset(filename, decode_times=False)
@@ -899,6 +921,9 @@ class WaterFrame(LoggerSuperclass):
                 if _time in ds.variables and "units" in ds[_time].attrs.keys():
                     time_units = ds[_time].attrs["units"]
                     break
+            if "time_end" in ds.variables and "units" in ds["time_end"].attrs.keys():
+                time_end_units = ds[_time].attrs["units"]
+
 
             ds.close()
 
@@ -939,8 +964,11 @@ class WaterFrame(LoggerSuperclass):
                 new_var = mapper[variable]
                 metadata["variables"][new_var] = metadata["variables"].pop(variable)
 
+        # Avoid NetCDF library to silently delete units
         if time_units:
             metadata["variables"][_time]["units"] = time_units
+        if time_end_units:
+            metadata["variables"]["time_end"]["units"] = time_end_units
 
 
         metadata["sensors"] = collect_sensor_metadata(metadata, df)
@@ -950,6 +978,7 @@ class WaterFrame(LoggerSuperclass):
         sensor_names = list(metadata["sensors"].keys())
         variables = [v for v in df.columns if v not in dimensions and not v.endswith("_QC") and v not in sensor_names]
         df = df.dropna(subset=variables, how="all")
+
         wf =  WaterFrame(df, metadata, permissive=permissive)
         return wf
 
@@ -977,6 +1006,109 @@ class WaterFrame(LoggerSuperclass):
         s += "==== Data ====\n"
         s += self.data.__repr__()
         return s
+
+    def guess_keywords(self):
+        """
+        Goes through a dataframe and proposes keyword from P02,P07 and P07
+        """
+        keywords = []
+        self.emso.keywords.reset_vocabularies()
+
+        def get_from_sdn_vocab(target, by, iden, vocab):
+            try:
+                if by == "uri":
+                    iden = self.emso.harmonize_sdn_uri(iden)
+                df = self.emso.sdn_vocabs[vocab]
+                return df[df[by] == iden][target].values[0]
+            except (KeyError, IndexError):
+                return ""
+
+
+        for name, meta in self.vocabulary.items():
+            if name in self.get_coordinate_names() or name in ["time_end", "precise_latitude", "precise_longitude"]:  # Do not add keywords for coordinates
+                continue
+
+            # Get variable names from P02
+            p02 = get_from_sdn_vocab("prefLabel", "id", f"SDN:P02::{name}", "P02")
+            if not p02:
+                # If not using P02 as a name try to derive P02 from P01
+                if "sdn_parameter_uri" in meta.keys():
+                    uri = self.emso.harmonize_sdn_uri(meta["sdn_parameter_uri"])
+                    broad = self.emso.sdn_vocabs_broader["P01"][uri]
+                    p02_list = [b for b in broad if "/P02/" in b]  # keep only P02 links
+                    if len(p02_list) == 0:
+                        self.warning(f"Could not find P02 for '{name}'")
+                    else:
+                        # Now get prefered label instead of uri
+                        prefLabel = get_from_sdn_vocab("prefLabel", "uri", p02_list[0], "P02")
+                        keywords.append(prefLabel)
+
+            keywords.append(p02)
+
+            var_type = meta.get("variable_type", "")
+
+            # CF standard names
+            if "standard_name" in meta.keys():
+                keywords.append(meta["standard_name"])
+
+            # Get the sensor name
+            if "sensor_type_uri" in meta.keys():
+                uri = meta["sensor_type_uri"]
+                k = get_from_sdn_vocab("prefLabel", "uri", uri, "L05")
+                keywords.append(k)
+            elif var_type == "sensor":
+                self.warning(f"Could not find sensor type for '{name}'")
+
+
+            # Get platform type
+            if "platform_type_uri" in meta.keys():
+                uri = meta["platform_type_uri"]
+                k = get_from_sdn_vocab("prefLabel", "uri", uri, "L06")
+                keywords.append(k)
+
+                # Get OSO terms
+            if "emso_platform_uri" in meta.keys():
+                site, rf = self.emso.oso.platform_metadata(meta["emso_platform_uri"])
+                keywords.append(site)
+                keywords.append(rf)
+            elif "emso_platform_name" in meta.keys():
+                uri = self.emso.oso.get_uri_from_name(meta["emso_platform_name"], "platforms")
+                site, rf = self.emso.oso.platform_metadata(uri)
+                keywords.append(site)
+                keywords.append(rf)
+
+
+        keywords = [k for k in keywords if k and k not in self.get_coordinate_names()]
+
+
+        actual_keywords = self.metadata.get("keywords", [])
+
+        keywords = [k for k in keywords if k not in actual_keywords]
+        keywords = np.unique(keywords).tolist()
+        # validate all keywords to append them into the lists
+        self.emso.keywords.reset_vocabularies()
+        [self.emso.keywords.validate_term(k) for k in keywords]
+        return keywords, self.emso.keywords.used_vocabularies, self.emso.keywords.used_vocabularies_uris
+
+    def expand_keywords(self):
+        """
+        Guess new keywords and attached them
+        """
+        self.info("Expanding keywords by guessing more terms")
+
+        keywords, used_vocabularies, used_vocabularies_uris = self.guess_keywords()
+
+        for k in keywords:
+            if k not in self.metadata["keywords"]:
+                self.metadata["keywords"].append(k)
+                self.debug(f"  adding keyword: '{k}'")
+
+        self.emso.keywords.reset_vocabularies()
+        for k in self.metadata["keywords"]:
+            self.emso.keywords.validate_term(k)
+
+        self.metadata["keywords_vocabulary"] = self.emso.keywords.used_vocabularies
+        self.metadata["keywords_vocabulary_uri"] = self.emso.keywords.used_vocabularies_uris
 
 
 def __merge_timeseries_waterframes(waterframes: list) -> pd.DataFrame:
@@ -1104,7 +1236,7 @@ def operational_tests(wf: WaterFrame) -> bool:
     errors = []
     warnings = []
     infos = []
-    __valid_coordinates = ["time", "depth", "latitude", "longitude", "sensor_id", "platform_id", "precise_latitude", "precise_longitude"]
+    __valid_coordinates = ["time", "depth", "latitude", "longitude", "sensor_id", "platform_id", "precise_latitude", "precise_longitude", "time_end"]
     __valid_variable_types = ["environmental", "biological", "technical", "coordinate", "quality_control", "sensor", "platform"]
 
     rich.print("[cyan]=========== Running Operational tests ===========")
@@ -1161,3 +1293,107 @@ def operational_tests(wf: WaterFrame) -> bool:
 
         rich.print(f"❌ the NetCDF file is not operationally valid")
         return True
+
+
+def check_keywords(wf: WaterFrame, verbose=False):
+    rich.print("\n[magenta]============ 🔎 Checking Keywords =============")
+    keywords = wf.metadata.get("keywords", [])
+    valid_keywords = []
+
+    if not keywords:
+        rich.print("[red]❌ No keywords found!!")
+    else:
+        emso = wf.emso
+        emso.keywords.reset_vocabularies()
+
+        for keyword in keywords:
+            perfect, partial, vocabs = emso.keywords.validate_term(keyword)
+            vocabs = ", ".join(vocabs)
+            if perfect:
+                rich.print(f"     ✅ keyword '[green]{keyword}[/green]' is valid, [grey42]found in {vocabs}")
+                valid_keywords.append(keyword)
+            elif partial:
+                rich.print(f"     ⚠️  keyword '[yellow]{keyword}[/yellow]' case mismatch!, [grey42]found in {vocabs}")
+                valid_keywords.append(keyword)
+            else:
+                rich.print(f"     ⛔️ keyword '[red]{keyword}[/red]' not found")
+
+        all_vocabs = emso.keywords.used_vocabularies
+        all_uris = emso.keywords.used_vocabularies_uris
+        rich.print("\n  keyword_vocabulary:  [grey42]# The following vocabularies have been detected:")
+        for v in all_vocabs:
+            rich.print(f"     - [green]{v}[/green]")
+
+        rich.print(f"\n  keyword_vocabulary_uri: [grey42]# The following vocabularies have been detected:")
+        for u in all_uris:
+            rich.print(f"    - {u}")
+
+        rich.print("\nChecking that the declared list of names and uris matches the provided metadata")
+
+        if "keywords_vocabulary" not in wf.metadata.keys():
+            rich.print(f"[red]❌ keywords_vocabulary not found")
+        else:
+            meta_vocab_names = wf.metadata.get("keywords_vocabulary", [])
+            for found in all_vocabs:
+                if found not in meta_vocab_names:
+                    rich.print(f"   ⛔️ '{found}' not declared in keywords_vocabulary")
+                    print(f"term '{found}' not found in:")
+                    for a in meta_vocab_names:
+                        print(f"    - '{a}'", found == a)
+
+        if "keywords_vocabulary_uri" not in wf.metadata.keys():
+            rich.print("[red]❌ keywords_vocabulary_uri not found")
+        else:
+            meta_vocab_uris = wf.metadata.get("keywords_vocabulary_uri", [])
+
+            for found in all_uris:
+                if found not in meta_vocab_uris:
+                    rich.print(f"   ⛔️ '{found}' not declared in keywords_vocabulary_uri")
+
+    additional_keys, additional_names, additional_uris = wf.guess_keywords()
+
+
+    rich.print("\n[magenta]====== 🧠 Guessing Additional Keywords ========")
+
+    if all(key in valid_keywords for key in additional_keys):
+        if not verbose:
+            rich.print("[green]\n✅ All keywords found! No additional keywords suggestion!")
+            return
+
+    txt = ("Here the 'keywords', 'keywords_vocabulary' and 'keywords_vocabulary_uri' are guessed from the existing metadata. "
+           "Valid old keywords are retained and complemented with guessed keywords. Feel free to use copy-paste it to "
+           "your YAML metadata files.")
+    console = Console()
+    console.print(Text(txt).wrap(console, width=80))
+
+    #####  Print keywords ####
+    rich.print("\n  keywords:")
+    rich.print("    [grey42]# Previous valid keywords")
+    for key in valid_keywords:
+        rich.print(f"    - [blue]\"{key}\"")
+
+    rich.print("    [grey42]# Suggested  additional keywords")
+    for key in additional_keys:
+        if key in valid_keywords:
+            continue
+        _, _, vocabs = wf.emso.keywords.validate_term(key)
+        vocabs = ", ".join(vocabs)
+        rich.print(f"    - [cyan]\"{key}\"  [grey42] # found in \"{vocabs}\"")
+
+    all_keywords = np.unique(valid_keywords + additional_keys).tolist()
+
+    v_names, v_uris = wf.emso.keywords.get_vocabularies(all_keywords)
+    #### Print keywords vocabularies #####
+    rich.print("\n  keywords_vocabulary:")
+    for key in v_names:
+        rich.print(f"    - [blue]\"{key}\"")
+
+    # Show suggested vocabulary uris
+    rich.print("\n  keywords_vocabulary_uri:")
+    for key in v_uris:
+        rich.print(f"    - [blue]\"{key}\"")
+
+    if all(key in valid_keywords for key in additional_keys):
+        rich.print("[green]\n✅ All keywords found! No additional keywords suggestion!")
+
+    rich.print("[magenta]==============================================")

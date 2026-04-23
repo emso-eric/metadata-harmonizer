@@ -14,7 +14,7 @@ import time
 import pandas as pd
 import logging
 
-from .metadata.waterframe import operational_tests
+from .metadata.waterframe import operational_tests, check_keywords
 from . import WaterFrame
 from .erddap import ERDDAP
 from .metadata import  EmsoMetadata
@@ -31,6 +31,7 @@ def metadata_report(target,
                     specifications="",
                     variables=[],
                     ignore_ok=False,
+                    keywords=False,
                     csv=""
                     ):
     """
@@ -47,6 +48,10 @@ def metadata_report(target,
     if not target:
         logger.error("ERDDAP URL, NetCDF file or JSON file required!")
         exit()
+
+    if specifications:
+        logger.warning(f"forcing EMSO Metadata to load from custom file: {specifications}!")
+        EmsoMetadata.use_custom_file(specifications)
 
     datasets = [
         # {"file": filename, "url": "http://my.server.com/erddap", "dataset_id": "MyDataset"}
@@ -77,12 +82,13 @@ def metadata_report(target,
     elif target.endswith(".nc"):
         logger.info(f"Loading metadata from file {target}")
         datasets.append({
-            "file": target, "url": "", "dataset_id": "", "metadata": get_netcdf_metadata(target)
+            "file": target, "url": "", "dataset_id": "",
+            "metadata": get_netcdf_metadata(target, permissive=True)
         })
     else:
         raise ValueError(f"Expected .nc file or ERDDAP url, got target='{target}' ")
 
-    tests = EmsoMetadataTester(specifications=specifications)
+    tests = EmsoMetadataTester()
 
     total = []
     required = []
@@ -106,9 +112,10 @@ def metadata_report(target,
         dataset_id.append(r["dataset_id"])
 
         if d["file"]:
-            wf = WaterFrame.from_netcdf(d["file"])
+            wf = WaterFrame.from_netcdf(d["file"], permissive=True)
         else:
             wf = WaterFrame.from_erddap(d["url"], d["dataset_id"])
+
         operational_tests(wf)
 
     tests = pd.DataFrame(
@@ -120,11 +127,9 @@ def metadata_report(target,
             "required": required,
             "optional": optional,
         })
+    if keywords:
+        check_keywords(wf, verbose=verbose)
 
     if output:
         logger.info(f"Storing tests results in {output}...")
         tests.to_csv(output, index=False, sep="\t")
-
-
-
-

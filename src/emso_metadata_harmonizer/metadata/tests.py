@@ -10,6 +10,7 @@ email: enoc.martinez@upc.edu
 license: MIT
 created: 1/3/23
 """
+from math import floor
 
 import rich
 import logging
@@ -37,7 +38,7 @@ class Context:
 
 
 class EmsoMetadataTester:
-    def __init__(self, specifications=""):
+    def __init__(self):
         """
         This class implements the tests to ensure that the metadata in a particular ERDDAP is harmonized with the EMSO
         metadata standards. The tests are configured in the 'EMSO_Metadata_Specifications.md' document. There should be 2 different
@@ -46,7 +47,7 @@ class EmsoMetadataTester:
         # Dict to store all erddap. KEY is the test identifier while value is the method
         logger.info("Setting up EMSO Metadata Tests...")
 
-        self.metadata = init_emso_metadata(force_update=True, specifications=specifications)
+        self.metadata = init_emso_metadata(force_update=True)
         self.context = None  # here info about the current attribute being tested will be stored
 
         self.implemented_tests = {}
@@ -73,7 +74,7 @@ class EmsoMetadataTester:
         error = False
         for test in all_tests:
             if test not in self.implemented_tests.keys():
-                logging.error(f"[red]ERROR test {test} not implemented!")
+                logging.error(f"ERROR test {test} not implemented!")
                 error = True
         if error:
             pass # TODO implement tests and uncoment exception
@@ -146,7 +147,7 @@ class EmsoMetadataTester:
         total_passed = len(df[df["passed"]])
         if show:
             rich.print(f"Required tests passed: {req_passed} of {req_tests}")
-            rich.print(f"Required tests passed: {opt_passed} of {opt_tests}")
+            rich.print(f"Optional tests passed: {opt_passed} of {opt_tests}")
             rich.print(f"   [bold]Total tests passed: {total_passed} of {total_tests}")
 
         def generate_bar_col(n):
@@ -169,6 +170,10 @@ class EmsoMetadataTester:
             opt_task = progress.add_task(f"[{r_color}]Optional tests...", total=opt_tests)
             total_task = progress.add_task(f"[{o_color}]Total tests...", total=total_tests)
 
+            # Floor to avoid 99.7% to be shown as 100%
+            req_passed = req_tests*floor(100*(req_passed/req_tests))/100
+            opt_passed = opt_tests*floor(100*(opt_passed/opt_tests))/100
+            total_passed = total_tests*floor(100*(total_passed/total_tests))/100
 
             progress.update(req_task, advance=req_passed)
             progress.update(opt_task, advance=opt_passed)
@@ -467,6 +472,10 @@ class EmsoMetadataTester:
             raise SyntaxError("Vocabulary identifier should be passed in args, e.g. 'P01'")
         vocab = args[0]
 
+        if vocab == "P01" and self.context.varname == "time_end":
+            # Ignore time_end
+            return True, "ignore time_end"
+
         if vocab not in self.metadata.sdn_vocabs_ids.keys():
             raise ValueError(
                 f"Vocabulary '{vocab}' not loaded! Loaded vocabs are {self.metadata.sdn_vocabs_ids.keys()}")
@@ -484,6 +493,11 @@ class EmsoMetadataTester:
         if len(args) != 1:
             raise SyntaxError("Vocabulary identifier should be passed in args, e.g. 'P01'")
         vocab = args[0]
+
+        if vocab == "P01" and self.context.varname == "time_end":
+            # Ignore time_end
+            return True, "ignore time_end"
+
         if vocab not in self.metadata.sdn_vocabs_pref_label.keys():
             raise ValueError(
                 f"Vocabulary '{vocab}' not loaded! Loaded vocabs are {self.metadata.sdn_vocabs_pref_label.keys()}")
@@ -517,6 +531,8 @@ class EmsoMetadataTester:
         """
         if self.context.varname == "sensor_id":
             return True, "not CF name for sensor_id, ignore it"
+        elif self.context.varname == "time_end":
+            return True, "not CF name for time_end, ignore it"
 
         vocab = "P07"
         if vocab not in self.metadata.sdn_vocabs_pref_label.keys():
@@ -535,6 +551,8 @@ class EmsoMetadataTester:
         if len(args) != 1:
             raise SyntaxError("Vocabulary identifier should be passed in args, e.g. 'P01'")
         vocab = args[0]
+        if vocab == "P01" and self.context.varname == "time_end":
+            return True, "ignore time_end"
 
         uri = value.replace("https", "http")  # make sure to use http
 
@@ -721,7 +739,7 @@ class EmsoMetadataTester:
 
     def is_coordinate(self, value, args):
         valid_coordinates = ["time", "depth", "latitude", "longitude", "sensor_id", "platform_id", "precise_latitude",
-                             "precise_longitude"]
+                             "precise_longitude", "time_end"]
         if value in valid_coordinates:
             return True, ""
         else:
@@ -849,3 +867,34 @@ class EmsoMetadataTester:
             return True, ""
 
         return False, f"role '{value}' not valid!!"
+
+    def valid_keyword(self, value, args):
+        perfect, partial, _ = self.metadata.keywords.validate_term(value)
+        if perfect or partial:
+            return True, ""
+        else:
+            return False, f"'{value}' not valid!"
+
+    def keyword_vocabs(self, value, args):
+        if value in self.metadata.keywords.valid_vocabs:
+            return True, ""
+        else:
+            return False, f"'{value}' not valid!"
+
+    def keyword_vocabs_uri(self, value, args):
+        if value in self.metadata.keywords.valid_vocabs_uri:
+            return True, ""
+        else:
+            return False, f"'{value}' not valid!"
+
+    def valid_data_level(self, value, args):
+        if value in self.metadata.data_processing_levels:
+            return True, ""
+        else:
+            return False, f"'{value}' not valid!"
+
+    def valid_data_process(self, value, args):
+        if value in self.metadata.data_processing_steps:
+            return True, ""
+        else:
+            return False, f"'{value}' not valid!"

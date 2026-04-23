@@ -85,7 +85,8 @@ class MetadataHarmonizerTester(unittest.TestCase):
                 "NcML": "",    # By default, do not use NcML configuration files
                 "mapping": "", # By default, do not use mapping.yaml files
                 "nc_files": nc_files, # if csv files are provided, we will attempt to configure it from source NetCDF
-                "cf_check": False  # Do not test CF compliance with non-EMSO NetCDF files
+                "cf_check": False,  # Do not test CF compliance with non-EMSO NetCDF files
+                "ignore_extra_cols": False
             }
 
             for f in files:
@@ -103,6 +104,9 @@ class MetadataHarmonizerTester(unittest.TestCase):
         # Example 13 requires to use the keep-names option
         cls.example_datasets[12]["keep"] = True
 
+        # Dataset 14 has columns that need to be ignored
+        cls.example_datasets[14]["ignore_extra_cols"] = True
+
         os.makedirs("erddapData", exist_ok=True)
         os.makedirs("datasets", exist_ok=True)
 
@@ -113,7 +117,6 @@ class MetadataHarmonizerTester(unittest.TestCase):
             os.remove(f)
         for d in dirs:
             os.rmdir(d)
-
 
         logger.info("Starting erddap docker container...")
         run_subprocess("docker compose up -d")
@@ -129,10 +132,10 @@ class MetadataHarmonizerTester(unittest.TestCase):
                 urllib.request.urlretrieve(cls.erddap_url)
                 erddap_up = True
             except urllib.error.URLError:
-                cls.info("waiting for ERDDAP to start...")
+                logger.info("waiting for ERDDAP to start...")
                 time.sleep(2)
             except ConnectionError:
-                cls.info("waiting for ERDDAP to start...")
+                logger.info("waiting for ERDDAP to start...")
                 time.sleep(2)
 
     def test_01_create_datasets(self):
@@ -149,7 +152,8 @@ class MetadataHarmonizerTester(unittest.TestCase):
             nc_folder = os.path.join("datasets", dataset["nc_folder"])
             os.makedirs(nc_folder, exist_ok=True)
             dataset_nc = os.path.join(nc_folder, dataset["dataset_id"] + ".nc")
-            generate_dataset(dataset["data"], dataset["metadata"], dataset_nc, keep_names=dataset["keep"])
+            generate_dataset(dataset["data"], dataset["metadata"], dataset_nc, keep_names=dataset["keep"],
+                             ignore_extra_cols=dataset["ignore_extra_cols"])
             # Copy the file to the examples folder
             shutil.copy2(dataset_nc, f"../examples/{dataset['dataset_id']}/example{dataset['dataset_id']}.nc")
             dataset["nc_files"] = [dataset_nc]  # overwrite any existing nc files
@@ -157,8 +161,6 @@ class MetadataHarmonizerTester(unittest.TestCase):
 
     def test_02_cf_compliance(self):
         self.log.info(f"Checking CF compliance")
-        self.log.warning("Cf Checker is not working, cfconventions.org is down!")
-        return
         for dataset in self.example_datasets:
             if dataset["erddap_folder"] == "14":
                 self.log.info("Skipping dataset 14, not CF-compliant...")

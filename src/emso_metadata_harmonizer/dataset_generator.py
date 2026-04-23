@@ -152,19 +152,21 @@ def consolidate_metadata(metadata_files: list):
         with open(meta_file) as f:
             contents = yaml.safe_load(f)
         metadata.update(contents)
-    assert "sensors" in metadata.keys()
-    assert "platforms" in metadata.keys()
-    assert "global" in metadata.keys()
-    assert "variables" in metadata.keys()
+    assert "sensors" in metadata.keys(), f"Sensors not found in metadata"
+    assert "platforms" in metadata.keys(), f"Platforms not found in metadata"
+    assert "global" in metadata.keys(), "Global metadata not found in metadata"
+    assert "variables" in metadata.keys(), "Variables not found in metadata"
     return metadata
 
 
-def generate_dataset(data_files: list, metadata_files: list, output: str, keep_names=False):
+def generate_dataset(data_files: list, metadata_files: list, output: str, keep_names=False, no_keywords=False, ignore_extra_cols=False):
     """
     Generates an EMSO-compliant NetCDF dataset from the input data and metadata
     :param data_files: list of csv data files
     :param metadata_files: list of metadata yaml files
     :param output: output NetCDF file
+    :param no_keywords: Do not guess additional keywords based on existing metadata
+    :param ignore_extra_cols: Ignore all data columns not listed in metadata
     :keep_names: whether to keep the names of the coordinates, by default convert coordinate names to lowercase
     """
 
@@ -239,5 +241,11 @@ def generate_dataset(data_files: list, metadata_files: list, output: str, keep_n
     if len(errors) > 0:
         logger.error("Got errors in dataset generation", exception=ValueError)
 
-    wf = WaterFrame(df, metadata)
+    wf = WaterFrame(df, metadata, ignore_extra_cols=ignore_extra_cols)
+
+    if no_keywords:
+        wf.debug("keywords not expanded")
+    else:
+        wf.expand_keywords()
+
     wf.to_netcdf(output, keep_names=keep_names)

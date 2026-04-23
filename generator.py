@@ -22,9 +22,11 @@ if __name__ == "__main__":
                            nargs="+", default=[])
     argparser.add_argument("-m", "--metadata", type=str, help="metadata yaml files", required=True, nargs="+")
     argparser.add_argument("-k", "--keep-names", help="Keep source variable names (by default forces ERDDAP-like varnames)", action="store_true")
+    argparser.add_argument("-K", "--no-keywords", help="Do not add guessed keywords (default true)", action="store_true")
     argparser.add_argument("-o", "--output", type=str, help="Output NetCDF file", required=False, default="out.nc")
     argparser.add_argument("--clear", action="store_true", help="Clears all downloads", required=False)
     argparser.add_argument("-l", "--log-level", type=str, help="Setting log level (debug, info, warn, error or critical)", required=False, default="")
+    argparser.add_argument("-i", "--ignore-extra-cols", action="store_true", help="Ignore data columns not listed in metadata", required=False)
 
     args = argparser.parse_args()
 
@@ -34,4 +36,5 @@ if __name__ == "__main__":
     if args.verbose:
         lvl = "debug"
     log = setup_log("emh", "log", log_level=lvl)
-    generate_dataset(args.data, args.metadata,  args.output, keep_names=args.keep_names)
+    generate_dataset(args.data, args.metadata,  args.output, keep_names=args.keep_names, no_keywords=args.no_keywords,
+                        ignore_extra_cols=args.ignore_extra_cols)

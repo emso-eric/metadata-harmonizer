@@ -18,8 +18,26 @@ global:
   principal_investigator: "Homer Simpson"
   principal_investigator_email: "homer.simpson@fake.com"
   license: "CC-BY-4.0"
-  contributors: "Bart Simpson, Peter Griffin, Rick Sánchez"
-  contributor_types: "DataCollector DataManager Researcher"
+  contributor_name: "Bart Simpson, Peter Griffin, Rick Sánchez"
+  contributor_role: "DataCollector DataManager Researcher"
+  data_processing_level: "L1"
+  data_processing_steps: "L0a L1a L1b"
+  keywords:
+    - "Balearic Sea"   # found in "Observatories of the Seas Ontology"
+    - "Electrical conductivity of the water column"   # found in "SeaDataNet Parameter Discovery Vocabulary"
+    - "OBSEA"   # found in "Observatories of the Seas Ontology"
+    - "Salinity of the water column"   # found in "SeaDataNet Parameter Discovery Vocabulary"
+    - "Temperature of the water column"   # found in "SeaDataNet Parameter Discovery Vocabulary"
+    - "sea_water_electrical_conductivity"   # found in "Climate and Forecast Standard Names"
+    - "sea_water_pressure"   # found in "Climate and Forecast Standard Names"
+    - "sea_water_temperature"   # found in "Climate and Forecast Standard Names"
+    # GCMD Science keywords
+    - "EARTH SCIENCE > OCEANS > SALINITY/DENSITY > SALINITY"
+    - "EARTH SCIENCE > OCEANS > OCEAN TEMPERATURE > WATER TEMPERATURE"
+    - "EARTH SCIENCE > OCEANS > OCEAN PRESSURE > WATER PRESSURE"
+    # GEMET
+    - "physical oceanography"
+
 
 platforms:
   OBSEA_seabed_station:
