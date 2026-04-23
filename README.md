@@ -68,6 +68,7 @@ python3 generator.py -m examples/01/*.yaml -d examples/01/*.csv --out example01.
 * `-v` or `--verbose`: verbose output
 * `-o` or `--output`: name of the .nc file generated, by default `out.nc`
 * `-k` or `--keep-names`: keep the original coordinate variable names.   
+* `-i` or `--ignore-extra-cols`: ignore columns in the csv files that are not defined in the metadata.
 
 By default, the `generator.py` will convert the coordinate variable names to lower case (e.g. time, depth...). If the
 user wants to explicitly retain the source names, the `--keep-names` option can be used. Note that the NetCDF files 
@@ -149,12 +150,13 @@ provides a binary output, whether the dataset is operationally valid or not.
 * `-c` or `--csv`: store the results as a csv file (useful for SINGLE datasets assessment)
 * `-i` or `--ignore-ok`: do not show successful metadata tests, used to reduce the reports's verbosity
 * `-V` or `--variables`: list of variables to test, other variables will be ignored.
+* `k` or `--keywords`: provide a full analysis of keywords and guess additional keywords
 * `--specs`: Used a local file to read the EMSO Metadata Specifications instead of the public file in github
 
 
 ### Contact info ###
 
 * **author**: Enoc Martínez  
-* **version**: v1.0.3   
+* **version**: v1.0.4   
 * **organization**: Universitat Politècnica de Catalunya (UPC)    
 * **contact**: enoc.martinez@upc.edu  
