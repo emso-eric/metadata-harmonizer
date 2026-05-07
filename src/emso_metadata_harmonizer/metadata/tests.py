@@ -869,8 +869,8 @@ class EmsoMetadataTester:
         return False, f"role '{value}' not valid!!"
 
     def valid_keyword(self, value, args):
-        perfect, partial, _ = self.metadata.keywords.validate_term(value)
-        if perfect or partial:
+        valid = self.metadata.keywords.validate_term(value)
+        if valid:
             return True, ""
         else:
             return False, f"'{value}' not valid!"

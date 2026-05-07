@@ -15,11 +15,8 @@ import time
 import requests
 import pandas as pd
 import json
-from rdflib import Graph
-import rich
-from .keywords import GEMET, GCMD, SeadatanetKeyword, EuroSciVoc
+from .vocabularies import GEMET, GCMD, SeaDataNetVocabulary, EuroSciVoc, Keyword, OSO
 from .utils import download_files, get_file_list, download_file, assert_type, assert_url, get_file_md5
-from .oso import OSO
 
 emso_version = "develop"
 
@@ -191,7 +188,6 @@ def update_external_resources(resource_url: str, resource_file: str):
                     filename = os.path.join(".emso", url.split("/")[-1])
 
                 log.debug(f"    downloading {key}:{name} to {filename}...")
-                print(url)
                 download_file(url, filename)
 
                 local[key][name] = filename
@@ -208,72 +204,40 @@ def update_external_resources(resource_url: str, resource_file: str):
 
 
 class KeywordValidator:
-    def __init__(self, oso: OSO):
-        gcmd = GCMD()
-        euroscivoc = EuroSciVoc()
-        gemet = GEMET()
-        P02 = SeadatanetKeyword(os.path.join(".emso", "sdn", "P02.csv"))
-        L05 = SeadatanetKeyword(os.path.join(".emso", "sdn", "L05.csv"))
-        L06 = SeadatanetKeyword(os.path.join(".emso", "sdn", "L06.csv"))
-        L22 = SeadatanetKeyword(os.path.join(".emso", "sdn", "L22.csv"))
-        P07 = SeadatanetKeyword(os.path.join(".emso", "sdn", "P07.csv"))
-
-        self.vocabularies = [
-            gcmd,
-            euroscivoc,
-            gemet,
-            P02,
-            L05,
-            L06,
-            L22,
-            P07,
-            oso
-        ]
-
-        self.used_vocabularies = []  # list of the vocabularies used in the validation
-        self.used_vocabularies_uris = []  # list of the vocabularies used in the validation
+    def __init__(self, vocabularies: list):
+        self.vocabularies = vocabularies
 
         self.valid_vocabs = [v.name for v in self.vocabularies]
         self.valid_vocabs_uri = [v.uri for v in self.vocabularies]
 
-    def validate_term(self, term: str):
+    def validate_term(self, term: str) -> Keyword|None:
         assert isinstance(term, str), f"Expected string, got {type(term)}"
-
-        # Check term against ALL vocabularies
-        g_perfect_match = False
-        g_partial_match = False
-        perfect_match_vocabs = []  # vocabularies with perfect match
-        partial_match_vocabs = []  # vocabularies with partial match
         for vocab in self.vocabularies:
-            perfect_match, partial_match = vocab.validate_term(term)
-            if perfect_match:
-                g_perfect_match = True
-                perfect_match_vocabs.append(vocab.name)
-                if vocab.name not in self.used_vocabularies:
-                    self.used_vocabularies.append(vocab.name)
-                    self.used_vocabularies_uris.append(vocab.uri)
-            elif partial_match and not g_perfect_match:
-                g_partial_match = True
-                partial_match_vocabs.append(vocab.name)
-                if vocab.name not in self.used_vocabularies:
-                    self.used_vocabularies.append(vocab.name)
-                if vocab.uri not in self.used_vocabularies_uris:
-                    self.used_vocabularies_uris.append(vocab.uri)
+            # If found in a vocabulary return the Keyword object
+            k = vocab.validate_label(term)
+            if k:
+                return k
+        return None
 
-        v = perfect_match_vocabs
-        if len(perfect_match_vocabs) == 0 and len(partial_match_vocabs) > 0:
-            v = partial_match_vocabs
-        return g_perfect_match, g_partial_match, v
+    def used_vocabularies(self, keywords: list):
+        """
+        From a list of keywords, return a list of the used vocabularies names and URIs
+        """
+        titles = []
+        uris = []
+        for keyword in keywords:
+            if not keyword:
+                continue
 
-    def reset_vocabularies(self):
-        self.used_vocabularies = []
-        self.used_vocabularies_uris = []
+            assert isinstance(keyword, Keyword), f"Expected Keyword, got {type(keyword)}"
 
-    def get_vocabularies(self, term_list: list):
-        self.reset_vocabularies()
-        for term in term_list:
-            self.validate_term(term)
-        return self.used_vocabularies, self.used_vocabularies_uris
+            if keyword.vocab_name not in titles:
+                titles.append(keyword.vocab_name)
+            if keyword.vocab_uri not in uris:
+                uris.append(keyword.vocab_uri)
+
+        assert len(titles) == len(uris)
+        return titles, uris
 
 
 class EmsoMetadata:
@@ -392,7 +356,15 @@ class EmsoMetadata:
         # Convert P02 IDs to 4-letter codes
         self.sdn_p02_names = [code.split(":")[-1] for code in self.sdn_vocabs_ids["P02"]]
         self.oso = OSO(oso_ontology_file)
-        self.keywords = KeywordValidator(self.oso)
+        gcmd = GCMD()
+        euroscivoc = EuroSciVoc()
+        gemet = GEMET()
+        P02 = SeaDataNetVocabulary("P02")
+        L05 = SeaDataNetVocabulary("L05")
+        L06 = SeaDataNetVocabulary("L06")
+        L22 = SeaDataNetVocabulary("L22")
+        P07 = SeaDataNetVocabulary("P07")
+        self.keywords = KeywordValidator([gcmd, gemet, euroscivoc, self.oso, P02, L05, L06, L22, P07])
 
     @staticmethod
     def use_custom_file(filename):
@@ -526,3 +498,4 @@ class EmsoMetadata:
             raise LookupError(f"Expected 1 value, got {len(results)}")
 
         return results[0]
+
