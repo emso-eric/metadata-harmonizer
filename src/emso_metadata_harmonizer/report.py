@@ -9,6 +9,7 @@ email: enoc.martinez@upc.edu
 license: MIT
 created: 23/2/23
 """
+import requests
 import rich
 import time
 import pandas as pd
@@ -121,8 +122,11 @@ def metadata_report(target,
                 data_from = date_end - pd.Timedelta(days=7)
             except KeyError:
                 data_from = None
-
-            wf = WaterFrame.from_erddap(d["url"], d["dataset_id"], data_from = data_from)
+            try:
+                wf = WaterFrame.from_erddap(d["url"], d["dataset_id"], data_from = data_from)
+            except requests.exceptions.RequestException:
+                logger.critical("Could not retrieve dataset from ERDDAP, aborting report")
+                return
 
         operational_tests(wf)
 

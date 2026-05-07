@@ -660,7 +660,11 @@ class WaterFrame(LoggerSuperclass):
 
         df = self.data
         if self.cf_data_type in ["timeSeries", "timeSeriesProfile", "trajectory", "trajectoryProfile"]:
-            df = df.set_index([self._time, self._depth])
+            if self._depth not in df.columns:
+                self.error("Depth not in columns!!! Indexing only by time")
+                df.set_index(self._time)
+            else:
+                df = df.set_index([self._time, self._depth])
             df = df.sort_index()
         else:
             self.error(f"Unimplemented CF type '{self.cf_data_type}'", exception=not self.permissive)
@@ -897,7 +901,8 @@ class WaterFrame(LoggerSuperclass):
         rich.print(f"[blue]Downloading NetCDF file fom erddap: {url}")
         r = requests.get(url)
         if r.status_code > 300:
-            raise ValueError(f"Cannot retrieve WaterFrame from {url}")
+            raise requests.exceptions.RequestException(f"Cannot retrieve WaterFrame from {url}")
+
         nbytes = 0
         local_file = f"{dataset_id}.nc"
         with open(local_file, 'wb') as f:
@@ -1041,7 +1046,11 @@ class WaterFrame(LoggerSuperclass):
                 # If not using P02 as a name try to derive P02 from P01
                 if "sdn_parameter_uri" in meta.keys():
                     uri = self.emso.harmonize_sdn_uri(meta["sdn_parameter_uri"])
-                    broad = self.emso.sdn_vocabs_broader["P01"][uri]
+                    try:
+                        broad = self.emso.sdn_vocabs_broader["P01"][uri]
+                    except KeyError:
+                        self.error(f"Can't access P01 term from uri '{uri}'")
+                        continue
                     p02_list = [b for b in broad if "/P02/" in b]  # keep only P02 links
                     if len(p02_list) == 0:
                         self.warning(f"Could not find P02 for '{name}'")
@@ -1104,7 +1113,8 @@ class WaterFrame(LoggerSuperclass):
         ]
 
         # Convert strings to Keyword class
-        keyword_list = [self.emso.keywords.validate_term(k) for k in keywords if k not in ignore]
+        keyword_list = [self.emso.keywords.validate_term(k) for k in keywords]
+        keyword_list = [k for k in keyword_list if k and k not in ignore]  # avoid Nones and unwanted keys
         return keyword_list
 
     def expand_keywords(self):
@@ -1254,6 +1264,7 @@ def operational_tests(wf: WaterFrame) -> bool:
     warnings = []
     infos = []
     __valid_coordinates = ["time", "depth", "latitude", "longitude", "sensor_id", "platform_id", "precise_latitude", "precise_longitude", "time_end"]
+    __mandatory_coords = ["time", "depth", "latitude", "longitude", "sensor_id", "platform_id"]
     __valid_variable_types = ["environmental", "biological", "technical", "coordinate", "quality_control", "sensor", "platform"]
 
     rich.print("[cyan]=========== Running Operational tests ===========")
@@ -1265,6 +1276,30 @@ def operational_tests(wf: WaterFrame) -> bool:
         elif meta["variable_type"] == "coordinate" and varname not in __valid_coordinates:
             errors.append(f"not a valid coordinate name: '{varname}'")
 
+    # check mandatory coordinates
+    for man in __mandatory_coords:
+        if man not in wf.data.keys():
+            errors.append(f"Mandatory coordinate '{man}' not found in sensors metadata")
+
+
+    # check unique P01 codes across variables
+    p01 = {}
+    for varname, meta in wf.vocabulary.items():
+        if "sdn_parameter_uri" in meta.keys():
+            code = meta["sdn_parameter_uri"]
+
+            if code not in p01.keys():
+                p01[code] = []
+
+            if code:  # avoid nulls
+                p01[code].append(varname)
+
+    for key, values in p01.items():
+        if len(values) > 1:
+            errors.append(f"P01 code shared across variables {values} ({key})")
+
+
+
     # Check that sensor_id values are resolvable
 
     if "sensor_id" in wf.data.keys():
@@ -1272,8 +1307,6 @@ def operational_tests(wf: WaterFrame) -> bool:
         for sensor_id in sensor_ids:
             if sensor_id not in wf.sensors.keys():
                 errors.append(f"sensor_id not found in sensors metadata: '{sensor_id}'")
-    else:
-        errors.append("Coordinate 'sensor_id' not found!")
 
     # Check that sensor_id values are resolvable
     if "platform_id" in wf.data.keys():
@@ -1281,9 +1314,6 @@ def operational_tests(wf: WaterFrame) -> bool:
         for platform_id in platform_ids:
             if platform_id not in wf.platforms.keys():
                 errors.append(f"not a valid platform_id: '{platform_id}'")
-    else:
-        errors.append("Coordinate 'platform_id' not found!")
-
 
     if len(errors) > 0:
         print(wf)
@@ -1364,8 +1394,8 @@ def check_keywords(wf: WaterFrame, verbose=False):
                     rich.print(f"   ⛔️ '{found}' not declared in keywords_vocabulary_uri")
 
     suggested_keywords = wf.guess_keywords()
-    new_keyword_uris = [k.uri for k in suggested_keywords]
-    current_keyword_uris = [k.uri for k in current_keywords]
+    new_keyword_uris = [k.uri for k in suggested_keywords  if k]
+    current_keyword_uris = [k.uri for k in current_keywords if k]
 
 
     rich.print("\n[magenta]====== 🧠 Guessing Additional Keywords ========")
