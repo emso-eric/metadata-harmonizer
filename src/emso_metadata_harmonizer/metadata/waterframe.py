@@ -887,9 +887,13 @@ class WaterFrame(LoggerSuperclass):
         self.metadata["time_coverage_end"] = self.data[self._time].max().strftime(iso_time_format)
 
     @staticmethod
-    def from_erddap(url, dataset_id, protocol="tabledap", permissive=True) -> "WaterFrame":
-
+    def from_erddap(url, dataset_id, protocol="tabledap", permissive=True, data_from="") -> "WaterFrame":
         url = f"{url}/{protocol}/{dataset_id}.nc"
+
+        if data_from and isinstance(data_from, pd.Timestamp):
+            tstr = data_from.strftime("%Y-%m-%dT%H:%M:%SZ")
+            url = f"{url}?&time>={tstr}"  # append time constraint
+
         rich.print(f"[blue]Downloading NetCDF file fom erddap: {url}")
         r = requests.get(url)
         if r.status_code > 300:
@@ -1093,8 +1097,14 @@ class WaterFrame(LoggerSuperclass):
         keywords = [k for k in keywords if k not in actual_keywords]
         keywords = np.unique(keywords).tolist()
 
+        # Hardcoded list of parameters that we do not want as keywords!
+        ignore = [
+            "Vertical spatial coordinates",
+            "Sampling parameters"
+        ]
+
         # Convert strings to Keyword class
-        keyword_list = [self.emso.keywords.validate_term(k) for k in keywords]
+        keyword_list = [self.emso.keywords.validate_term(k) for k in keywords if k not in ignore]
         return keyword_list
 
     def expand_keywords(self):
@@ -1103,19 +1113,19 @@ class WaterFrame(LoggerSuperclass):
         """
         self.info("Expanding keywords by guessing more terms")
 
-        keywords, keyword_uris, keyword_types,  used_vocabularies, used_vocabularies_uris = self.guess_keywords()
+        keywords = self.guess_keywords()
 
         for k in keywords:
-            if k not in self.metadata["keywords"]:
-                self.metadata["keywords"].append(k)
-                self.debug(f"  adding keyword: '{k}'")
+            if k.name not in self.metadata["keywords"]:
+                self.metadata["keywords"].append(k.name)
+                self.debug(f"  adding keyword: '{k.name}'")
 
-        self.emso.keywords.reset_vocabularies()
-        for k in self.metadata["keywords"]:
-            self.emso.keywords.validate_term(k)
-
-        self.metadata["keywords_vocabulary"] = self.emso.keywords.used_vocabularies
-        self.metadata["keywords_vocabulary_uri"] = self.emso.keywords.used_vocabularies_uris
+        all_keywords = [self.emso.keywords.validate_term(k.name) for k in keywords]  # convert terms to Keywords objects
+        vocab_names, vocab_uris = self.emso.keywords.used_vocabularies(all_keywords)
+        self.metadata["kewywords_uri"] = [k.uri for k in all_keywords]
+        self.metadata["kewywords_type"] = [k.type for k in all_keywords]
+        self.metadata["keywords_vocabulary"] = vocab_names
+        self.metadata["keywords_vocabulary_uri"] = vocab_uris
 
 
 def __merge_timeseries_waterframes(waterframes: list) -> pd.DataFrame:

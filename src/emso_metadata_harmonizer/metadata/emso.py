@@ -252,6 +252,7 @@ class EmsoMetadata:
         self.data_processing_levels = ["L0", "L1", "L2"]
         self.data_processing_steps = ["L0a", "L0b", "L1a", "L1b", "L1c", "L1d"]
 
+        # TODO: Now SeaDataNet / BODC vocabularies are parsed twice, one here and a second time as GenericVocabulary. It should be unified
         self.sdn_vocabs = {
             # identifier: title
             "P01": "BODC Parameter Usage Vocabulary",

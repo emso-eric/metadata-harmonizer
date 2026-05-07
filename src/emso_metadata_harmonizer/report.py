@@ -114,7 +114,15 @@ def metadata_report(target,
         if d["file"]:
             wf = WaterFrame.from_netcdf(d["file"], permissive=True)
         else:
-            wf = WaterFrame.from_erddap(d["url"], d["dataset_id"])
+
+            # In order to avoid the download of ALL data, take just the last 7 days of data
+            try:
+                date_end = pd.Timestamp(metadata["global"]["time_coverage_end"])
+                data_from = date_end - pd.Timedelta(days=7)
+            except KeyError:
+                data_from = None
+
+            wf = WaterFrame.from_erddap(d["url"], d["dataset_id"], data_from = data_from)
 
         operational_tests(wf)
 
