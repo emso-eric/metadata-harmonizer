@@ -52,13 +52,14 @@ def generate_erddap_dataset(wf: WaterFrame, directory, dataset_id, file_access=T
     returns: a string containing the datasets.xml chunk to setup the dataset
     """
     assert isinstance(wf, WaterFrame), f"Expected WaterFrame (got {type(wf)})"
-
     assert isinstance(directory, str), f"Expected str for directory (got {type(directory)})"
+
+    log = logging.getLogger()
 
     vocab = wf.vocabulary
     if mapping:
         # convert from array to a dict with source as the key
-        rich.print(f"[cyan]Using Mapping")
+        log.info(f"Using user-supplied variable mapping")
         var_mapping = {d["source"]: d for d in mapping["mapping"]["variables"]}
         attr_mapping = mapping["mapping"]["attributes"]
     else:
@@ -292,7 +293,8 @@ def generate_erddap_dataset(wf: WaterFrame, directory, dataset_id, file_access=T
         add_attribute = get_element(root, "addAttributes")
         new_element = etree.SubElement(add_attribute, "att", attrib={"name": key})
         if isinstance(value, list):
-            logger.error(f"Got list for {key}! expected str (value: '{value}')")
+            value = wf.emso.list_to_str(key, value)  # Convert to list following Metadata Specs
+
         new_element.text = value
 
     for source, destination, dtype, attrs, _ in all_variables:

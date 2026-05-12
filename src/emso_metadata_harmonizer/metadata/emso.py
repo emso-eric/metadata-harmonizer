@@ -371,7 +371,7 @@ class EmsoMetadata:
         L06 = SeaDataNetVocabulary("L06")
         L22 = SeaDataNetVocabulary("L22")
         P07 = SeaDataNetVocabulary("P07")
-        self.keywords = KeywordValidator([gemet, euroscivoc, P02, L05, L06, L22, P07, gcmd, self.oso])
+        self.keywords = KeywordValidator([gemet, euroscivoc, gcmd, P02, L05, L06, L22, P07, self.oso])
 
     @staticmethod
     def use_custom_file(filename):
@@ -505,4 +505,23 @@ class EmsoMetadata:
             raise LookupError(f"Expected 1 value, got {len(results)}")
 
         return results[0]
+
+    def list_to_str(self, attr: str, value: list):
+
+        """
+        Converts list to string. Check if the attribute is expected to use comma as a separator or will use just a blank space.
+        """
+        assert_type(attr, str)
+        assert_type(value, list)
+        if not value:
+            return ""
+        df = self.global_attr
+        separator = " "
+        if attr in df["Global Attributes"].to_list():
+            # Get the annotation value in the table, if it is 1 means comma separator, otherwise space
+            annotation = df[df["Global Attributes"] == attr]["annotations"].values[0]
+            if annotation == 1: # annotation 1 means comma-separated
+                separator = ", "
+
+        return separator.join(value)
 

@@ -491,6 +491,11 @@ class WaterFrame(LoggerSuperclass):
         if name_key not in meta.keys():
             meta[name_key] = preflabel
 
+        # Special cases
+        # If units are PSU (SDN:P06::PSUX) climate and forecast will throw an error, because it expects "1" (dimensionless).
+        # Solomonic decision: if PSU is detected force units to 1
+
+
     def process_identifiers(self, meta, df, key) -> (dict, pd.DataFrame):
         """
         Processes identifiers to align with netcdf conventions (removing special chars)
@@ -702,11 +707,7 @@ class WaterFrame(LoggerSuperclass):
         for key, value in self.metadata.items():
             if type(value) == list:
                 values = [str(v) for v in value]
-
-                sep = " "
-                if key in ["keywords", "keywords_vocabulary", "contributor_name"]:
-                    sep = ", "
-                value = sep.join(values)
+                value = self.emso.list_to_str(key, value)
             ncfile.setncattr(key, value)
 
     def force_lower_case_naming(self):
@@ -740,7 +741,6 @@ class WaterFrame(LoggerSuperclass):
 
         :param keep_names: If True, names coordinate names are not modified. If False ERDDAP-like lower-case names are forced
         """
-
         if not keep_names:
             # Forcing variable names to ERDDAP-like style: lower-case
             self.force_lower_case_naming()
@@ -1114,7 +1114,7 @@ class WaterFrame(LoggerSuperclass):
 
         # Convert strings to Keyword class
         keyword_list = [self.emso.keywords.validate_term(k) for k in keywords]
-        keyword_list = [k for k in keyword_list if k and k not in ignore]  # avoid Nones and unwanted keys
+        keyword_list = [k for k in keyword_list if k and k.name not in ignore]  # avoid Nones and unwanted keys
         return keyword_list
 
     def expand_keywords(self):
@@ -1379,35 +1379,42 @@ def check_keywords(wf: WaterFrame, verbose=False):
 
         vocabulary_names, vocabulary_uris = emso.keywords.used_vocabularies(current_keywords)
 
-        rich.print("\n  keyword_uri:  [grey42]# The following vocabularies have been detected:")
+        rich.print("\n  keywords_vocabulary:  [grey42]# The following vocabularies have been detected:")
         for v in vocabulary_names:
             rich.print(f"     - [green]{v}[/green]")
 
-        rich.print(f"\n  keyword_vocabulary_uri: [grey42]# The following vocabularies have been detected:")
+        rich.print(f"\n  keywords_vocabulary_uri: [grey42]# The following vocabularies have been detected:")
         for u in vocabulary_uris:
             rich.print(f"    - {u}")
 
-        rich.print("\nChecking that the declared list of names and uris matches the provided metadata")
-
+        rich.print("\nChecking that 'keywords_vocabulary' matches supplied keywords:")
         if "keywords_vocabulary" not in wf.metadata.keys():
             rich.print(f"[red]❌ keywords_vocabulary not found")
         else:
-            meta_vocab_names = wf.metadata.get("keywords_vocabulary", [])
-            for found in vocabulary_names:
-                if found not in meta_vocab_names:
-                    rich.print(f"   ⛔️ '{found}' not declared in keywords_vocabulary")
-                    print(f"term '{found}' not found in:")
-                    for a in meta_vocab_names:
-                        print(f"    - '{a}'", found == a)
+            declared_vocab_names = wf.metadata.get("keywords_vocabulary", [])
+            errors = False
+            for vocab_name in vocabulary_names:
+                if vocab_name not in declared_vocab_names:
+                    errors = True
+                    rich.print(f"   ⚠️️ '{vocab_name}' not declared in keywords_vocabulary: {declared_vocab_names}")
 
+            if not errors:
+                rich.print(f"     ✅ vocabulary names correctly declared")
+
+        rich.print("\nChecking that 'keywords_vkeywords_vocabulary_uriocabulary' matches supplied keywords:")
         if "keywords_vocabulary_uri" not in wf.metadata.keys():
-            rich.print("[red]❌ keywords_vocabulary_uri not found")
+            rich.print(f"[red]❌ keywords_vocabulary_uri not found")
         else:
-            meta_vocab_uris = wf.metadata.get("keywords_vocabulary_uri", [])
+            declared_vocab_uris = wf.metadata.get("keywords_vocabulary_uri", [])
+            errors = False
+            for vocab_uri in vocabulary_uris:
+                if vocab_uri not in declared_vocab_uris:
+                    errors = True
+                    rich.print(f"   ⚠️️ '{vocab_uri}' not declared in keywords_vocabulary_uri")
 
-            for found in vocabulary_uris:
-                if found not in meta_vocab_uris:
-                    rich.print(f"   ⛔️ '{found}' not declared in keywords_vocabulary_uri")
+            if not errors:
+                rich.print(f"     ✅ vocabulary URIs correctly declared")
+
 
     suggested_keywords = wf.guess_keywords()
     new_keyword_uris = [k.uri for k in suggested_keywords  if k]
