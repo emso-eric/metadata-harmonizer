@@ -235,6 +235,9 @@ class GenericVocabulary(LoggerSuperclass):
         write_json(narrower_file, self.narrower)
         write_json(related_file, self.related)
 
+    def validate_uri(self, uri: str) -> bool:
+        return uri in self.uris
+
 
     def __repr__(self):
         s = "----------------------------------------\n"
@@ -284,21 +287,15 @@ class GEMET(GenericVocabulary):
 
         query = """
             PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
-            PREFIX skosxl: <http://www.w3.org/2008/05/skos-xl#>
-            PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
 
-            SELECT ?concept ?prefLabel
+            SELECT DISTINCT ?concept ?prefLabel
             WHERE {
-                ?concept rdf:type skos:Concept .
-
-                # Get English Preferred Label
-                OPTIONAL {
-                    ?concept skosxl:prefLabel/skosxl:literalForm ?prefLabel .
-                    FILTER(lang(?prefLabel) = "en")
-                }
-
+                ?concept skos:prefLabel ?prefLabel .
+                FILTER(lang(?prefLabel) = "en")
+                FILTER(CONTAINS(STR(?concept), "/concept/"))
             }
-            """
+            ORDER BY ?prefLabel
+        """
         self.load_vocab(download_uri, csv_file, rdf_file, query)
 
     def download_file(self, uri, file):
@@ -320,6 +317,9 @@ class GEMET(GenericVocabulary):
                     'rdf:datatype="http://www.w3.org/2001/XMLSchema#dateTime"></dcterms:modified>',
                     '></dcterms:modified>')
                 fout.write(cleaned_content)
+
+        if os.path.exists(gzip_file):
+            os.remove(gzip_file)
 
 
 
@@ -360,9 +360,9 @@ class GCMD(GenericVocabulary):
             """
         self.load_vocab(download_uri, csv_file, rdf_file, query)
         self.load_relations(broader, narrower, related)
-        self.build_gemet_hierarcy()
+        self.build_gcmd_hierarchy()
 
-    def build_gemet_hierarcy(self):
+    def build_gcmd_hierarchy(self):
         """
         Convert from simple terms to terms containing history:
             before: "SEA CLIFFS"
@@ -372,7 +372,7 @@ class GCMD(GenericVocabulary):
         t = time.time()
         for uri in self.uris:
             new_terms.append(self.build_term(uri))
-        self.debug(f"Building GEMET hierarchy took {time.time() - t :.03f}")
+        self.debug(f"Building GCMD hierarchy took {time.time() - t :.03f}")
         self.set_terms(new_terms, self.uris)
 
 
@@ -477,6 +477,19 @@ class SeaDataNetVocabulary(GenericVocabulary):
         r = os.path.join(".emso", "sdn", f"{code}.related.json")
         self.load_relations(b, n , r)
 
+    def validate_uri(self, uri: str) -> bool:
+        """
+        override validate uri to make sure that all uris are http and end with /
+        """
+        if uri.startswith("https://"):
+            uri = uri.replace("https://", "http://")
+
+        if not uri.endswith("/"):
+            uri += "/"
+
+        return uri in self.uris
+
+    
 
 class OSO(GenericVocabulary):
     def __init__(self, ttl_file):
@@ -622,21 +635,25 @@ class Keyword:
         self.vocab_uri = vocab.uri
         self.vocab_code = vocab.code
 
-        self.type = self.__get_type(vocab.name)
+        self.type = self.__get_type(vocab.code)
 
 
     def __get_type(self, title):
         mapping = {
-            "SeaDataNet Parameter Discovery Vocabulary": "variable",  # P02
-            "Climate and Forecast Standard Names": "variable",  # P07
-            "SeaDataNet device categories": "device", # L05
-            "SeaVoX Platform Categories": "platform", # L06
-            "SeaVoX Device Catalogue": "device",       # L22
+            "P02": "variable",
+            "P07": "variable",
+            "L05": "device",
+            "L06": "platform",
+            "L22": "device",
+            "OSO": "infrastructure",
             "GEMET": "discipline",
-            "GCMD Science Keywords": "discipline",
+            "GCMD": "discipline",
             "EuroSciVoc": "discipline",
         }
-        return mapping.get(title, "undefined")
+        r =  mapping.get(title, "undefined")
+        if r == "undefined":
+            logging.warning(f"Could not find type for '{self.name}' ({self.vocab_code})")
+        return r
 
     def __repr__(self) -> str:
         return f"Keyword name={self.name!r}\n  uri={self.uri!r}\n  vocab='{self.vocab_name}'"

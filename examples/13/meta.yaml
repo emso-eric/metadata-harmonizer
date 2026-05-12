@@ -22,10 +22,12 @@ global:
   contributor_role: "DataCollector DataManager Researcher"
   data_processing_level: "L1"
   data_processing_steps: "L0a L1a L1b"
+  doi: "https://doi.org/10.5281/zenodo.20071769"
   # ====VERY IMPORTANT ==== #
   # if featureType is not set explicitly to timeSeries and the lat/lon change over
   # time, a trajectory type will be probably detected.
   featureType: "timeSeries"
+
 
 platforms:
   OBSEA_seabed_station:
@@ -75,9 +77,9 @@ variables:
 
   PSAL:
     long_name: "sea water salinity"
-    sdn_parameter_uri: "http://vocab.nerc.ac.uk/collection/P01/current/PRESPR01"
-    sdn_uom_uri: "http://vocab.nerc.ac.uk/collection/P06/current/UPDB/"
-    standard_name: "sea_water_pressure"
+    sdn_parameter_uri: "http://vocab.nerc.ac.uk/collection/P01/current/PSALST01"
+    sdn_uom_uri: "http://vocab.nerc.ac.uk/collection/P06/current/PSUX/"
+    standard_name: "sea_water_practical_salinity"
 
   SVEL:
     long_name: "speed of sound in sea water"

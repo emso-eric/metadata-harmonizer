@@ -22,6 +22,7 @@ global:
   contributor_role: "DataCollector DataManager Researcher"
   data_processing_level: "L1"
   data_processing_steps: "L0a L1a L1b"
+  doi: "https://doi.org/10.5281/zenodo.20071769"
 
   keywords:
     - "Balearic Sea"   # found in "Observatories of the Seas Ontology"

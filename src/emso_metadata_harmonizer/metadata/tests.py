@@ -288,7 +288,8 @@ class EmsoMetadataTester:
     def __check_exceptions(self, context: Context, attribute: str):
         exceptions = {
             "sensor_id": ["sdn_uom_uri", "sdn_uom_urn", "sdn_uom_name", "units", "standard_name"],
-            "platform_id": ["sdn_uom_uri", "sdn_uom_urn", "sdn_uom_name", "units"]
+            "platform_id": ["sdn_uom_uri", "sdn_uom_urn", "sdn_uom_name", "units"],
+            "time_end": ["standard_name"]
         }
         for exc_varname, exc_attributes in exceptions.items():
             if context.varname == exc_varname and attribute in exc_attributes:
@@ -715,7 +716,13 @@ class EmsoMetadataTester:
         return False, f"email '{value}' not valid"
 
     def valid_doi(self, value, args) -> (bool, str):
-        if re.match(r"^10.\d{4,9}/[-._;()/:A-Za-z0-9]+$", value):
+        # This regex matches:
+        # 1. Optional https:// or http://
+        # 2. Optional doi.org/ or dx.doi.org/
+        # 3. The mandatory 10.xxxx/ prefix
+        doi_pattern = r"^(?:https?://(?:dx\.)?doi\.org/)?10\.\d{4,9}/[-._;()/:A-Za-z0-9]+$"
+
+        if re.match(doi_pattern, value):
             return True, ""
         return False, f"DOI '{value}' not valid"
 
@@ -728,6 +735,11 @@ class EmsoMetadataTester:
 
         If not throw a warning
         """
+
+        # In some cases like PHPH_1 and PHPH_2 we need to split the name and check only the prefix
+        if "_" in value:
+            value = value.split("_")[0]
+
         if value in self.metadata.oceansites_param_codes:
             return True, "Variable name found in OceanSITES"
         elif value in self.metadata.sdn_p02_names:
@@ -874,6 +886,12 @@ class EmsoMetadataTester:
             return True, ""
         else:
             return False, f"'{value}' not valid!"
+
+    def valid_keyword_uri(self, value, args):
+        for vocab in self.metadata.keywords.vocabularies:
+            if vocab.validate_uri(value):
+                return True, ""
+        return False, f"'{value}' not valid!"
 
     def keyword_vocabs(self, value, args):
         if value in self.metadata.keywords.valid_vocabs:

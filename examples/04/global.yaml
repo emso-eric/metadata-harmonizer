@@ -23,6 +23,7 @@ global:
   contributor_role: "DataCollector DataManager Researcher"
   data_processing_level: "L1"
   data_processing_steps: "L0a L1a L1b"
+  doi: "https://doi.org/10.5281/zenodo.20071769"
   keywords:
     - "air"
     - "air_pressure_at_sea_level"

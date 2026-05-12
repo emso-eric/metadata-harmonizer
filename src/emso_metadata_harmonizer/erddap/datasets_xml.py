@@ -291,6 +291,8 @@ def generate_erddap_dataset(wf: WaterFrame, directory, dataset_id, file_access=T
     for key, value in additional_attributes.items():
         add_attribute = get_element(root, "addAttributes")
         new_element = etree.SubElement(add_attribute, "att", attrib={"name": key})
+        if isinstance(value, list):
+            logger.error(f"Got list for {key}! expected str (value: '{value}')")
         new_element.text = value
 
     for source, destination, dtype, attrs, _ in all_variables:

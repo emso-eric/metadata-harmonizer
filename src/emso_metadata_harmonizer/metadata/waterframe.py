@@ -1123,17 +1123,19 @@ class WaterFrame(LoggerSuperclass):
         """
         self.info("Expanding keywords by guessing more terms")
 
-        keywords = self.guess_keywords()
+        current_terms = self.metadata["keywords"]
+        all_keywords = [self.emso.keywords.validate_term(name) for name in current_terms]  # convert terms to Keywords objects
+        all_keywords = [k for k in all_keywords if k]  # avoid non-valid keys
+        current_uris = [k.uri for k in all_keywords]
+        more_keywords = self.guess_keywords()
 
-        for k in keywords:
-            if k.name not in self.metadata["keywords"]:
-                self.metadata["keywords"].append(k.name)
-                self.debug(f"  adding keyword: '{k.name}'")
-
-        all_keywords = [self.emso.keywords.validate_term(k.name) for k in keywords]  # convert terms to Keywords objects
+        for keyword in more_keywords:
+            if keyword.uri not in current_uris:
+                all_keywords.append(keyword)
         vocab_names, vocab_uris = self.emso.keywords.used_vocabularies(all_keywords)
-        self.metadata["kewywords_uri"] = [k.uri for k in all_keywords]
-        self.metadata["kewywords_type"] = [k.type for k in all_keywords]
+        self.metadata["keywords"] = [k.name for k in all_keywords]
+        self.metadata["keywords_uri"] = [k.uri for k in all_keywords]
+        self.metadata["keywords_type"] = [k.type for k in all_keywords]
         self.metadata["keywords_vocabulary"] = vocab_names
         self.metadata["keywords_vocabulary_uri"] = vocab_uris
 
@@ -1298,7 +1300,21 @@ def operational_tests(wf: WaterFrame) -> bool:
         if len(values) > 1:
             errors.append(f"P01 code shared across variables {values} ({key})")
 
+    # check unique standard_names across variables
+    std_names = {}
+    for varname, meta in wf.vocabulary.items():
+        if "standard_name" in meta.keys():
+            code = meta["standard_name"]
 
+            if code not in std_names.keys():
+                std_names[code] = []
+
+            if code:  # avoid nulls
+                std_names[code].append(varname)
+
+    for key, values in std_names.items():
+        if len(values) > 1:
+            errors.append(f"standard_name attributes shared across variables {values} ({key})")
 
     # Check that sensor_id values are resolvable
 

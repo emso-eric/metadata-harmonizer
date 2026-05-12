@@ -1,3 +1,5 @@
+[![DOI](https://zenodo.org/badge/670241787.svg)](https://doi.org/10.5281/zenodo.20071769)
+
 # Metadata Harmonizer Toolbox #
 This repository contains a set of tools that can be used to create NetCDF files, integrate them into an ERDDAP server 
 and to ensure the compliance with the [EMSO Metadata Specifications](https://github.com/emso-eric/emso-metadata-specifications/tree/develop).

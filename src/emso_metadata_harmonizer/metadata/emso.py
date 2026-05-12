@@ -219,6 +219,12 @@ class KeywordValidator:
                 return k
         return None
 
+    def validate_uri(self, uri) -> bool:
+        for vocab in self.vocabularies:
+            if uri in vocab.uris:
+                return True
+        return False
+
     def used_vocabularies(self, keywords: list):
         """
         From a list of keywords, return a list of the used vocabularies names and URIs
@@ -365,7 +371,7 @@ class EmsoMetadata:
         L06 = SeaDataNetVocabulary("L06")
         L22 = SeaDataNetVocabulary("L22")
         P07 = SeaDataNetVocabulary("P07")
-        self.keywords = KeywordValidator([gcmd, gemet, euroscivoc, self.oso, P02, L05, L06, L22, P07])
+        self.keywords = KeywordValidator([gemet, euroscivoc, P02, L05, L06, L22, P07, gcmd, self.oso])
 
     @staticmethod
     def use_custom_file(filename):

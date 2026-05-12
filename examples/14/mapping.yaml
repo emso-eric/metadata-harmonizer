@@ -12,6 +12,20 @@ mapping:
     doi: "10.5281/zenodo.13141951 10.5281/zenodo.8421765"
     project: "AMRIT MINKE"
     project_codes: "101132013 101008724"
+    contributor_name:
+      - "Roberto Bozzano"
+      - "Sara Pensieri"
+
+    contributor_role:
+      - "Editor"
+      - "Editor"
+
+    keywords:
+      - "EARTH SCIENCE > Oceans"
+      - "physical oceanography"
+
+    keywords_uris:
+      -
 
   variables:
   # Use the mapping file to edit the source / destinations of the ERDDAP configuration. The structure is as follows:
@@ -83,7 +97,7 @@ mapping:
         sdn_parameter_name: "Latitude north"
         sdn_parameter_urn: "SDN:P01::ALATZZ01"
         sdn_uom_uri: "http://vocab.nerc.ac.uk/collection/P06/current/UAAA/"
-        sdn_uom_urn: "SDN:P06::UAAA/"
+        sdn_uom_urn: "SDN:P06::UAAA"
         sdn_uom_name: "Degrees"
         units: "degrees_north"
 

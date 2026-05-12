@@ -22,6 +22,7 @@ global:
   contributor_role: "DataCollector DataManager Researcher"
   data_processing_level: "L0b"
   data_processing_steps: "L0a L0b"
+  doi: "https://doi.org/10.5281/zenodo.20071769"
   keywords:
     # GEMET keywords
     - 'marine monitoring'

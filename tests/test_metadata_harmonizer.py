@@ -208,7 +208,7 @@ class MetadataHarmonizerTester(unittest.TestCase):
             os.makedirs(dataset_dir, exist_ok=True)
 
             if dataset["NcML"]:
-                self.log.info(f"[cyan]Adding NcML file!")
+                self.log.info(f"Adding NcML file!")
                 dest_ncml = os.path.join("datasets", dataset["erddap_folder"], os.path.basename(dataset["NcML"]))
                 shutil.copy2(dataset["NcML"], dest_ncml)
 
