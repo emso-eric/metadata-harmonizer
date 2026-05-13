@@ -125,7 +125,7 @@ class WaterFrame(LoggerSuperclass):
 
         metadata_entries = list(metadata["variables"].keys()) + list(metadata["sensors"].keys()) + list(metadata["platforms"].keys())
 
-        # Possible dimensionsmetadata
+        # Possible dimensions metadata
         coordinates = [self._time, self._depth, self._latitude, self._longitude, self._sensor_id, self._platform_id, "precise_latitude", "precise_longitude", "time_end"]
 
         for var in df.columns:
@@ -253,6 +253,8 @@ class WaterFrame(LoggerSuperclass):
             self.metadata[key] = [k for k in self.metadata[key] if k]   # avoid empty keys
 
         str_to_list("keywords", separator=",")
+        str_to_list("keywords_uri", separator=" ")
+        str_to_list("keywords_type", separator=",")
         str_to_list("keywords_vocabulary", separator=",")
         str_to_list("keywords_vocabulary_uri", separator=" ")
 
@@ -705,9 +707,11 @@ class WaterFrame(LoggerSuperclass):
     def nc_set_global_attributes(self, ncfile):
         # Set global attributes
         for key, value in self.metadata.items():
+
             if type(value) == list:
-                values = [str(v) for v in value]
+                value = [str(v) for v in value]
                 value = self.emso.list_to_str(key, value)
+
             ncfile.setncattr(key, value)
 
     def force_lower_case_naming(self):
@@ -982,7 +986,6 @@ class WaterFrame(LoggerSuperclass):
         if time_end_units:
             metadata["variables"]["time_end"]["units"] = time_end_units
 
-
         metadata["sensors"] = collect_sensor_metadata(metadata, df)
         metadata["platforms"] = collect_platform_metadata(metadata, df)
         # Keep only columns with relevant data
@@ -993,8 +996,6 @@ class WaterFrame(LoggerSuperclass):
 
         wf =  WaterFrame(df, metadata, permissive=permissive)
         return wf
-
-
 
     def __repr__(self):
         def get_param(key, vocab):
@@ -1111,27 +1112,30 @@ class WaterFrame(LoggerSuperclass):
             "Vertical spatial coordinates",
             "Sampling parameters"
         ]
-
         # Convert strings to Keyword class
-        keyword_list = [self.emso.keywords.validate_term(k) for k in keywords]
+        keyword_list = [self.emso.keywords.keyword_from_label(k) for k in keywords]
         keyword_list = [k for k in keyword_list if k and k.name not in ignore]  # avoid Nones and unwanted keys
         return keyword_list
 
-    def expand_keywords(self):
+    def consolidate_keywords(self, expand=True):
         """
         Guess new keywords and attached them
         """
-        self.info("Expanding keywords by guessing more terms")
+        self.info("Consolidating Keywords in metadata...")
 
         current_terms = self.metadata["keywords"]
-        all_keywords = [self.emso.keywords.validate_term(name) for name in current_terms]  # convert terms to Keywords objects
+        all_keywords = [self.emso.keywords.keyword_from_label(name) for name in current_terms]  # convert terms to Keywords objects
         all_keywords = [k for k in all_keywords if k]  # avoid non-valid keys
-        current_uris = [k.uri for k in all_keywords]
-        more_keywords = self.guess_keywords()
 
-        for keyword in more_keywords:
-            if keyword.uri not in current_uris:
-                all_keywords.append(keyword)
+        if expand:
+            self.info("Expanding keywords by guessing more terms")
+            guessed_keywords = self.guess_keywords()
+            for keyword in guessed_keywords:
+                if keyword not in all_keywords:
+                    all_keywords.append(keyword)
+        else:
+            self.info("Keeping original keywords")
+
         vocab_names, vocab_uris = self.emso.keywords.used_vocabularies(all_keywords)
         self.metadata["keywords"] = [k.name for k in all_keywords]
         self.metadata["keywords_uri"] = [k.uri for k in all_keywords]
@@ -1353,7 +1357,6 @@ def operational_tests(wf: WaterFrame) -> bool:
         rich.print(f"✅ the NetCDF file is operationally sound!")
         return True
     else:
-
         rich.print(f"❌ the NetCDF file is not operationally valid")
         return True
 
@@ -1361,100 +1364,105 @@ def operational_tests(wf: WaterFrame) -> bool:
 def check_keywords(wf: WaterFrame, verbose=False):
     rich.print("\n[magenta]============ 🔎 Checking Keywords =============")
     keywords = wf.metadata.get("keywords", [])
-    current_keywords = []
+    keywords_uri = wf.metadata.get("keywords_uri", [])
+    keywords_type = wf.metadata.get("keywords_type", [])
+    keywords_vocab = wf.metadata.get("keywords_vocabulary", [])
+    keywords_vocab_uri = wf.metadata.get("keywords_vocabulary_uri", [])
 
-    if not keywords:
-        rich.print("[red]❌ No keywords found!!")
+    # Basic checks
+    if len(keywords) == 0:
+        rich.print("[red]❌ No keywords found!! Aborting keywords analysis")
+        return
+
+    elif len(keywords_uri) == 0:
+        rich.print("[red]❌ Keywords_uri found!!")
+
+    elif len(keywords_uri) != len(keywords):
+        rich.print(f"[red]❌ Number 'keywords' and 'keywords_uri' do not match ({len(keywords)} != {len(keywords_uri)})")
+        rich.print(f"[red]Aborting keywords analysis")
+        return
+
+    if keywords_type and len(keywords) != len(keywords_type):
+        rich.print(f"[red]❌ Number 'keywords' and 'keywords_type' do not match ({len(keywords)} != {len(keywords_type)})")
+
+    # If keywords_uri not supplied, construct the keywords from names
+    if not keywords_uri:
+        rich.print(f"\nChecking keywords based on supplied 'keywords'")
+        # Guess keywords by their name
+        provided_keywords = [wf.emso.keywords.keyword_from_label(k) for k in keywords]
+        keywords_uri = [""] * len(keywords)  # Init keywords as empty strings
+
+    if not keywords_type:
+        keywords_type = [""] * len(keywords)  # Init keywords as empty strings
+
+    # construct keywords from URIs
     else:
-        emso = wf.emso
+        provided_keywords = [wf.emso.keywords.keyword_from_uri(uri) for uri in keywords_uri]
 
-        for keyword in keywords:
-            k = emso.keywords.validate_term(keyword)
-            if k:
-                rich.print(f"     ✅ keyword '[green]{keyword}[/green]' is valid, [grey42]found in '{k.vocab_code}'")
-                current_keywords.append(k)
+    if verbose:
+        rich.print("keywords list:")
+        for i, (k, uri) in enumerate(zip(keywords, keywords_uri)):
+            rich.print(f"  {i+1:02d} - '{k}' - [magenta]{uri}")
+        rich.print("")
+
+    rich.print(f"\n🔑 Checking keywords based on supplied [cyan]keywords_uri[/cyan]")
+    for k, label, ty in zip(provided_keywords, keywords, keywords_type):
+        if k:
+            if k.name != label:
+                rich.print(f"    ⚠️ expected label '{k.name}' but found '{label}' [grey42]'{k.uri}'", end="")
             else:
-                rich.print(f"     ⛔️ keyword '[red]{keyword}[/red]' not found")
-
-
-        vocabulary_names, vocabulary_uris = emso.keywords.used_vocabularies(current_keywords)
-
-        rich.print("\n  keywords_vocabulary:  [grey42]# The following vocabularies have been detected:")
-        for v in vocabulary_names:
-            rich.print(f"     - [green]{v}[/green]")
-
-        rich.print(f"\n  keywords_vocabulary_uri: [grey42]# The following vocabularies have been detected:")
-        for u in vocabulary_uris:
-            rich.print(f"    - {u}")
-
-        rich.print("\nChecking that 'keywords_vocabulary' matches supplied keywords:")
-        if "keywords_vocabulary" not in wf.metadata.keys():
-            rich.print(f"[red]❌ keywords_vocabulary not found")
+                rich.print(f"    ✅ keyword '[green]{k.name}[/green]' is valid", end="")
+            rich.print(f"[grey42] (vocabulary=[deep_sky_blue4]{k.vocab_code}[/deep_sky_blue4], type=[deep_sky_blue4]{ty}[/deep_sky_blue4])")
         else:
-            declared_vocab_names = wf.metadata.get("keywords_vocabulary", [])
-            errors = False
-            for vocab_name in vocabulary_names:
-                if vocab_name not in declared_vocab_names:
-                    errors = True
-                    rich.print(f"   ⚠️️ '{vocab_name}' not declared in keywords_vocabulary: {declared_vocab_names}")
+            rich.print(    f"    ⛔️ keyword '[red]{k.name}[/red]' not valid")
 
-            if not errors:
-                rich.print(f"     ✅ vocabulary names correctly declared")
-
-        rich.print("\nChecking that 'keywords_vkeywords_vocabulary_uriocabulary' matches supplied keywords:")
-        if "keywords_vocabulary_uri" not in wf.metadata.keys():
-            rich.print(f"[red]❌ keywords_vocabulary_uri not found")
+    found_vocabs, found_vocabs_uri = wf.emso.keywords.used_vocabularies(provided_keywords)
+    rich.print(f"\n📖 Checking [cyan]keywords_vocabulary[/cyan]:")
+    for found in found_vocabs:
+        if found not in keywords_vocab:
+            rich.print(f"    ⛔️ vocabulary '{found}' not found")
         else:
-            declared_vocab_uris = wf.metadata.get("keywords_vocabulary_uri", [])
-            errors = False
-            for vocab_uri in vocabulary_uris:
-                if vocab_uri not in declared_vocab_uris:
-                    errors = True
-                    rich.print(f"   ⚠️️ '{vocab_uri}' not declared in keywords_vocabulary_uri")
+            rich.print(f"    ✅️ '{found}'")
 
-            if not errors:
-                rich.print(f"     ✅ vocabulary URIs correctly declared")
+    rich.print(f"\n🔗‍️ Checking [cyan]keywords_vocabulary_uri[/cyan]:")
+    for found in found_vocabs_uri:
+        if found not in keywords_vocab_uri:
+            rich.print(f"    ⛔️ uri '{found}' not found")
+        else:
+            rich.print(f"    ✅️ '{found}'")
 
-
+    # Now suggest keywords
     suggested_keywords = wf.guess_keywords()
-    new_keyword_uris = [k.uri for k in suggested_keywords  if k]
-    current_keyword_uris = [k.uri for k in current_keywords if k]
-
+    suggested_keywords = [k for k in suggested_keywords if k not in provided_keywords]
 
     rich.print("\n[magenta]====== 🧠 Guessing Additional Keywords ========")
 
-    if all(uri in current_keyword_uris for uri in new_keyword_uris):
+    if len(suggested_keywords) == 0:
         if not verbose:
             rich.print("[green]\n✅ All keywords found! No additional keywords suggestion!")
             return
 
-    rich.print("Here the 'keywords', 'keywords_vocabulary' and 'keywords_vocabulary_uri' are guessed from the existing metadata. "
+    rich.print("Here the 'keywords', 'keywords_vocabulary' are guessed from the existing metadata. "
            "Valid old keywords are retained and complemented with guessed keywords. Feel free to use copy-paste it to "
-           "your YAML metadata files.")
+           "your YAML metadata files. Other keyword attributes should be automatically generated.")
 
 
     #####  Print keywords ####
     rich.print("\n  keywords:")
     rich.print("    [grey42]# Previous valid keywords")
-    for key in current_keywords:
+    for key in provided_keywords:
         rich.print(f"    - [blue]\"{key.name}\"")
 
     rich.print("    [grey42]# Suggested  additional keywords")
     for key in suggested_keywords:
         rich.print(f"    - [cyan]\"{key.name}\"  [grey42] # found in \"{key.vocab_code}\"")
 
-    all_keywords = current_keywords + suggested_keywords
+    all_keywords = provided_keywords + suggested_keywords
 
     v_names, v_uris = wf.emso.keywords.used_vocabularies(all_keywords)
     #### Print keywords vocabularies #####
     rich.print("\n  keywords_vocabulary:")
     for key in v_names:
         rich.print(f"    - [blue]\"{key}\"")
-
-    # Show suggested vocabulary uris
-    rich.print("\n  keywords_vocabulary_uri:")
-    for key in v_uris:
-        rich.print(f"    - [blue]\"{key}\"")
-
 
     rich.print("[magenta]==============================================")

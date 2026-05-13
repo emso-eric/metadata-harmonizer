@@ -40,7 +40,7 @@ class GenericVocabulary(LoggerSuperclass):
 
         self.concept_prefix = ""
 
-    def validate_label(self, label: str):
+    def validate_label(self, label: str) -> "Keyword":
         """
         Return values: perfect_match, partial_match
         """
@@ -52,7 +52,24 @@ class GenericVocabulary(LoggerSuperclass):
         if label_lc in self.labels_lc:  # If the label is found
             uri = self.uri_from_label(label)
             return Keyword(label, uri, self)
-        return None
+
+        return Keyword(label, "", None)  # empty keyword
+
+    def validate_uri(self, uri: str) -> "Keyword":
+        return self._validate_uri(uri)
+
+    def _validate_uri(self, uri: str) -> "Keyword":
+        """
+        Return values: perfect_match, partial_match
+        """
+        assert isinstance(uri, str), f"Expected string, got {type(uri)} instead"
+        assert len(self.uris) > 0, f"'{self.name}' list of uris is empty!"
+
+        if uri in self.uris:  # If the label is found
+            label = self.label_from_uri(uri)
+            return Keyword(label, uri, self)
+
+        return Keyword("", uri, None)  # empty keyword"
 
     def set_terms(self, labels: list, uris: str):
         assert isinstance(labels, list), f"Expected list, got {type(labels)} instead"
@@ -235,8 +252,6 @@ class GenericVocabulary(LoggerSuperclass):
         write_json(narrower_file, self.narrower)
         write_json(related_file, self.related)
 
-    def validate_uri(self, uri: str) -> bool:
-        return uri in self.uris
 
 
     def __repr__(self):
@@ -487,7 +502,7 @@ class SeaDataNetVocabulary(GenericVocabulary):
         if not uri.endswith("/"):
             uri += "/"
 
-        return uri in self.uris
+        return self._validate_uri(uri)
 
     
 
@@ -624,18 +639,26 @@ class OSO(GenericVocabulary):
         return "", ""
 
 class Keyword:
-    def __init__(self, name: str, uri: str, vocab: GenericVocabulary):
-        assert isinstance(vocab, GenericVocabulary)
-        assert isinstance(name, str)
-        assert isinstance(uri, str)
-
+    def __init__(self, name: str, uri: str, vocab: GenericVocabulary|None):
         self.name = name
         self.uri = uri
-        self.vocab_name = vocab.name
-        self.vocab_uri = vocab.uri
-        self.vocab_code = vocab.code
+        self.vocab_code = ""
+        self.vocab_uri = ""
+        self.vocab_name = ""
+        self.type = "undefined"
 
-        self.type = self.__get_type(vocab.code)
+        if not uri or not vocab:
+            self.valid = False
+        else:
+            assert isinstance(vocab, GenericVocabulary)
+            assert isinstance(name, str)
+            assert isinstance(uri, str)
+            self.uri = uri
+            self.vocab_name = vocab.name
+            self.vocab_uri = vocab.uri
+            self.vocab_code = vocab.code
+            self.type = self.__get_type(vocab.code)
+            self.valid = True
 
 
     def __get_type(self, title):
@@ -658,3 +681,13 @@ class Keyword:
     def __repr__(self) -> str:
         return f"Keyword name={self.name!r}\n  uri={self.uri!r}\n  vocab='{self.vocab_name}'"
 
+
+    def __bool__(self):
+        return self.valid
+
+    def __eq__(self, other):
+        # Always check if 'other' is the right type first!
+        if not isinstance(other, Keyword):
+            return NotImplemented
+        assert self.valid, f"Cannot compare invalid Keywords"
+        return self.uri == other.uri

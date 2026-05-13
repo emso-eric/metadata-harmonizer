@@ -881,7 +881,7 @@ class EmsoMetadataTester:
         return False, f"role '{value}' not valid!!"
 
     def valid_keyword(self, value, args):
-        valid = self.metadata.keywords.validate_term(value)
+        valid = self.metadata.keywords.keyword_from_label(value)
         if valid:
             return True, ""
         else:

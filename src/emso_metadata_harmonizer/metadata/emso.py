@@ -210,20 +210,26 @@ class KeywordValidator:
         self.valid_vocabs = [v.name for v in self.vocabularies]
         self.valid_vocabs_uri = [v.uri for v in self.vocabularies]
 
-    def validate_term(self, term: str) -> Keyword|None:
+    def keyword_from_label(self, term: str) -> Keyword:
         assert isinstance(term, str), f"Expected string, got {type(term)}"
         for vocab in self.vocabularies:
             # If found in a vocabulary return the Keyword object
             k = vocab.validate_label(term)
+            if k:  # check if the created Keyword is valid
+                return k
+
+        return Keyword(term, "", None)
+
+    def keyword_from_uri(self, uri: str) -> Keyword | None:
+        assert isinstance(uri, str), f"Expected string, got {type(uri)}"
+
+        for vocab in self.vocabularies:
+            k = vocab.validate_uri(uri)
             if k:
                 return k
-        return None
 
-    def validate_uri(self, uri) -> bool:
-        for vocab in self.vocabularies:
-            if uri in vocab.uris:
-                return True
-        return False
+        return Keyword("", uri, None)
+
 
     def used_vocabularies(self, keywords: list):
         """
@@ -520,8 +526,10 @@ class EmsoMetadata:
         if attr in df["Global Attributes"].to_list():
             # Get the annotation value in the table, if it is 1 means comma separator, otherwise space
             annotation = df[df["Global Attributes"] == attr]["annotations"].values[0]
-            if annotation == 1: # annotation 1 means comma-separated
+            if annotation == 1: # annotation "1" means comma-separated
+                print(f"¿?¿?¿?¿?¿?¿ attr {attr} has annotation {annotation} ¿?¿?¿?¿?¿?")
                 separator = ", "
+        print(f"------------> converting {attr} from list to string separator '{separator}'")
 
         return separator.join(value)
 
