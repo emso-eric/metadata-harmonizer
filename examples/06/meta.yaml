@@ -13,8 +13,11 @@ global:
   format_version: "1.4"
   network: "EMSO"
   data_mode: "D"
-  projects: "DIGI4ECO GEORGE"
-  project_codes: "101112883 101094716"
+  project: "MINKE AMRIT"
+  project_code: "101008724 101132013"
+  project_uri:
+    - "https://cordis.europa.eu/project/id/101008724"
+    - "https://cordis.europa.eu/project/id/101132013"
   principal_investigator: "Homer Simpson"
   principal_investigator_email: "homer.simpson@fake.com"
   license: "CC-BY-4.0"
