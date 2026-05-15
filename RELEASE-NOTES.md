@@ -1,3 +1,11 @@
+## Version 1.0.5 ##
+1. Improved keyword management
+2. adding `--clear` option to generator and metadata_report
+3. fixing windows bug when writing gemet rdf file
+4. The option `--csv` now creates a CSV file for every dataset (avoids overwrite)
+5. The output report includes keywords and operational tests
+6. Fixed examples, now they are almost 100% compliant (just missing AUVs definitions in OSO)
+
 ## Version 1.0.4 ##
 1. Adding keyword checks 
 2. Adding extensive keywords analysis with --keywords
