@@ -26,6 +26,7 @@ if __name__ == "__main__":
     argparser.add_argument("-k", "--keywords", action="store_true", help="Check the keywords")
     argparser.add_argument("-s", "--summary", action="store_true", help="Prints a summary of all datasets")
     argparser.add_argument("-q", "--quiet", action="store_true", help="Do not print the results in the stdout")
+    argparser.add_argument("--clear", action="store_true", help="Clear all downloaded resources")
 
     args = argparser.parse_args()
 
@@ -45,6 +46,6 @@ if __name__ == "__main__":
         csv_folder=args.csv,
         keywords=args.keywords,
         summary=args.summary,
-        quiet=args.quiet
-
+        quiet=args.quiet,
+        clear_downloads=args.clear
     )

@@ -36,7 +36,8 @@ def metadata_report(target,
                     keywords=False,
                     csv_folder="",
                     summary:bool = False,
-                    quiet:bool = False
+                    quiet:bool = False,
+                    clear_downloads:bool = False
                     ):
     """
 
@@ -48,8 +49,11 @@ def metadata_report(target,
     :param: csv:  store the results in a CSV file (only useful when analyzing single datasets)
     :param summary: prints a summary of all reports
     :param quiet: do not print output on the stdout
+    :param clear_downloads: clear all downloaded resources
     """
 
+    if clear_downloads:
+        EmsoMetadata.clear_downloads()
 
     if not target:
         logger.error("ERDDAP URL, NetCDF file or JSON file required!")

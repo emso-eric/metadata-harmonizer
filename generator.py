@@ -39,8 +39,10 @@ if __name__ == "__main__":
     if args.verbose:
         lvl = "debug"
     log = setup_log("emh", "log", log_level=lvl)
+
     generate_dataset(args.data, args.metadata,  args.output,
                      keep_names=args.keep_names,
                      no_keywords=args.no_keywords,
                      ignore_extra_cols=args.ignore_extra_cols,
+                     clear_downloads=args.clear,
                      specifications=args.specs)
