@@ -326,7 +326,7 @@ class GEMET(GenericVocabulary):
         download_file(uri, gzip_file)
         self.debug(f"Uncompressing to RDF file {file}")
         with gzip.open(gzip_file, 'rt', encoding='utf-8') as f:
-            with open(file, "w") as fout:
+            with open(file, "w", encoding="utf-8") as fout:
                 content = f.read()
                 cleaned_content = content.replace(
                     'rdf:datatype="http://www.w3.org/2001/XMLSchema#dateTime"></dcterms:created>',
