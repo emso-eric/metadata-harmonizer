@@ -19,7 +19,7 @@ from .metadata.waterframe import WaterFrame
 logger = logging.getLogger("emso_metadata_harmonizer")
 
 def erddap_config(file: str, dataset_id: str, source_path: str, output: str = "", datasets_xml_file: str = "",
-                  mapping: dict={}, filename_regex=".*"):
+                  mapping: dict={}, filename_regex=".*", recursive=False):
     """
     Configures an ERDDAP dataset based on an input NetCDF file compliant with the EMSO Metadata Specifications. The
     configuration is the excerpt of the 'datasets.xml' file (check ERDDAP docs for more info). By default, the XML
@@ -33,6 +33,7 @@ def erddap_config(file: str, dataset_id: str, source_path: str, output: str = ""
     :param datasets_xml_file: If the path to the datasets.xml is passed here, it will automatically be updated with the new dataset (empty by default).
     :param mapping: mapping file with the source/destination links for mapped datasets (empty by default).
     :param filename_regex: Specify special regex rules for the files included in your dataset (default '.*').
+    :param recursive: Scan recursively source directory.
     """
 
     wf = WaterFrame.from_netcdf(file, permissive=True)
@@ -41,7 +42,8 @@ def erddap_config(file: str, dataset_id: str, source_path: str, output: str = ""
         with open(mapping) as f:
             mapping = yaml.safe_load(f)
 
-    xml_chunk = generate_erddap_dataset(wf, source_path, dataset_id=dataset_id, filename_regex=filename_regex, mapping=mapping)
+    xml_chunk = generate_erddap_dataset(wf, source_path, dataset_id=dataset_id, recursive=recursive,
+                                        filename_regex=filename_regex, mapping=mapping)
 
     if output:
         with open(output, "w") as f:

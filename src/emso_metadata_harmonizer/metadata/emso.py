@@ -222,12 +222,10 @@ class KeywordValidator:
 
     def keyword_from_uri(self, uri: str) -> Keyword | None:
         assert isinstance(uri, str), f"Expected string, got {type(uri)}"
-
         for vocab in self.vocabularies:
             k = vocab.validate_uri(uri)
             if k:
                 return k
-
         return Keyword("", uri, None)
 
 
@@ -527,9 +525,7 @@ class EmsoMetadata:
             # Get the annotation value in the table, if it is 1 means comma separator, otherwise space
             annotation = df[df["Global Attributes"] == attr]["annotations"].values[0]
             if annotation == 1: # annotation "1" means comma-separated
-                print(f"¿?¿?¿?¿?¿?¿ attr {attr} has annotation {annotation} ¿?¿?¿?¿?¿?")
                 separator = ", "
-        print(f"------------> converting {attr} from list to string separator '{separator}'")
 
         return separator.join(value)
 

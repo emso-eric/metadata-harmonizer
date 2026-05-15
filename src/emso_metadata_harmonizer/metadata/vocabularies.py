@@ -163,6 +163,9 @@ class GenericVocabulary(LoggerSuperclass):
             uris.append(self.ensure_uri(row.concept))
             prefs.append(self.ensure_uri(row.prefLabel) if row.prefLabel else "")
 
+        uris = [str(s) for s in uris]
+        prefs = [str(s) for s in prefs]
+
         self.debug(f"Storing pre-processed CSV file for {self.name}")
         df = pd.DataFrame({"uri": uris, "prefLabel": prefs})
         df.to_csv(csv_file, index=False)
@@ -689,5 +692,6 @@ class Keyword:
         # Always check if 'other' is the right type first!
         if not isinstance(other, Keyword):
             return NotImplemented
+        assert isinstance(other, Keyword), f"Cannot compare Keyword with {type(other)}"
         assert self.valid, f"Cannot compare invalid Keywords"
         return self.uri == other.uri

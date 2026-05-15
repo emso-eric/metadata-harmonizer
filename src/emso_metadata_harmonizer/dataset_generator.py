@@ -244,7 +244,6 @@ def generate_dataset(data_files: list, metadata_files: list, output: str, keep_n
         logger.error("Got errors in dataset generation")
 
     if specifications:
-        logger.warning(f"forcing EMSO Metadata to load from custom file: {specifications}!")
         EmsoMetadata.use_custom_file(specifications)
 
     wf = WaterFrame(df, metadata, ignore_extra_cols=ignore_extra_cols)

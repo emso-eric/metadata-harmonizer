@@ -36,7 +36,7 @@ def get_erddap_data_type(series: pd.Series):
         dtype = "double"
     return dtype
 
-def generate_erddap_dataset(wf: WaterFrame, directory, dataset_id, file_access=True, filename_regex=".*", mapping={}):
+def generate_erddap_dataset(wf: WaterFrame, directory, dataset_id, recursive: bool =False, file_access=True, filename_regex=".*", mapping={}):
     """
     Generates a XML chunk to add it into ERDDAP's datasets.xml. The Variables are going to be ordered as follows:
     1. Coordinates
@@ -139,7 +139,8 @@ def generate_erddap_dataset(wf: WaterFrame, directory, dataset_id, file_access=T
             attributes = {}
             if "attributes" in m.keys():
                 attributes = m["attributes"]
-            all_variables[m["destination"]] = [m["source"], m["destination"], "float", attributes, attributes]
+            dtype = m.get("dataType", "float")
+            all_variables[m["destination"]] = [m["source"], m["destination"], dtype, attributes, attributes]
 
 
     # Make sure that ALL QC variables have the proper data type
@@ -266,7 +267,7 @@ def generate_erddap_dataset(wf: WaterFrame, directory, dataset_id, file_access=T
     <updateEveryNMillis>10000</updateEveryNMillis>
     <fileDir>{directory}</fileDir>
     <fileNameRegex>{filename_regex}</fileNameRegex>
-    <recursive>true</recursive>    
+    <recursive>{str(recursive).lower()}</recursive>    
     <pathRegex>.*</pathRegex>
     <metadataFrom>last</metadataFrom>
     <metadataFrom>last</metadataFrom>

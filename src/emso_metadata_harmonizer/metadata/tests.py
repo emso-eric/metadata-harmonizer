@@ -164,25 +164,34 @@ class EmsoMetadataTester:
         t_color = generate_bar_col(total_passed / total_tests)
         r_color = generate_bar_col(req_passed / req_tests)
         o_color = generate_bar_col(opt_passed / opt_tests)
-        rich.print("\n[cyan]============= Metadata Test Summary =============")
-        with Progress(auto_refresh=False) as progress:
-            req_task = progress.add_task(f"[{t_color}]Required tests...", total=req_tests)
-            opt_task = progress.add_task(f"[{r_color}]Optional tests...", total=opt_tests)
-            total_task = progress.add_task(f"[{o_color}]Total tests...", total=total_tests)
 
-            # Floor to avoid 99.7% to be shown as 100%
-            req_passed = req_tests*floor(100*(req_passed/req_tests))/100
-            opt_passed = opt_tests*floor(100*(opt_passed/opt_tests))/100
-            total_passed = total_tests*floor(100*(total_passed/total_tests))/100
+        total = 100 * round(total_passed / total_tests, 2)
+        required = 100 * round(req_passed / req_tests, 2)
+        optional = 100 * round(opt_passed / opt_tests, 2)
 
-            progress.update(req_task, advance=req_passed)
-            progress.update(opt_task, advance=opt_passed)
-            progress.update(total_task, advance=total_passed)
-            progress.stop()
-        total = 100*round(total_passed / total_tests, 2)
-        required = 100*round(req_passed / req_tests, 2)
-        optional = 100*round(opt_passed / opt_tests, 2)
-        rich.print("[cyan]=================================================\n")
+        if show:
+            rich.print("\n[cyan]============= Metadata Test Summary =============")
+            with Progress(auto_refresh=False) as progress:
+                req_task = progress.add_task(f"[{t_color}]Required tests...", total=req_tests)
+                opt_task = progress.add_task(f"[{r_color}]Optional tests...", total=opt_tests)
+                total_task = progress.add_task(f"[{o_color}]Total tests...", total=total_tests)
+
+                # Floor to avoid 99.7% to be shown as 100%
+                req_passed = req_tests*floor(100*(req_passed/req_tests))/100
+                opt_passed = opt_tests*floor(100*(opt_passed/opt_tests))/100
+                total_passed = total_tests*floor(100*(total_passed/total_tests))/100
+
+                progress.update(req_task, advance=req_passed)
+                progress.update(opt_task, advance=opt_passed)
+                progress.update(total_task, advance=total_passed)
+                progress.stop()
+
+            rich.print("[cyan]=================================================\n")
+        else:
+            logger.info(f"Metadata tests summary:")
+            logger.info(f"   Required tests passed: {req_passed} of {req_tests}")
+            logger.info(f"   Optional tests passed: {opt_passed} of {opt_tests}")
+            logger.info(f"   Total tests passed: {total_passed} of {total_tests}")
 
         return total, required, optional
 
@@ -358,7 +367,7 @@ class EmsoMetadataTester:
                     results["value"].append(value)
         return results
 
-    def validate_dataset(self, metadata, verbose=True, variable_filter=[], ignore_ok=False, csv=""):
+    def validate_dataset(self, metadata, verbose=True, variable_filter=[], ignore_ok=False, csv="", quiet=False):
         """
         Takes the well-formatted JSON metadata from an ERDDAP dataset and processes it
         :param metadata: well-formatted JSON metadta for an ERDDAP dataset
@@ -408,27 +417,23 @@ class EmsoMetadataTester:
             df.to_csv(csv, index=False)
         if csv:
             logger.info(f"Results saved to {csv}!")
-        total, required, optional = self.__process_results(df, ignore_ok=ignore_ok, show=not csv)
+
+        show = True
+        if csv or quiet:
+            show = False
+
+        total, required, optional = self.__process_results(df, ignore_ok=ignore_ok, show=show)
+
+        global_meta = metadata["global"]["global"]
+
         r = {
             "dataset_id": dataset_id,
-            "institution": "unknown",
-            "emso_facility": "",
+            "institution": global_meta.get("institution", "unknown"),
+            "emso_facility": global_meta.get("emso_regional_facility_name", "unknown"),
             "total": total,
             "required": required,
             "optional": optional
         }
-
-        if "institution" in metadata["global"].keys():
-            r["institution"] = metadata["global"]["institution"]
-        elif "institution_edmo_codi" in metadata["global"].keys():
-            r["institution"] = "EMDO Code " + metadata["global"]["institution_edmo_codi"]
-        else:
-            r["institution"] = "unknown"
-
-        # Add EMSO Facility in results
-        if "emso_facility" in metadata["global"].keys():
-            r["emso_facility"] = metadata["global"]["emso_facility"]
-
         return r
 
     # ------------------------------------------------ TEST METHODS -------------------------------------------------- #

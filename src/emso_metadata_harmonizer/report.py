@@ -14,6 +14,7 @@ import rich
 import time
 import pandas as pd
 import logging
+import os
 
 from .metadata.waterframe import operational_tests, check_keywords
 from . import WaterFrame
@@ -33,7 +34,9 @@ def metadata_report(target,
                     variables=[],
                     ignore_ok=False,
                     keywords=False,
-                    csv=""
+                    csv_folder="",
+                    summary:bool = False,
+                    quiet:bool = False
                     ):
     """
 
@@ -41,8 +44,10 @@ def metadata_report(target,
     :param output: If passed a summary of ALL datasets will be stored)
     :param specifications: use a different EMSO_Metadata_Specifications.md file (only for development)
     :param variables: process only a subset of variables
-    :param ignore_ok: do not print correct lines, reduces the output
-    param: csv:  store the results in a CSV file (only useful when analyzing single datasets)
+    :param ignore_ok: ignores correct lines, just print errors and warnings
+    :param: csv:  store the results in a CSV file (only useful when analyzing single datasets)
+    :param summary: prints a summary of all reports
+    :param quiet: do not print output on the stdout
     """
 
 
@@ -51,7 +56,6 @@ def metadata_report(target,
         exit()
 
     if specifications:
-        logger.warning(f"forcing EMSO Metadata to load from custom file: {specifications}!")
         EmsoMetadata.use_custom_file(specifications)
 
     datasets = [
@@ -97,14 +101,17 @@ def metadata_report(target,
     institution = []
     emso_facility = []
     dataset_id = []
-    if len(datasets) > 1 and csv:
-        logger.warning("CSV reports will be overwritten if multiple datasets are specified!")
-    elif csv:
-        logger.info(f"Storing tests results in {csv}...")
+
+    if csv_folder:
+        os.makedirs(csv_folder, exist_ok=True)
+
 
     for d in datasets:
         metadata = d["metadata"]
-        r = tests.validate_dataset(metadata, verbose=verbose, variable_filter=variables, ignore_ok=ignore_ok, csv=csv)
+        csv_file = ""
+        if csv_folder:
+            csv_file = os.path.join(csv_folder, d["dataset_id"] + ".csv")
+        r = tests.validate_dataset(metadata, verbose=verbose, variable_filter=variables, ignore_ok=ignore_ok, csv=csv_file, quiet=quiet)
         total.append(r["total"])
         required.append(r["required"])
         optional.append(r["optional"])
@@ -128,7 +135,12 @@ def metadata_report(target,
                 logger.critical("Could not retrieve dataset from ERDDAP, aborting report")
                 return
 
-        operational_tests(wf)
+        optest = operational_tests(wf, quiet=quiet)
+
+    if keywords:
+        keytest = check_keywords(wf, verbose=verbose, quiet=quiet)
+    else:
+        keytest = "skipped"
 
     tests = pd.DataFrame(
         {
@@ -138,10 +150,13 @@ def metadata_report(target,
             "total": total,
             "required": required,
             "optional": optional,
+            "operational": optest,
+            "keywords": keytest
         })
-    if keywords:
-        check_keywords(wf, verbose=verbose)
 
     if output:
         logger.info(f"Storing tests results in {output}...")
         tests.to_csv(output, index=False, sep="\t")
+
+    if summary:
+        rich.print(tests)

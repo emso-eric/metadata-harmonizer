@@ -27,6 +27,7 @@ if __name__ == "__main__":
     argparser.add_argument("-m", "--mapping", type=str, help="Create a metadata-only NetCDF file to overwrite NetCDF's parameters", default="")
     argparser.add_argument("-r", "--regex", type=str,
                            help="Regex expression to be passed to ERDDAP's fileNameRegexCreate (default .*)", default=".*")
+    argparser.add_argument("-R", "--recursive", type=str, help="Tell ERDDAP to scan the data directory recursively", default=False)
     argparser.add_argument("-l", "--log-level", type=str, help="Setting log level (debug, info, warn, error or critical)", required=False, default="")
 
     args = argparser.parse_args()
@@ -41,4 +42,11 @@ if __name__ == "__main__":
         with open(args.mapping) as f:
             mapping = yaml.safe_load(f)
 
-    erddap_config(args.file, args.dataset_id, args.source, output=args.output, datasets_xml_file=args.xml, mapping=mapping, filename_regex=args.regex)
+    erddap_config(args.file,
+                  args.dataset_id,
+                  args.source,
+                  output=args.output,
+                  datasets_xml_file=args.xml,
+                  mapping=mapping,
+                  filename_regex=args.regex,
+                  recursive=args.recursive)
