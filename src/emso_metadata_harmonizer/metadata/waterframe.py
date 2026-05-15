@@ -13,18 +13,12 @@ import datetime
 import logging
 import os.path
 from typing import List
-
-from emso_metadata_harmonizer.metadata.utils import assert_types
-from pydantic.v1.class_validators import all_kwargs
-
 from .utils import assert_type
 import numpy as np
 import pandas as pd
 import netCDF4 as nc
 import xarray as xr
 import rich
-from rich.text import Text
-from rich.console import Console
 import warnings
 from .metadata_templates import time_valid_names, depth_valid_names, latitude_valid_names, longitude_valid_names, sensor_id_valid_names, platform_id_valid_names, is_coordinate
 from . import init_emso_metadata
