@@ -6,12 +6,19 @@ mapping:
     destination: precise_latitude
     attributes:
       standard_name: deployment_latitude
+      sdn_parameter_uri: "https://vocab.nerc.ac.uk/collection/P01/current/ALATCN01"
+      sdn_parameter_urn: "SDN:P01::ALATCN01"
+      sdn_parameter_name: "Latitude north by combined Global Navigation Satellite System receiver"
+
       ancillary_variables: "POSITION_QC"
 
   - source: LONGITUDE
     destination: precise_longitude
     attributes:
       standard_name: deployment_longitude
+      sdn_parameter_uri: "https://vocab.nerc.ac.uk/collection/P01/current/ALONCN01"
+      sdn_parameter_urn: "SDN:P01::ALONCN01"
+      sdn_parameter_name: "Longitude east by combined Global Navigation Satellite System receiver"
       ancillary_variables: "POSITION_QC"
 
   # This variable value will be hardcoded using the NcML virtual dataset
@@ -19,28 +26,38 @@ mapping:
     destination: latitude
     dataType: "double"
     attributes:
+      sdn_parameter_uri: "http://vocab.nerc.ac.uk/collection/P01/current/ALATZZ01/"
+      sdn_parameter_urn: "SDN:P01::ALATZZ01"
+      sdn_parameter_name: "Latitude north"
       standard_name: latitude
       units: degrees_north
-      variable_type: coordinates
+      variable_type: coordinate
 
   # This variable value will be hardcoded using the NcML virtual dataset
   - source: nominal_longitude
     destination: longitude
     dataType: "double"
     attributes:
+      sdn_parameter_uri: "http://vocab.nerc.ac.uk/collection/P01/current/ALONZZ01/"
+      sdn_parameter_urn: "SDN:P01::ALONZZ01"
+      sdn_parameter_name: "Longitude east"
       standard_name: longitude
       units: degrees_east
-      variable_type: coordinates
+      variable_type: coordinate
 
 
   - source: SENSOR_ID
     destination: sensor_id
+    dataType: "String"
     attributes:
-      variable_type: coordinates
+      sdn_parameter_uri: "http://vocab.nerc.ac.uk/collection/P01/current/NMSPINST/"
+      sdn_parameter_urn: "SDN:P01::NMSPINST"
+      sdn_parameter_name: "Name of sampling instrument"
+      variable_type: coordinate
 
   - source: platform_id
     attributes:
-      variable_type: coordinates
+      variable_type: coordinate
 
   - source: "DEPTH"
     destination: depth

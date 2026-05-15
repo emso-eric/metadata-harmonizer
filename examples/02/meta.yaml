@@ -13,8 +13,11 @@ global:
   format_version: "1.4"
   network: "EMSO"
   data_mode: "D"
-  projects: "DIGI4ECO GEORGE"
-  project_codes: "101112883 101094716"
+  project: "DIGI4ECO GEORGE"
+  project_code: "101112883 101094716"
+  project_uri:
+    - "https://cordis.europa.eu/project/id/101112883"
+    - "https://cordis.europa.eu/project/id/101094716"
   principal_investigator: "Homer Simpson"
   principal_investigator_email: "homer.simpson@fake.com"
   license: "CC-BY-4.0"
@@ -22,6 +25,7 @@ global:
   contributor_role: "DataCollector DataManager Researcher"
   data_processing_level: "L1"
   data_processing_steps: "L0a L1a L1b"
+  doi: "https://doi.org/10.5281/zenodo.20071769"
   keywords:
     # Previous valid keywords
     # Suggested  additional keywords
@@ -115,9 +119,9 @@ variables:
 
   PSAL:
     long_name: "sea water salinity"
-    sdn_parameter_uri: "http://vocab.nerc.ac.uk/collection/P01/current/PRESPR01"
-    sdn_uom_uri: "http://vocab.nerc.ac.uk/collection/P06/current/UPDB/"
-    standard_name: "sea_water_pressure"
+    sdn_parameter_uri: "http://vocab.nerc.ac.uk/collection/P01/current/PSALST01"
+    sdn_uom_uri: "http://vocab.nerc.ac.uk/collection/P06/current/PSUX/"
+    standard_name: "sea_water_practical_salinity"
 
   SVEL:
     long_name: "speed of sound in sea water"

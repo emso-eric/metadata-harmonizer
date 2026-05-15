@@ -1,3 +1,5 @@
+[![DOI](https://zenodo.org/badge/670241787.svg)](https://doi.org/10.5281/zenodo.20071769)
+
 # Metadata Harmonizer Toolbox #
 This repository contains a set of tools that can be used to create NetCDF files, integrate them into an ERDDAP server 
 and to ensure the compliance with the [EMSO Metadata Specifications](https://github.com/emso-eric/emso-metadata-specifications/tree/develop).
@@ -69,6 +71,10 @@ python3 generator.py -m examples/01/*.yaml -d examples/01/*.csv --out example01.
 * `-o` or `--output`: name of the .nc file generated, by default `out.nc`
 * `-k` or `--keep-names`: keep the original coordinate variable names.   
 * `-i` or `--ignore-extra-cols`: ignore columns in the csv files that are not defined in the metadata.
+* `-l` or `--log-level`: define the log level (`debug`, `info`, `warning` or `error`)
+* `-K` or `--no-keywords: Prevents the script from adding automatically guessed keywords to the metadata.
+* `--specs`: Used a local file to read the EMSO Metadata Specifications instead of the public file in github
+* `--clear`: clear all cached resources, forces download of all vocabularies
 
 By default, the `generator.py` will convert the coordinate variable names to lower case (e.g. time, depth...). If the
 user wants to explicitly retain the source names, the `--keep-names` option can be used. Note that the NetCDF files 
@@ -101,10 +107,13 @@ for more information.
 
 
 #### Additional Options:
-* `--xml` path to the `datasets.xml` to automatically integrate the dataset
+* `-x` or `--xml` path to the `datasets.xml` to automatically integrate the dataset
 * `-v` or `--verbose`: verbose output
 * `-o` or `--output`: store the xml chunk in a file
-* `-m` or `--mapping`: provide a mapping file to finetune the dataset source/destination names and attributes.   
+* `-m` or `--mapping`: provide a mapping file to finetune the dataset source/destination names and attributes.
+* `-r` or `--regex`: Allows you to specify a custom regex expression for ERDDAP's fileNameRegexCreate (defaults to ".*").
+* `-R` or `--recursive`: A flag to instruct ERDDAP to scan the source data directory recursively (defaults to `false`)
+* `-l` or `--log-level`: define the log level (`debug`, `info`, `warning` or `error`)
 
 The `--mapping` option allows you to create EMSO-compliant datasets from NetCDF files that do not follow the EMSO Metadata
 Specifications. This achieved by specifying the source and destination variable names and by adding/overloading 
@@ -146,17 +155,20 @@ provides a binary output, whether the dataset is operationally valid or not.
 
 #### Additional Options:
 * `-v` or `--verbose`: verbose output
-* `-o` or `--output`: store the summary of the results as a csv file (useful for MULTIPLE datasets assessment)
-* `-c` or `--csv`: store the results as a csv file (useful for SINGLE datasets assessment)
-* `-i` or `--ignore-ok`: do not show successful metadata tests, used to reduce the reports's verbosity
+* `-o` or `--output`: store the summary of the results as a csv file
+* `-c` or `--csv`: Folder where to store the reports of all datasets
+* `-s` or `--summary`: Display a table with a summary of all reports, useful for batch analysis
+* `-i` or `--ignore-ok`: do not show successful metadata tests, used to reduce the reports' verbosity
 * `-V` or `--variables`: list of variables to test, other variables will be ignored.
-* `k` or `--keywords`: provide a full analysis of keywords and guess additional keywords
+* `-k` or `--keywords`: provide a full analysis of keywords and guess additional keywords
+* `-q` or `--quiet`: do not print the full report on the stdout
+* `-l` or `--log-level`: define the log level (`debug`, `info`, `warning` or `error`)
 * `--specs`: Used a local file to read the EMSO Metadata Specifications instead of the public file in github
-
+* `--clear`: clear all cached resources, forces download of all vocabularies
 
 ### Contact info ###
 
 * **author**: Enoc Martínez  
-* **version**: v1.0.4   
+* **version**: v1.0.5   
 * **organization**: Universitat Politècnica de Catalunya (UPC)    
 * **contact**: enoc.martinez@upc.edu  

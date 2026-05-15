@@ -27,6 +27,9 @@ if __name__ == "__main__":
     argparser.add_argument("--clear", action="store_true", help="Clears all downloads", required=False)
     argparser.add_argument("-l", "--log-level", type=str, help="Setting log level (debug, info, warn, error or critical)", required=False, default="")
     argparser.add_argument("-i", "--ignore-extra-cols", action="store_true", help="Ignore data columns not listed in metadata", required=False)
+    argparser.add_argument("--specs", type=str,
+                           help="Use this file as EMSO Metadata specifications source (use only for development)",
+                           default="")
 
     args = argparser.parse_args()
 
@@ -36,5 +39,10 @@ if __name__ == "__main__":
     if args.verbose:
         lvl = "debug"
     log = setup_log("emh", "log", log_level=lvl)
-    generate_dataset(args.data, args.metadata,  args.output, keep_names=args.keep_names, no_keywords=args.no_keywords,
-                        ignore_extra_cols=args.ignore_extra_cols)
+
+    generate_dataset(args.data, args.metadata,  args.output,
+                     keep_names=args.keep_names,
+                     no_keywords=args.no_keywords,
+                     ignore_extra_cols=args.ignore_extra_cols,
+                     clear_downloads=args.clear,
+                     specifications=args.specs)

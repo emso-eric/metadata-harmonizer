@@ -13,9 +13,10 @@ import logging
 import rich
 import pandas as pd
 import yaml
-
+import os
+from .metadata import EmsoMetadata
 from .metadata.dataset import load_data
-from .metadata.utils import assert_type, LoggerSuperclass
+from .metadata.utils import assert_type, get_file_list
 from .metadata.waterframe import WaterFrame, get_coordinates_from_dataframe
 
 logger = logging.getLogger("emso_metadata_harmonizer")
@@ -159,7 +160,8 @@ def consolidate_metadata(metadata_files: list):
     return metadata
 
 
-def generate_dataset(data_files: list, metadata_files: list, output: str, keep_names=False, no_keywords=False, ignore_extra_cols=False):
+def generate_dataset(data_files: list, metadata_files: list, output: str, keep_names=False, no_keywords=False,
+                     ignore_extra_cols=False, specifications="", clear_downloads=False):
     """
     Generates an EMSO-compliant NetCDF dataset from the input data and metadata
     :param data_files: list of csv data files
@@ -167,8 +169,12 @@ def generate_dataset(data_files: list, metadata_files: list, output: str, keep_n
     :param output: output NetCDF file
     :param no_keywords: Do not guess additional keywords based on existing metadata
     :param ignore_extra_cols: Ignore all data columns not listed in metadata
-    :keep_names: whether to keep the names of the coordinates, by default convert coordinate names to lowercase
+    :param keep_names: whether to keep the names of the coordinates, by default convert coordinate names to lowercase
+    :param specifications: Use a local EMSO_Metadata_Specifications file, use only for development!
     """
+
+    if clear_downloads:
+        EmsoMetadata.clear_downloads()
 
     logger.info(f"Generating NetCDF dataset {output}")
     logger.debug("Checking arguments...")
@@ -239,13 +245,11 @@ def generate_dataset(data_files: list, metadata_files: list, output: str, keep_n
         logger.error(e)
 
     if len(errors) > 0:
-        logger.error("Got errors in dataset generation", exception=ValueError)
+        logger.error("Got errors in dataset generation")
+
+    if specifications:
+        EmsoMetadata.use_custom_file(specifications)
 
     wf = WaterFrame(df, metadata, ignore_extra_cols=ignore_extra_cols)
-
-    if no_keywords:
-        wf.debug("keywords not expanded")
-    else:
-        wf.expand_keywords()
-
+    wf.consolidate_keywords(expand=not no_keywords)
     wf.to_netcdf(output, keep_names=keep_names)

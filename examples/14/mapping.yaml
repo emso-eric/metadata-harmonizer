@@ -1,6 +1,7 @@
 mapping:
   attributes:
     title: "Example 14: Setup a EMSO-compliant dataset from Copernicus-like files"
+    institution: "CNR - Consiglio Nazionale delle Ricerche"
     summary: "Setup a EMSO-compliant dataset from Copernicus-like files. Source files from W1M3A have been slightly modified to convert the sensor_id to a string (instead of a numerical variable) and some variables have been removed"
     treatDimensionsAs: "LATITUDE,LONGITUDE,TIME"  # required for NetCDF files not compliant with CF, depends on your dimensions
     contributors: "Bart Simpson, Peter Griffin, Rick Sánchez"
@@ -10,8 +11,27 @@ mapping:
     emso_site_name: "W1M3A"
     emso_site_uri: "https://w3id.org/earthsemantics/OSO#W1M3A"
     doi: "10.5281/zenodo.13141951 10.5281/zenodo.8421765"
-    project: "AMRIT MINKE"
-    project_codes: "101132013 101008724"
+    project: "MINKE AMRIT"
+    project_code: "101008724 101132013"
+    project_uri:
+      - "https://cordis.europa.eu/project/id/101008724"
+      - "https://cordis.europa.eu/project/id/101132013"
+    data_processing_level: "L1"
+    data_processing_steps: "L0a L1a L1b"
+    contributor_name:
+      - "Roberto Bozzano"
+      - "Sara Pensieri"
+
+    contributor_role:
+      - "Editor"
+      - "Editor"
+
+    # Define keywords manually
+    keywords: "Earth Science > Oceans, physical oceanography"
+    keywords_uri: "https://cmr.earthdata.nasa.gov/kms/concept/91697b7d-8f2b-4954-850e-61d5f61c867d http://www.eionet.europa.eu/gemet/concept/6224"
+    keywords_type: "discipline, discipline"
+    keywords_vocabulary: "GCMD Science Keywords, GEMET"
+    keywords_vocabulary_uri: "https://gcmd.earthdata.nasa.gov/ https://www.eionet.europa.eu/gemet/"
 
   variables:
   # Use the mapping file to edit the source / destinations of the ERDDAP configuration. The structure is as follows:
@@ -36,13 +56,6 @@ mapping:
       attributes:
         standard_name: deployment_latitude
         variable_type: "coordinate"
-        sdn_parameter_uri: "https://vocab.nerc.ac.uk/collection/P01/current/ALONZZ01"
-        sdn_uom_uri:  "http://vocab.nerc.ac.uk/collection/P06/current/UAAA/"
-        units: "degrees_east"
-        sdn_parameter_urn: "SDN:P01::ALONZZ01"
-        sdn_parameter_name: "Longitude east"
-        sdn_uom_urn: "SDN:P06::UAAA"
-        sdn_uom_name: "Degrees"
 
 
     - source: LONGITUDE
@@ -83,7 +96,7 @@ mapping:
         sdn_parameter_name: "Latitude north"
         sdn_parameter_urn: "SDN:P01::ALATZZ01"
         sdn_uom_uri: "http://vocab.nerc.ac.uk/collection/P06/current/UAAA/"
-        sdn_uom_urn: "SDN:P06::UAAA/"
+        sdn_uom_urn: "SDN:P06::UAAA"
         sdn_uom_name: "Degrees"
         units: "degrees_north"
 

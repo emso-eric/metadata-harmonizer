@@ -13,8 +13,11 @@ global:
   format_version: "1.4"
   network: "EMSO"
   data_mode: "D"
-  projects: "DIGI4ECO GEORGE"
-  project_codes: "101112883 101094716"
+  project: "DIGI4ECO GEORGE"
+  project_code: "101112883 101094716"
+  project_uri:
+    - "https://cordis.europa.eu/project/id/101112883"
+    - "https://cordis.europa.eu/project/id/101094716"
   principal_investigator: "Homer Simpson"
   principal_investigator_email: "homer.simpson@fake.com"
   license: "CC-BY-4.0"
@@ -22,6 +25,7 @@ global:
   contributor_role: "DataCollector DataManager Researcher"
   data_processing_level: "L0"
   data_processing_steps: "L0a"
+  doi: "https://doi.org/10.5281/zenodo.20071769"
   keywords:
     # GEMET keywords
     - 'sound'

@@ -2,7 +2,7 @@
 services:
   erddap:
     container_name: erddap-emh-test
-    image: erddap/erddap:20251121T183110
+    image:  erddap/erddap:v2.30.0
     restart: unless-stopped
     hostname: dummy-erddap
     environment:

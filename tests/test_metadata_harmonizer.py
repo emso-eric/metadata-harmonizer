@@ -19,7 +19,7 @@ import time
 import inspect
 import logging
 from cfchecker.cfchecks import CFChecker
-
+import rich
 
 # Get the directory of the current script
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -152,8 +152,12 @@ class MetadataHarmonizerTester(unittest.TestCase):
             nc_folder = os.path.join("datasets", dataset["nc_folder"])
             os.makedirs(nc_folder, exist_ok=True)
             dataset_nc = os.path.join(nc_folder, dataset["dataset_id"] + ".nc")
-            generate_dataset(dataset["data"], dataset["metadata"], dataset_nc, keep_names=dataset["keep"],
-                             ignore_extra_cols=dataset["ignore_extra_cols"])
+            generate_dataset(dataset["data"],
+                             dataset["metadata"],
+                             dataset_nc,
+                             keep_names=dataset["keep"],
+                             ignore_extra_cols=dataset["ignore_extra_cols"]
+                             )
             # Copy the file to the examples folder
             shutil.copy2(dataset_nc, f"../examples/{dataset['dataset_id']}/example{dataset['dataset_id']}.nc")
             dataset["nc_files"] = [dataset_nc]  # overwrite any existing nc files
@@ -208,7 +212,7 @@ class MetadataHarmonizerTester(unittest.TestCase):
             os.makedirs(dataset_dir, exist_ok=True)
 
             if dataset["NcML"]:
-                self.log.info(f"[cyan]Adding NcML file!")
+                self.log.info(f"Adding NcML file!")
                 dest_ncml = os.path.join("datasets", dataset["erddap_folder"], os.path.basename(dataset["NcML"]))
                 shutil.copy2(dataset["NcML"], dest_ncml)
 
@@ -265,7 +269,7 @@ class MetadataHarmonizerTester(unittest.TestCase):
             if not downloaded:
                 raise ValueError(f"Could not download {dataset_url}")
 
-            self.log.info("[green]Dataset downloaded!")
+            self.log.info("Dataset downloaded!")
 
             # now try to acess the data
             dataset_url = self.erddap_url + "/tabledap/" + dataset_id + ".nc"

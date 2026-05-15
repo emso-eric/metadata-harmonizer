@@ -37,9 +37,7 @@ __dimension_metadata = {
     "time_end": {
         "long_name": "time end of measurements",
         # UNIX time: seconds since 1970
-        "sdn_parameter_uri": "",
-        "sdn_parameter_urn": "",
-        "sdn_parameter_name": "",
+        "sdn_parameter_uri": "http://vocab.nerc.ac.uk/collection/P01/current/ENDX8601/",
         "standard_name": "",
         "sdn_uom_uri": "http://vocab.nerc.ac.uk/collection/P06/current/UTBB/",
         "units": "seconds since 1970-01-01 00:00:00",
@@ -71,7 +69,7 @@ __dimension_metadata = {
     },
     "precise_latitude": {
         "long_name": "precise latitude",
-        "sdn_parameter_uri": "https://vocab.nerc.ac.uk/collection/P01/current/ALONZZ01",
+        "sdn_parameter_uri": "https://vocab.nerc.ac.uk/collection/P01/current/ALATCN01",
         "standard_name": "deployment_latitude",
         "sdn_uom_uri": "http://vocab.nerc.ac.uk/collection/P06/current/UAAA/",
         "units": "degrees_north",
@@ -79,7 +77,7 @@ __dimension_metadata = {
     },
     "precise_longitude": {
         "long_name": "precise longitude",
-        "sdn_parameter_uri": "https://vocab.nerc.ac.uk/collection/P01/current/ALATZZ01",
+        "sdn_parameter_uri": "https://vocab.nerc.ac.uk/collection/P01/current/ALONCN01",
         "standard_name": "deployment_longitude",
         "sdn_uom_uri": "http://vocab.nerc.ac.uk/collection/P06/current/UAAA/",
         "units": "degrees_east",
