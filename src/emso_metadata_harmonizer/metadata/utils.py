@@ -18,6 +18,8 @@ import concurrent.futures as futures
 import os
 import logging
 
+from requests import HTTPError
+
 # Color codes
 GRN = "\x1B[32m"
 RST = "\033[0m"
@@ -117,7 +119,7 @@ def threadify(arg_list, handler, max_threads=10):
         return final_results
 
 
-def download_file(url: str, filename: str, headers: Optional[Dict[str, str]] = None, chunk_size: int = 8192) -> None:
+def download_file(url: str, filename: str, headers: Optional[Dict[str, str]] = None, chunk_size: int = 8192, alternative="") -> None:
     """
     Download a file from a URL and save it to disk.
 
@@ -126,22 +128,32 @@ def download_file(url: str, filename: str, headers: Optional[Dict[str, str]] = N
         filename: The local path where to save the file
         headers: Optional HTTP headers to include in the request
         chunk_size: Size of chunks to stream the download (default 8KB)
+        alternative: Alternative URI to download in case the url fails
     """
-    if headers is None:
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (compatible; DataDownloader/1.0)',
-            'Accept': '*/*'
-        }
+    try:
+        if headers is None:
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (compatible; DataDownloader/1.0)',
+                'Accept': '*/*'
+            }
 
-    response = requests.get(url, headers=headers, stream=True)
-    response.raise_for_status()
+        response = requests.get(url, headers=headers, stream=True)
+        response.raise_for_status()
 
-    os.makedirs(os.path.dirname(filename) if os.path.dirname(filename) else '.', exist_ok=True)
+        os.makedirs(os.path.dirname(filename) if os.path.dirname(filename) else '.', exist_ok=True)
 
-    with open(filename, 'wb') as file:
-        for chunk in response.iter_content(chunk_size=chunk_size):
-            if chunk:
-                file.write(chunk)
+        with open(filename, 'wb') as file:
+            for chunk in response.iter_content(chunk_size=chunk_size):
+                if chunk:
+                    file.write(chunk)
+    except (HTTPError, requests.exceptions.ConnectionError) as e:
+        log = logging.getLogger()
+        if alternative:
+            log.warning(f"Failed to fetch URL, using alternative {alternative}")
+            download_file(alternative, filename, headers=headers, chunk_size=chunk_size, alternative="")
+        else:
+            log.error(f"Failed to fetch URL {url}")
+            raise e
 
 
 def download_files(tasks, force_download=False):

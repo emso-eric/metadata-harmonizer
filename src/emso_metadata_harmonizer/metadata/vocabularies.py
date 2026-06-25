@@ -107,12 +107,12 @@ class GenericVocabulary(LoggerSuperclass):
             raise e
         return label
 
-    def download_file(self, uri, file):
+    def download_file(self, uri, file, alternative=""):
         """
         Generic download file. Override if your vocabulary needs some specific download strategy
         """
         os.makedirs(os.path.dirname(file), exist_ok=True)
-        download_file(uri, file)
+        download_file(uri, file, alternative=alternative)
 
     def __load_csv(self, csv_file):
         assert os.path.exists(csv_file)
@@ -124,13 +124,13 @@ class GenericVocabulary(LoggerSuperclass):
 
         return df["uri"].to_list(), df["prefLabel"].to_list()
 
-    def load_vocab(self, uri,csv_file, rdf_file, query):
+    def load_vocab(self, uri,csv_file, rdf_file, query, alternative=""):
         t = time.time()
-        uris, labels = self.__load_vocab(uri, csv_file, rdf_file, query)
+        uris, labels = self.__load_vocab(uri, csv_file, rdf_file, query, alternative=alternative)
         self.set_terms(labels, uris)
         self.debug(f"Load vocabulary {self.name} took {time.time() - t:.03f} secs")
 
-    def __load_vocab(self, uri, csv_file, rdf_file, query):
+    def __load_vocab(self, uri, csv_file, rdf_file, query, alternative=""):
         self.rdf_file = rdf_file
         self.csv_file = csv_file
         try:
@@ -143,7 +143,7 @@ class GenericVocabulary(LoggerSuperclass):
         if not os.path.exists(rdf_file):
             # If RDF file does not exist
             self.info(f"Downloading {self.name} to {rdf_file}")
-            self.download_file(uri, rdf_file)
+            self.download_file(uri, rdf_file, alternative=alternative)
 
         if not self.graph:
             self.debug(f"Loading {self.name} from RDF file {rdf_file}")
@@ -271,6 +271,7 @@ class EuroSciVoc(GenericVocabulary):
         super().__init__("EuroSciVoc", "EuroSciVoc", "https://op.europa.eu/en/web/eu-vocabularies/euroscivoc")
 
         download_uri  = "https://op.europa.eu/o/opportal-service/euvoc-download-handler?cellarURI=http%3A%2F%2Fpublications.europa.eu%2Fresource%2Fdistribution%2Feuroscivoc%2F20250924-0%2Frdf%2Fskos_xl%2FEuroSciVoc.rdf&fileName=EuroSciVoc.rdf"
+        alternative_download_uri = "https://files.obsea.es/other/vocabs/EuroSciVoc.rdf"
         rdf_file = os.path.join(".emso", "keywords", "euroscivoc", "euroscivoc.rdf")
         csv_file = os.path.join(".emso", "keywords", "euroscivoc", "euroscivoc.csv")
 
@@ -290,7 +291,7 @@ class EuroSciVoc(GenericVocabulary):
                 }
             }
             """
-        self.load_vocab(download_uri, csv_file, rdf_file, query)
+        self.load_vocab(download_uri, csv_file, rdf_file, query, alternative=alternative_download_uri)
 
 
 
@@ -299,7 +300,8 @@ class GEMET(GenericVocabulary):
         super().__init__("GEMET", "GEMET", "https://www.eionet.europa.eu/gemet/")
 
         download_uri  = "https://www.eionet.europa.eu/gemet/latest/gemet.rdf.gz"
-        gzip_file = os.path.join(".emso", "keywords", "gemet", "gemet.rdf.gz")
+        alternative_download_uri = "https://files.obsea.es/other/vocabs/gemet.rdf.gz"
+
         rdf_file = os.path.join(".emso", "keywords", "gemet", "gemet.rdf")
         csv_file = os.path.join(".emso", "keywords", "gemet", "gemet.csv")
 
@@ -314,16 +316,16 @@ class GEMET(GenericVocabulary):
             }
             ORDER BY ?prefLabel
         """
-        self.load_vocab(download_uri, csv_file, rdf_file, query)
+        self.load_vocab(download_uri, csv_file, rdf_file, query, alternative=alternative_download_uri)
 
-    def download_file(self, uri, file):
+    def download_file(self, uri, file, alternative=""):
         """
         GEMET is downloaded as a gzip file
         """
         os.makedirs(os.path.dirname(file), exist_ok=True)
         gzip_file = ".gemet.gzip"
         self.debug(f"Downloading GEMET to GZ file {gzip_file}, this may take a while...")
-        download_file(uri, gzip_file)
+        download_file(uri, gzip_file, alternative=alternative)
         self.debug(f"Uncompressing to RDF file {file}")
         with gzip.open(gzip_file, 'rt', encoding='utf-8') as f:
             with open(file, "w", encoding="utf-8") as fout:
@@ -353,6 +355,11 @@ class GCMD(GenericVocabulary):
             "https://cmr.earthdata.nasa.gov/kms/concepts/concept_scheme/sciencekeywords/?format=rdf&page_num=2&page_size=2000"
         ]
 
+        alternative_uris = [
+            "https://files.obsea.es/other/vocabs/gcmd_part0.rdf",
+            "https://files.obsea.es/other/vocabs/gcmd_part1.rdf"
+        ]
+
         rdf_file = os.path.join(".emso", "keywords", "gcmd", "gcmd.rdf")
         csv_file = os.path.join(".emso", "keywords", "gcmd", "gcmd.csv")
         broader = os.path.join(".emso", "keywords", "gcmd", "gcmd.broader.json")
@@ -376,7 +383,7 @@ class GCMD(GenericVocabulary):
 
             }
             """
-        self.load_vocab(download_uri, csv_file, rdf_file, query)
+        self.load_vocab(download_uri, csv_file, rdf_file, query, alternative=alternative_uris)
         self.load_relations(broader, narrower, related)
         self.build_gcmd_hierarchy()
 
@@ -418,17 +425,18 @@ class GCMD(GenericVocabulary):
         else:
             raise ValueError("Unexpected multiple broader!")
 
-    def download_file(self, uri, file):
+    def download_file(self, uri, file, alternative=[]):
         """
         Download GCMD file in chunks and merge them into a single RDF
         """
         os.makedirs(os.path.dirname(file), exist_ok=True)
         assert isinstance(uri, list), f"GCMD needs to be downloaded in chunks, so list is expected"
+        assert isinstance(alternative, list), f"GCMD needs to be downloaded in chunks, so list is expected"
         temp_files = []
         for i, part_uri in enumerate(uri):
             temp_files.append(f".temp{i}.rdf")
             self.debug(f"{self.name} - downloading RDF part {i}")
-            download_file(part_uri, temp_files[i])
+            download_file(part_uri, temp_files[i], alternative=alternative[i])
 
         graphs = []
 
@@ -437,7 +445,6 @@ class GCMD(GenericVocabulary):
             g.parse(f, format="xml")
             graphs.append(g)
             os.remove(f)
-
         self.debug(f"{self.name} - merging RDF graphs")
         self.graph = graphs[0]
         for g in graphs[1:]:
