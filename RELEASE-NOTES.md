@@ -1,3 +1,6 @@
+## Version 1.0.6 ##
+1. Adding alternative download URI for EuroSciVoc, GCMD and GEMET vocabularies (EuroSciVoc automatic downloads have been forbidden as of 2026-06-25)
+
 ## Version 1.0.5 ##
 1. Improved keyword management
 2. adding `--clear` option to generator and metadata_report
