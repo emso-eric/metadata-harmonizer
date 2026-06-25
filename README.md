@@ -169,6 +169,6 @@ provides a binary output, whether the dataset is operationally valid or not.
 ### Contact info ###
 
 * **author**: Enoc Martínez  
-* **version**: v1.0.5   
+* **version**: v1.0.6   
 * **organization**: Universitat Politècnica de Catalunya (UPC)    
 * **contact**: enoc.martinez@upc.edu  
