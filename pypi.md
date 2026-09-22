@@ -107,6 +107,6 @@ Where `WARN` is the level of logging messages. Check the [Python logging documen
 ### Contact info ###
 
 * **author**: Enoc Martínez  
-* **version**: v1.0.4    
+* **version**: v1.0.8    
 * **organization**: Universitat Politècnica de Catalunya (UPC)    
 * **contact**: enoc.martinez@upc.edu  

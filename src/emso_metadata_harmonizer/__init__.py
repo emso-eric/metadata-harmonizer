@@ -6,4 +6,4 @@ from .dataset_generator import generate_dataset
 from .metadata.waterframe import WaterFrame
 from .metadata import setup_log
 
-__version__ = "1.0.8.dev0"
+__version__ = "1.0.8"
