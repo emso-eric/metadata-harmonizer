@@ -161,46 +161,53 @@ def update_external_resources(resource_url: str, resource_file: str):
     # if there is no resource file or
     if not os.path.exists(resource_file) or time.time() - os.path.getmtime(resource_file) > 24*3600:
         log.info("Downloading resources.json remote file...")
-        remote = requests.get(resource_url).json()
+        try:
+            remote = requests.get(resource_url).json()
+        except requests.exceptions.ConnectionError:
+            log.warning(f"Could not access {resource_url}")
+            remote = {}
 
-        for key, rmt_resource in remote.items():
-            remote_hash = rmt_resource["hash"]
-            try:
-                local_hash = local[key]["hash"]
-            except KeyError:
-                local_hash = None
+        if remote:
+            for key, rmt_resource in remote.items():
+                remote_hash = rmt_resource["hash"]
+                try:
+                    local_hash = local[key]["hash"]
+                except KeyError:
+                    local_hash = None
 
-            if local_hash == remote_hash:
-                log.debug(f"    {key} is up to date")
-                continue
-            else:
-                log.debug(f"Resource {key} hash do not match local='{local_hash}' remote='{remote_hash}'")
-
-            # At this point, we need to download all files in this resource
-            local[key] = {"hash": remote_hash}
-            for name, url in rmt_resource.items():
-                if name == "hash":
+                if local_hash == remote_hash:
+                    log.debug(f"    {key} is up to date")
                     continue
-
-                if "external-resources/" in url:
-                    filename = os.path.join(".emso", url.split("external-resources/")[-1])
                 else:
-                    filename = os.path.join(".emso", url.split("/")[-1])
+                    log.debug(f"Resource {key} hash do not match local='{local_hash}' remote='{remote_hash}'")
 
-                log.debug(f"    downloading {key}:{name} to {filename}...")
-                download_file(url, filename)
+                # At this point, we need to download all files in this resource
+                local[key] = {"hash": remote_hash}
+                for name, url in rmt_resource.items():
+                    if name == "hash":
+                        continue
 
-                local[key][name] = filename
+                    if "external-resources/" in url:
+                        filename = os.path.join(".emso", url.split("external-resources/")[-1])
+                    else:
+                        filename = os.path.join(".emso", url.split("/")[-1])
 
-            with open(os.path.join(".emso", "resources.json"), "w") as f:
-                json.dump(local, f, indent=2)
+                    log.debug(f"    downloading {key}:{name} to {filename}...")
+                    download_file(url, filename)
+
+                    local[key][name] = filename
+
+                with open(os.path.join(".emso", "resources.json"), "w") as f:
+                    json.dump(local, f, indent=2)
 
     else:
         log.info("No need to update resources.json")
-        with open(resource_file) as f:
-            local = json.load(f)  # just load local resources file
+
+    with open(resource_file) as f:
+        local = json.load(f)  # just load local resources file
 
     return local
+
 
 
 class KeywordValidator:
@@ -376,6 +383,10 @@ class EmsoMetadata:
         L22 = SeaDataNetVocabulary("L22")
         P07 = SeaDataNetVocabulary("P07")
         self.keywords = KeywordValidator([gemet, euroscivoc, gcmd, P02, L05, L06, L22, P07, self.oso])
+
+    @staticmethod
+    def version():
+        return emso_version
 
     @staticmethod
     def use_custom_file(filename):

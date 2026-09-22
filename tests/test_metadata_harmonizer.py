@@ -29,6 +29,7 @@ parent_dir = os.path.abspath(os.path.join(current_dir, os.pardir))
 sys.path.insert(0, parent_dir)
 from src.emso_metadata_harmonizer import generate_dataset, erddap_config, WaterFrame
 from src.emso_metadata_harmonizer.metadata.utils import setup_log, get_file_list, get_dir_list, CYN, WHT
+from src.emso_metadata_harmonizer import metadata_report
 
 
 def run_subprocess(cmd):
@@ -145,7 +146,7 @@ class MetadataHarmonizerTester(unittest.TestCase):
         # Get a list of all example datasets
         for dataset in self.example_datasets:
             if len(dataset["data"]) == 0:
-                self.log.info("skipping dataset generation for {dataset['dataset_id']}")
+                self.log.info(f"skipping dataset generation for {dataset['dataset_id']}")
                 continue
 
             self.log.info(f"==== Creating dataset {dataset['dataset_id']} ====")
@@ -195,7 +196,29 @@ class MetadataHarmonizerTester(unittest.TestCase):
             if errors > 0:
                 ValueError(f"Got {errors} in CF compliance")
 
-    def test_03_config_erddap(self):
+    def test_03_metadata_report(self):
+        for dataset in self.example_datasets:
+            nc_folder = os.path.join("datasets", dataset["nc_folder"])
+            dataset_nc = os.path.join(nc_folder, dataset["dataset_id"] + ".nc")
+            if dataset["NcML"]:
+                logger.info(f"Skipping NcML metadata for {dataset['dataset_id']}")
+                continue
+            # now generate the dataset with json and quiet options
+            out_json = "temp-test.json"
+            out_csv = "temp-test.csv"
+            metadata_report(
+                dataset_nc,
+                output=out_csv,
+                keywords=True,
+                quiet=True,
+                json_out=out_json
+            )
+
+            if os.path.exists(out_json): os.remove(out_json)
+            if os.path.exists(out_csv): os.remove(out_csv)
+
+
+    def test_04_config_erddap(self):
         """
         Configure the ERDDAP dataset for the new sensor
         """
