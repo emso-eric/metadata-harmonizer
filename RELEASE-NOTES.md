@@ -1,3 +1,6 @@
+## Version 1.0.9 ##
+1. Fixing broken links in previous version
+
 ## Version 1.0.8 ##
 1. Adding --json to produce JSON-based reports
 
