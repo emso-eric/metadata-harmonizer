@@ -27,6 +27,7 @@ if __name__ == "__main__":
     argparser.add_argument("-s", "--summary", action="store_true", help="Prints a summary of all datasets")
     argparser.add_argument("-q", "--quiet", action="store_true", help="Do not print the results in the stdout")
     argparser.add_argument("--clear", action="store_true", help="Clear all downloaded resources")
+    argparser.add_argument("--json", type=str, help="Store the last test report in JSON format")
 
     args = argparser.parse_args()
 
@@ -47,5 +48,6 @@ if __name__ == "__main__":
         keywords=args.keywords,
         summary=args.summary,
         quiet=args.quiet,
-        clear_downloads=args.clear
+        clear_downloads=args.clear,
+        json_out=args.json
     )
