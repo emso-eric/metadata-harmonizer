@@ -9,15 +9,16 @@ email: enoc.martinez@upc.edu
 license: MIT
 created: 15/5/23
 """
-import logging
 from argparse import ArgumentParser
-from src.emso_metadata_harmonizer import erddap_config
+from src.emso_metadata_harmonizer import erddap_config, __version__
 from src.emso_metadata_harmonizer.metadata.utils import setup_log
 import yaml
 
 
 if __name__ == "__main__":
-    argparser = ArgumentParser()
+    argparser = ArgumentParser(description=f"""
+        erddap_config ({__version__}): automatically integrates NetCDF-based datasets into an ERDDAP server.
+    """ )
     argparser.add_argument("file", type=str, help="NetCDF file")
     argparser.add_argument("dataset_id", type=str, help="Dataset ID")
     argparser.add_argument("source", type=str, help="Path to the folder where the data files are stored")

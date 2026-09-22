@@ -11,12 +11,13 @@ created: 13/4/23
 """
 
 from argparse import ArgumentParser
-from src.emso_metadata_harmonizer import generate_dataset
+from src.emso_metadata_harmonizer import generate_dataset, __version__
 from src.emso_metadata_harmonizer.metadata.utils import setup_log
 
-
 if __name__ == "__main__":
-    argparser = ArgumentParser()
+    argparser = ArgumentParser(description=f"""
+        generator ({__version__}): This tool generates NetCDF datasets from CSV (data) and YAML (metadata) files, following the EMSO Metadata Specifications.        
+    """ )
     argparser.add_argument("-v", "--verbose", action="store_true", help="Shows verbose output", default=False)
     argparser.add_argument("-d", "--data", type=str, help="list of data files (CSV or NetCDF)", required=False,
                            nargs="+", default=[])

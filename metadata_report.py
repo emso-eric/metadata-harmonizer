@@ -10,11 +10,11 @@ license: MIT
 created: 23/2/23
 """
 from argparse import ArgumentParser
-from src.emso_metadata_harmonizer import metadata_report
+from src.emso_metadata_harmonizer import metadata_report, __version__
 from src.emso_metadata_harmonizer.metadata.utils import setup_log
 
 if __name__ == "__main__":
-    argparser = ArgumentParser()
+    argparser = ArgumentParser(description=f"metadat_report ({__version__}): Checks the alignment of a dataset (NetCDF or ERDDAP) with the EMSO Metadata Specifications." )
     argparser.add_argument("target", type=str, help="ERDDAP service URL, NetCDF file or JSON metadata file", default="", nargs='?')
     argparser.add_argument("-v", "--verbose", action="store_true", help="Shows more info")
     argparser.add_argument("-o", "--output", type=str, help="file to store the summary of ALL datasets (multiple datasets)", default="")

@@ -19,7 +19,6 @@ import json
 
 from .metadata.waterframe import operational_tests, check_keywords
 from . import WaterFrame
-from .version import __version__
 from .erddap import ERDDAP
 from .metadata import  EmsoMetadata
 from .metadata.utils import threadify
@@ -64,6 +63,7 @@ def create_json_report(dataset_id: str,
                        operational_report: dict,
                        keywords_pass: bool,
                        keywords_report: dict):
+    from . import __version__  # import here to avoid circular import issue
     report =  {
         "dataset_id": dataset_id,
         "institution": institution,
