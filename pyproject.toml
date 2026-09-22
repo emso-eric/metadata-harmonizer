@@ -9,7 +9,8 @@ build-backend = "setuptools.build_meta"  # If not defined, then legacy behavior 
 [project]
 
 name = "emso-metadata-harmonizer"  # REQUIRED, is the only field that cannot be marked as dynamic.
-version = "1.0.7"
+# Read from emso_metadata_harmonizer.__version__ -- see [tool.setuptools.dynamic] below.
+dynamic = ["version"]
 description = " Toolbox for creating/assessing EMSO-compliant NetCDF datasets and integrate them into ERDDAP services"
 readme = "pypi.md"
 requires-python = ">=3.8"
@@ -90,3 +91,9 @@ dependencies = [
 
 
 [tool.setuptools]
+
+[tool.setuptools.dynamic]
+# Single source of truth for the version: the literal in the package __init__.
+# Keep it a plain string literal so setuptools can read it by parsing the file,
+# without importing the package (and its dependencies) at build time.
+version = {attr = "emso_metadata_harmonizer.__version__"}

@@ -367,7 +367,7 @@ class EmsoMetadataTester:
                     results["value"].append(value)
         return results
 
-    def validate_dataset(self, metadata, verbose=True, variable_filter=[], ignore_ok=False, csv="", quiet=False):
+    def validate_dataset(self, metadata, verbose=True, variable_filter=[], ignore_ok=False, csv="", quiet=False, json: str=""):
         """
         Takes the well-formatted JSON metadata from an ERDDAP dataset and processes it
         :param metadata: well-formatted JSON metadta for an ERDDAP dataset
@@ -434,7 +434,7 @@ class EmsoMetadataTester:
             "required": required,
             "optional": optional
         }
-        return r
+        return r, df
 
     # ------------------------------------------------ TEST METHODS -------------------------------------------------- #
     # Test methods implement checks to be applied to a group metadata attributes, such as coordinates or valid email.

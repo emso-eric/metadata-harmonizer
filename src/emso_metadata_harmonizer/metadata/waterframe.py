@@ -12,7 +12,7 @@ created: 6/6/24
 import datetime
 import logging
 import os.path
-from typing import List
+from typing import List, Tuple
 from .utils import assert_type
 import numpy as np
 import pandas as pd
@@ -1260,7 +1260,7 @@ def collect_platform_metadata(metadata:dict, df: pd.DataFrame) -> dict:
 
 
 
-def operational_tests(wf: WaterFrame, quiet=False) -> bool:
+def operational_tests(wf: WaterFrame, quiet=False) -> Tuple[bool, dict]:
     """
     Ensures that the current WaterFrame is operationally sound. The following tests are preformed:
         1. All variables have the variable_type attribute with a valid value
@@ -1369,158 +1369,226 @@ def operational_tests(wf: WaterFrame, quiet=False) -> bool:
         else:
             logger.info("Operational tests: ❌ the NetCDF file is not operationally valid")
 
-    return success
+    report = {
+        "valid": success,
+        "report": {
+            "errors": errors,
+            "warnings": warnings,
+            "infos": infos
+        }
+    }
+    return success, report
 
 
-def silent_print(a, end=""):
-    pass
+class KeywordTester:
+    """
+    Checks the correctness of the keyword-related metadata of a WaterFrame, that is the 'keywords', 'keywords_uri',
+    'keywords_type', 'keywords_vocabulary' and 'keywords_vocabulary_uri' global attributes.
 
-def __check_keywords(wf: WaterFrame, verbose=False, quiet=False):
-    success = True  #   By default, consider the test as passed
+    Every problem found is both printed to the screen and stored as a plain string, so after calling validate() the
+    caller gets the list of errors (problems that invalidate the keyword metadata) and the list of warnings (problems
+    that should be reviewed, like a keyword whose label does not match its URI).
+    """
 
-    rprint = rich.print
-    if quiet:
-        rprint = silent_print  # will disable all prints
+    def __init__(self, quiet=False, verbose=False):
+        """
+        :param quiet: if True nothing is written to stdout, the outcome is reported through the logger instead
+        :param verbose: if True extra information is written to stdout (has no effect if quiet is set)
+        """
+        self.quiet = quiet
+        self.verbose = verbose
+        self.errors = []
+        self.warnings = []
 
-    rprint("\n[magenta]============ 🔎 Checking Keywords =============")
-    keywords = wf.metadata.get("keywords", [])
-    keywords_uri = wf.metadata.get("keywords_uri", [])
-    keywords_type = wf.metadata.get("keywords_type", [])
-    keywords_vocab = wf.metadata.get("keywords_vocabulary", [])
-    keywords_vocab_uri = wf.metadata.get("keywords_vocabulary_uri", [])
+    # ------------------------------------------------------------------ #
+    #                           output helpers                           #
+    # ------------------------------------------------------------------ #
+    def __print(self, message="", end="\n"):
+        """Prints a message unless the validator is in quiet mode"""
+        if not self.quiet:
+            rich.print(message, end=end)
 
-    # Basic checks
-    if len(keywords) == 0:
-        rprint("[red]❌ No keywords found!! Aborting keywords analysis")
-        success = False
-        return success
+    def __print_verbose(self, message="", end="\n"):
+        """Prints a message only in verbose mode"""
+        if self.verbose:
+            self.__print(message, end=end)
 
-    elif len(keywords_uri) == 0:
-        rprint("[red]❌ Keywords_uri found!!")
-        success = False
+    def __error(self, error: str, message: str = "", end="\n"):
+        """Registers an error and prints it. If 'message' is set it is printed instead of the raw error"""
+        self.errors.append(error)
+        self.__print(message if message else error, end=end)
 
-    elif len(keywords_uri) != len(keywords):
-        rprint(f"[red]❌ Number 'keywords' and 'keywords_uri' do not match ({len(keywords)} != {len(keywords_uri)})")
-        rprint(f"[red]Aborting keywords analysis")
-        if verbose:
-            for i, key in enumerate(keywords):
-                rprint(f"key {i:02d} - {key}")
-            rprint("")
-            for i, key in enumerate(keywords_uri):
-                rprint(f"uri {i:02d} - {key}")
-        success = False
-        return success
+    def __warning(self, warning: str, message: str = "", end="\n"):
+        """Registers a warning and prints it. If 'message' is set it is printed instead of the raw warning"""
+        self.warnings.append(warning)
+        self.__print(message if message else warning, end=end)
 
-    if keywords_type and len(keywords) != len(keywords_type):
-        rprint(f"[red]❌ Number 'keywords' and 'keywords_type' do not match ({len(keywords)} != {len(keywords_type)})")
-        success = False
+    # ------------------------------------------------------------------ #
+    #                            public  API                             #
+    # ------------------------------------------------------------------ #
+    def validate(self, wf: WaterFrame) -> Tuple[list, list]:
+        """
+        Validates the keywords of a WaterFrame. Previous results are discarded, so the same validator can be reused
+        for several WaterFrames.
 
-    # If keywords_uri not supplied, construct the keywords from names
-    if not keywords_uri:
-        rprint(f"\nChecking keywords based on supplied 'keywords'")
-        # Guess keywords by their name
-        provided_keywords = [wf.emso.keywords.keyword_from_label(k) for k in keywords]
-        keywords_uri = [""] * len(keywords)  # Init keywords as empty strings
+        :param wf: WaterFrame to be checked
+        :returns: (errors, warnings), both lists of strings
+        """
+        self.errors = []
+        self.warnings = []
+        self.__validate(wf)
 
-    if not keywords_type:
-        keywords_type = [""] * len(keywords)  # Init keywords as empty strings
-
-    # construct keywords from URIs
-    else:
-        provided_keywords = [wf.emso.keywords.keyword_from_uri(uri) for uri in keywords_uri]
-
-    if verbose:
-        rprint("keywords list:")
-        for i, (k, uri) in enumerate(zip(keywords, keywords_uri)):
-            rprint(f"  {i + 1:02d} - '{k}' - [magenta]{uri}")
-        rprint("")
-
-    rprint(f"\n🔑 Checking keywords based on supplied [cyan]keywords_uri[/cyan]")
-    for k, label, ty in zip(provided_keywords, keywords, keywords_type):
-        if k:
-            if k.name.lower() != label.lower():
-                rprint(f"    ⚠️  expected label '{k.name}' but found '{label}' [grey42]'{k.uri}'", end="")
-                success = False
+        if self.quiet:
+            # stdout is disabled, so report the outcome through the logger
+            log = logging.getLogger()
+            if self.errors or self.warnings:
+                log.info("Keywords check: ❌ errors encountered")
             else:
-                rprint(f"    ✅ keyword '[green]{k.name}[/green]' is valid", end="")
-            rprint(
-                f"[grey42] (vocabulary=[deep_sky_blue4]{k.vocab_code}[/deep_sky_blue4], type=[deep_sky_blue4]{ty}[/deep_sky_blue4])")
+                log.info("Keywords check: ✅ passed")
+
+        return self.errors, self.warnings
+
+    # ------------------------------------------------------------------ #
+    #                          internal  checks                          #
+    # ------------------------------------------------------------------ #
+    def __validate(self, wf: WaterFrame):
+        """
+        Runs all the keyword checks, filling the errors and warnings lists
+        """
+        self.__print("\n[magenta]============ 🔎 Checking Keywords =============")
+        keywords = wf.metadata.get("keywords", [])
+        keywords_uri = wf.metadata.get("keywords_uri", [])
+        keywords_type = wf.metadata.get("keywords_type", [])
+        keywords_vocab = wf.metadata.get("keywords_vocabulary", [])
+        keywords_vocab_uri = wf.metadata.get("keywords_vocabulary_uri", [])
+
+        # Basic checks
+        if len(keywords) == 0:
+            self.__error("No keywords found!! Aborting keywords analysis",
+                         "[red]❌ No keywords found!! Aborting keywords analysis")
+            return
+
+        elif len(keywords_uri) == 0:
+            self.__error("Keywords_uri found!!", "[red]❌ Keywords_uri found!!")
+
+        elif len(keywords_uri) != len(keywords):
+            msg = f"Number 'keywords' and 'keywords_uri' do not match ({len(keywords)} != {len(keywords_uri)})"
+            self.__error(msg, f"[red]❌ {msg}")
+            self.__print(f"[red]Aborting keywords analysis")
+            for i, key in enumerate(keywords):
+                self.__print_verbose(f"key {i:02d} - {key}")
+            self.__print_verbose("")
+            for i, key in enumerate(keywords_uri):
+                self.__print_verbose(f"uri {i:02d} - {key}")
+            return
+
+        if keywords_type and len(keywords) != len(keywords_type):
+            msg = f"Number 'keywords' and 'keywords_type' do not match ({len(keywords)} != {len(keywords_type)})"
+            self.__error(msg, f"[red]❌ {msg}")
+
+        # If keywords_uri not supplied, construct the keywords from names
+        if not keywords_uri:
+            self.__print(f"\nChecking keywords based on supplied 'keywords'")
+            # Guess keywords by their name
+            provided_keywords = [wf.emso.keywords.keyword_from_label(k) for k in keywords]
+            keywords_uri = [""] * len(keywords)  # Init keywords as empty strings
+
+        # construct keywords from URIs
         else:
-            rprint(f"    ⛔️ keyword '[red]{k.name}[/red]' not valid")
-            success = False
+            provided_keywords = [wf.emso.keywords.keyword_from_uri(uri) for uri in keywords_uri]
 
-    found_vocabs, found_vocabs_uri = wf.emso.keywords.used_vocabularies(provided_keywords)
-    rprint(f"\n📖 Checking [cyan]keywords_vocabulary[/cyan]:")
-    for found in found_vocabs:
-        if found not in keywords_vocab:
-            rprint(f"    ⛔️ vocabulary '{found}' not found")
-            success = False
-        else:
-            rprint(f"    ✅️ '{found}'")
+        if not keywords_type:
+            keywords_type = [""] * len(keywords)  # Init keywords as empty strings
 
-    rprint(f"\n🔗‍️ Checking [cyan]keywords_vocabulary_uri[/cyan]:")
-    for found in found_vocabs_uri:
-        if found not in keywords_vocab_uri:
-            rprint(f"    ⛔️ uri '{found}' not found")
-            success = False
-        else:
-            rprint(f"    ✅️ '{found}'")
+        if self.verbose:
+            self.__print("keywords list:")
+            for i, (k, uri) in enumerate(zip(keywords, keywords_uri)):
+                self.__print(f"  {i + 1:02d} - '{k}' - [magenta]{uri}")
+            self.__print("")
 
-    # Now suggest keywords
-    suggested_keywords = wf.guess_keywords()
-    suggested_keywords = [k for k in suggested_keywords if k not in provided_keywords]
+        self.__print(f"\n🔑 Checking keywords based on supplied [cyan]keywords_uri[/cyan]")
+        for k, label, ty in zip(provided_keywords, keywords, keywords_type):
+            if k:
+                if k.name.lower() != label.lower():
+                    self.__warning(f"expected label '{k.name}' but found '{label}' ('{k.uri}')",
+                                   f"    ⚠️  expected label '{k.name}' but found '{label}' [grey42]'{k.uri}'", end="")
+                else:
+                    self.__print(f"    ✅ keyword '[green]{k.name}[/green]' is valid", end="")
+                self.__print(
+                    f"[grey42] (vocabulary=[deep_sky_blue4]{k.vocab_code}[/deep_sky_blue4], type=[deep_sky_blue4]{ty}[/deep_sky_blue4])")
+            else:
+                self.__error(f"keyword '{label}' not valid", f"    ⛔️ keyword '[red]{k.name}[/red]' not valid")
 
-    rprint("\n[magenta]====== 🧠 Guessing Additional Keywords ========")
+        found_vocabs, found_vocabs_uri = wf.emso.keywords.used_vocabularies(provided_keywords)
+        self.__print(f"\n📖 Checking [cyan]keywords_vocabulary[/cyan]:")
+        for found in found_vocabs:
+            if found not in keywords_vocab:
+                self.__error(f"vocabulary '{found}' not found", f"    ⛔️ vocabulary '{found}' not found")
+            else:
+                self.__print(f"    ✅️ '{found}'")
 
-    if len(suggested_keywords) == 0:
-        if not verbose:
-            rprint("[green]\n✅ All keywords found! No additional keywords suggestion!")
-            return success
+        self.__print(f"\n🔗‍️ Checking [cyan]keywords_vocabulary_uri[/cyan]:")
+        for found in found_vocabs_uri:
+            if found not in keywords_vocab_uri:
+                self.__error(f"keywords_vocabulary_uri '{found}' not found", f"    ⛔️ uri '{found}' not found")
+            else:
+                self.__print(f"    ✅️ '{found}'")
 
-    rprint("Here the 'keywords', 'keywords_vocabulary' are guessed from the existing metadata. "
-           "Valid old keywords are retained and complemented with guessed keywords. Feel free to use copy-paste it to "
-           "your YAML metadata files. Other keyword attributes should be automatically generated.")
+        # Now suggest keywords
+        suggested_keywords = wf.guess_keywords()
+        suggested_keywords = [k for k in suggested_keywords if k not in provided_keywords]
 
-    #####  Print keywords ####
-    rprint("\n  keywords:")
-    rprint("    [grey42]# Previous valid keywords")
-    for key in provided_keywords:
-        rprint(f"    - [blue]\"{key.name}\" [grey42] # {key.vocab_code}")
+        self.__print("\n[magenta]====== 🧠 Guessing Additional Keywords ========")
 
-    rprint("    [grey42]# Suggested  additional keywords")
-    for key in suggested_keywords:
-        rprint(f"    - [cyan]\"{key.name}\"  [grey42] # found in \"{key.vocab_code}\"")
+        if len(suggested_keywords) == 0:
+            if not self.verbose:
+                self.__print("[green]\n✅ All keywords found! No additional keywords suggestion!")
+                return
 
-    all_keywords = provided_keywords + suggested_keywords
+        self.__print("Here the 'keywords', 'keywords_vocabulary' are guessed from the existing metadata. "
+                     "Valid old keywords are retained and complemented with guessed keywords. Feel free to use "
+                     "copy-paste it to your YAML metadata files. Other keyword attributes should be automatically "
+                     "generated.")
 
-    v_names, v_uris = wf.emso.keywords.used_vocabularies(all_keywords)
+        #####  Print keywords ####
+        self.__print("\n  keywords:")
+        self.__print("    [grey42]# Previous valid keywords")
+        for key in provided_keywords:
+            self.__print(f"    - [blue]\"{key.name}\" [grey42] # {key.vocab_code}")
 
-    if verbose:
-        rprint("\n  keywords_uri:")
-        for key in all_keywords:
-            rprint(f"    - [blue]\"{key.uri}\"")
+        self.__print("    [grey42]# Suggested  additional keywords")
+        for key in suggested_keywords:
+            self.__print(f"    - [cyan]\"{key.name}\"  [grey42] # found in \"{key.vocab_code}\"")
 
-        rprint("\n  keywords_type:")
-        for key in all_keywords:
-            rprint(f"    - [blue]\"{key.type}\"")
+        all_keywords = provided_keywords + suggested_keywords
 
-        rprint("\n  keywords_vocabulary:")
-        for n in v_names:
-            rprint(f"    - [blue]\"{n}\"")
+        v_names, v_uris = wf.emso.keywords.used_vocabularies(all_keywords)
 
-        rprint("\n  keywords_vocabulary_uri:")
-        for u in v_uris:
-            rprint(f"    - [blue]\"{u}\"")
+        if self.verbose:
+            self.__print("\n  keywords_uri:")
+            for key in all_keywords:
+                self.__print(f"    - [blue]\"{key.uri}\"")
 
-    rprint("[magenta]==============================================")
-    return success
+            self.__print("\n  keywords_type:")
+            for key in all_keywords:
+                self.__print(f"    - [blue]\"{key.type}\"")
+
+            self.__print("\n  keywords_vocabulary:")
+            for n in v_names:
+                self.__print(f"    - [blue]\"{n}\"")
+
+            self.__print("\n  keywords_vocabulary_uri:")
+            for u in v_uris:
+                self.__print(f"    - [blue]\"{u}\"")
+
+        self.__print("[magenta]==============================================")
+
 
 def check_keywords(wf: WaterFrame, verbose=False, quiet=False):
-    success = __check_keywords(wf, verbose, quiet)
-    if quiet:
-        logger = logging.getLogger()
-        if success:
-            logger.info("Keywords check: ✅ passed")
-        else:
-            logger.info("Keywords check: ❌ errors encountered")
-    return success
+    """
+    Backwards-compatible wrapper around KeywordValidator. New code should use KeywordValidator directly to get the
+    detailed list of errors and warnings.
+    """
+    errors, warnings = KeywordTester(quiet=quiet, verbose=verbose).validate(wf)
+    success = not errors
+    return success, {"errors": errors, "warnings":warnings}

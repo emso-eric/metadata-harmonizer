@@ -1,3 +1,6 @@
+## Version 1.0.8 ##
+1. Adding --json to produce JSON-based reports
+
 ## Version 1.0.7 ##
 1. Adding alternative download URI for EuroSciVoc, GCMD and GEMET vocabularies (EuroSciVoc automatic downloads have been forbidden as of 2026-06-25)
 
