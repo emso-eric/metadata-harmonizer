@@ -161,7 +161,7 @@ def consolidate_metadata(metadata_files: list):
 
 
 def generate_dataset(data_files: list, metadata_files: list, output: str, keep_names=False, no_keywords=False,
-                     ignore_extra_cols=False, specifications="", clear_downloads=False):
+                     ignore_extra_cols=False, specs_version="latest", clear_downloads=False):
     """
     Generates an EMSO-compliant NetCDF dataset from the input data and metadata
     :param data_files: list of csv data files
@@ -247,8 +247,8 @@ def generate_dataset(data_files: list, metadata_files: list, output: str, keep_n
     if len(errors) > 0:
         logger.error("Got errors in dataset generation")
 
-    if specifications:
-        EmsoMetadata.use_custom_file(specifications)
+    if specs_version:
+        EmsoMetadata.set_version(specs_version)
 
     wf = WaterFrame(df, metadata, ignore_extra_cols=ignore_extra_cols)
     wf.consolidate_keywords(expand=not no_keywords)

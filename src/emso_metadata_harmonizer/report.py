@@ -90,7 +90,7 @@ def create_json_report(dataset_id: str,
 def metadata_report(target,
                     verbose: bool = False,
                     output: str = "",
-                    specifications="",
+                    specs_version="latest",
                     variables=[],
                     ignore_ok=False,
                     keywords=False,
@@ -120,8 +120,8 @@ def metadata_report(target,
         logger.error("ERDDAP URL, NetCDF file or JSON file required!")
         exit()
 
-    if specifications:
-        EmsoMetadata.use_custom_file(specifications)
+    if specs_version:
+        EmsoMetadata.set_version(specs_version)
 
     datasets = [
         # {"file": filename, "url": "http://my.server.com/erddap", "dataset_id": "MyDataset"}

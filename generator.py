@@ -46,4 +46,4 @@ if __name__ == "__main__":
                      no_keywords=args.no_keywords,
                      ignore_extra_cols=args.ignore_extra_cols,
                      clear_downloads=args.clear,
-                     specifications=args.specs)
+                     specs_version=args.specs)

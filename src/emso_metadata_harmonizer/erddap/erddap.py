@@ -20,13 +20,11 @@ class ERDDAP:
     Class that implements common functionalities to perform in ERDDAP servers
     """ 
     def __init__(self, url):
-        rich.print(f"User url: {url}")
         # Getting rid of everything after the domain name
         parts = url.split("/")[:3]
         url = "/".join(parts)
         if not url.endswith("/erddap"):
             url += "/erddap"
-        rich.print(f"Using url: {url}")
         self.url = url
 
     @staticmethod

@@ -11,121 +11,22 @@ created: 3/3/23
 """
 import logging
 import os
-import time
-import requests
-import pandas as pd
-import json
 from .vocabularies import GEMET, GCMD, SeaDataNetVocabulary, EuroSciVoc, Keyword, OSO
-from .utils import download_files, get_file_list, download_file, assert_type, assert_url, get_file_md5
+from .utils import get_file_list, assert_type
+from .resource_manager import ResourceManager, process_markdown_file, load_json
 
+# Specifications version used when the caller does not ask for one. "develop" keeps the behaviour of previous
+# releases; set it to "latest" to follow the newest published tag instead.
 emso_version = "develop"
 
 log = logging.getLogger("emso_metadata_harmonizer")
 
-metadata_specifications_resources = f"https://raw.githubusercontent.com/emso-eric/emso-metadata-specifications/refs/heads/{emso_version}/external-resources/resources.json"
-
-spdx_licenses_github = "https://raw.githubusercontent.com/spdx/license-list-data/main/licenses.md"
-
-cf_standard_name_units_url = "https://cfconventions.org/Data/cf-standard-names/90/src/cf-standard-name-table.xml"
-
-dwc_terms_url = "https://raw.githubusercontent.com/tdwg/dwc/refs/heads/master/vocabulary/term_versions.csv"
-
-oso_ontology_url = "https://raw.githubusercontent.com/emso-eric/oso-ontology/refs/heads/main/docs/ontology.ttl"
-
 user_defined_specs_file = ""  # used to overload online specifications, used for development only
 
+# Downloading, caching and parsing now lives in resource_manager.py. process_markdown_file and load_json are
+# re-exported here because they used to be defined in this module.
+__all__ = ["EmsoMetadata", "KeywordValidator", "init_emso_metadata", "process_markdown_file", "load_json"]
 
-def process_markdown_file(file) -> (dict, dict):
-    """
-    Processes the Markdown file and parses their tables. Every table is returned as a pandas dataframe.
-    :returns: a dict wher keys are table titles and values are dataframes with the info
-    """
-    with open(file, encoding="utf-8") as f:
-        lines = f.readlines()
-
-    title = ""
-    tables = {}
-    in_table = False
-    lines += "\n"  # add an empty line to force table end
-    linenum = 0
-    for line in lines:
-        line = line.strip()
-        linenum += 1
-        if line.startswith("#"):  # store the title
-            title = line.strip().replace("#", "").strip()
-
-        elif not in_table and line.startswith("|"):  # header of the table
-            if not line.endswith("|"):
-                line += "|"  # fix tables not properly formatted
-            table = {}
-            headers = line.strip().split("|")
-            headers = [h.strip() for h in headers][1:-1]
-            headers += ["annotations"]
-
-            for header in headers:
-                table[header] = []
-            in_table = True
-
-
-        elif in_table and not line.startswith("|"):  # end of the table
-            in_table = False
-            tables[title] = pd.DataFrame(table)  # store the metadata as a DataFrame
-
-        elif line.startswith("|---"):  # skip the title and body separator (|----|---|---|)
-            continue
-
-        elif line.startswith("|"):  # process the row
-            if not line.endswith("|"):
-                line += "|"  # fix tables not properly formatted
-            fields = [f.strip() for f in line.split("|")[1:-1]]
-
-            # If there's an annotation store its value  "contributors<sup>1</sup>" -> ("contributors", 1)
-            if "<sup>" in fields[0]:
-                a = fields[0].replace("</sup>", "")
-                field, annotation = a.split("<sup>")
-                annotation = int(annotation)
-                fields[0] = field
-            else:
-                annotation = 0
-
-            fields = [f.split("<")[0] for f in fields]  # remove annotations like <sup>1</sup>
-            for i in range(len(fields)):
-                if fields[i] in ["false", "False"]:
-                    table[headers[i]].append(False)
-                elif fields[i] in ["true", "True"]:
-                    table[headers[i]].append(True)
-                else:
-                    table[headers[i]].append(fields[i])
-            table[headers[i+1]].append(annotation)
-    return tables
-
-
-def download_resource(data):
-    """
-    Download the resources in data, possible keys are
-    """
-    data = data.copy()
-    for key, url in data.items():
-        try:
-            filename = url.split("external-resources/")[1]
-            os.makedirs(os.path.dirname(filename), exist_ok=True)
-        except IndexError:
-            # No subfolders
-            filename = url.split("/")[-1]
-
-        if key != "hash":  # Get all elements except the hash
-            log.info(f"    downloading to {filename}...")
-            download_file(url, filename)
-
-        # Overwrite the remote URL with the local file
-        data[key] = filename
-    return data
-
-
-def load_json(file):
-    with open(file) as f:
-        doc = json.load(f)
-    return doc
 
 emso_metadata_object = None
 def init_emso_metadata(force_update=False):
@@ -137,77 +38,6 @@ def init_emso_metadata(force_update=False):
         emso_metadata_object = EmsoMetadata(force_update=force_update)
 
     return emso_metadata_object
-
-
-def update_external_resources(resource_url: str, resource_file: str):
-    """
-    Download resources in remote if hash doesn't match with local resources
-    """
-    log = logging.getLogger()
-    assert_type(resource_url, str)
-    assert_type(resource_file, str)
-    assert_url(resource_url)
-    local = {}
-
-    log.debug("Starting update_external_resources...")
-
-    # Download local resource file
-    if os.path.exists(resource_file):
-        with open(resource_file) as f:
-            local = json.load(f)
-    else:
-        log.debug(f"local file {resource_file} does not exist!")
-
-    # if there is no resource file or
-    if not os.path.exists(resource_file) or time.time() - os.path.getmtime(resource_file) > 24*3600:
-        log.info("Downloading resources.json remote file...")
-        try:
-            remote = requests.get(resource_url).json()
-        except requests.exceptions.ConnectionError:
-            log.warning(f"Could not access {resource_url}")
-            remote = {}
-
-        if remote:
-            for key, rmt_resource in remote.items():
-                remote_hash = rmt_resource["hash"]
-                try:
-                    local_hash = local[key]["hash"]
-                except KeyError:
-                    local_hash = None
-
-                if local_hash == remote_hash:
-                    log.debug(f"    {key} is up to date")
-                    continue
-                else:
-                    log.debug(f"Resource {key} hash do not match local='{local_hash}' remote='{remote_hash}'")
-
-                # At this point, we need to download all files in this resource
-                local[key] = {"hash": remote_hash}
-                for name, url in rmt_resource.items():
-                    if name == "hash":
-                        continue
-
-                    if "external-resources/" in url:
-                        filename = os.path.join(".emso", url.split("external-resources/")[-1])
-                    else:
-                        filename = os.path.join(".emso", url.split("/")[-1])
-
-                    log.debug(f"    downloading {key}:{name} to {filename}...")
-                    download_file(url, filename)
-
-                    local[key][name] = filename
-
-                with open(os.path.join(".emso", "resources.json"), "w") as f:
-                    json.dump(local, f, indent=2)
-
-    else:
-        log.info("No need to update resources.json")
-
-    with open(resource_file) as f:
-        local = json.load(f)  # just load local resources file
-
-    return local
-
 
 
 class KeywordValidator:
@@ -258,14 +88,24 @@ class KeywordValidator:
 
 
 class EmsoMetadata:
-    def __init__(self, force_update=False):
+    def __init__(self, force_update=False, version="", max_threads=10):
+        """
+        :param force_update: re-download every resource, ignoring the cache
+        :param version: EMSO Metadata Specifications version. Empty uses the module default (see emso_version)
+        :param max_threads: size of the download thread pool
+        """
         log.info("Loading EMSO Metadata resources...")
-        os.makedirs(".emso", exist_ok=True)  # create a conf dir to store Markdown and other stuff
-        self.local_resources = {}
 
-        __resources_file = os.path.join(".emso", "resources.json")
-        self.local_resources = update_external_resources(metadata_specifications_resources, __resources_file)
-        # TODO: Move hardcoded levels to proper markdown file
+        # All downloading, caching and parsing is delegated to the ResourceManager, which resolves the
+        # requested version against manifest.json and fetches everything in parallel.
+        self.resource_manager = ResourceManager(version=version or emso_version, force_update=force_update,
+                                                max_threads=max_threads, specs_file=user_defined_specs_file)
+        self.specs_version = self.resource_manager.version
+        # Kept for backwards compatibility: {resource name: {file key: local path}}
+        self.local_resources = self.resource_manager.as_local_resources()
+
+        # TODO: Move hardcoded levels to proper markdown file. Data_Processing_Levels.md is now published in
+        #       manifest.json (v1.0.4 onwards), so this can read self.resource_manager.get("Data_Processing_Levels")
         self.data_processing_levels = ["L0", "L1", "L2"]
         self.data_processing_steps = ["L0a", "L0b", "L1a", "L1b", "L1c", "L1d"]
 
@@ -289,52 +129,33 @@ class EmsoMetadata:
         self.sdn_vocabs_ids = {}
         self.sdn_vocabs_uris = {}
 
-        log.info(f"Loading EMSO metadata resources:")
-
         # ==== Load all SDN vocabularies ==== #
-        for vocab in self.sdn_vocabs.keys():
+        # Every file was already downloaded and parsed by the ResourceManager, so this is just a re-shuffle
+        for vocab in list(self.sdn_vocabs.keys()):
             log.debug(f"    loading SDN vocabulary {vocab}")
-            df = pd.read_csv(self.local_resources[vocab]["csv"])
+            df = self.resource_manager.get(vocab, "csv")
             self.sdn_vocabs[vocab] = df
-            self.sdn_vocabs_narrower[vocab] = load_json(self.local_resources[vocab]["narrower"])
-            self.sdn_vocabs_broader[vocab] = load_json(self.local_resources[vocab]["broader"])
-            self.sdn_vocabs_related[vocab] = load_json(self.local_resources[vocab]["related"])
+            self.sdn_vocabs_narrower[vocab] = self.resource_manager.get(vocab, "narrower")
+            self.sdn_vocabs_broader[vocab] = self.resource_manager.get(vocab, "broader")
+            self.sdn_vocabs_related[vocab] = self.resource_manager.get(vocab, "related")
             self.sdn_vocabs_pref_label[vocab] = df["prefLabel"].values
             self.sdn_vocabs_alt_label[vocab] = df["altLabel"].values
             self.sdn_vocabs_ids[vocab] = df["id"].values
             self.sdn_vocabs_uris[vocab] = df["uri"].values
 
-
         # ==== Load Copernicus Variables ==== #
         log.debug(f"    loading Copernicus Parameters")
-        tables = process_markdown_file(self.local_resources["Copernicus Parameters"]["md"])
+        tables = self.resource_manager.get("Copernicus Parameters", "md")
 
         self.copernicus_variables = tables["Copernicus variables"]["variable name"].to_list()
         log.debug(f"    loading EDMO codes")
-        self.edmo_codes = pd.read_csv(self.local_resources["EDMO"]["csv"])
-
-        emso_metadata_file = os.path.join(".emso", "EMSO_Metadata_Specifications.md")
-        oceansites_file = os.path.join(".emso", "oceansites", "OceanSites_codes.md")
-        datacite_codes_file = os.path.join(".emso", "datacite", "DataCite_codes.md")
-
-        spdx_licenses_file = os.path.join(".emso", "spdx_licenses.md")
-
-        dwc_terms_file = os.path.join(".emso", "dwc_terms.csv")
-        oso_ontology_file = os.path.join(".emso", "oso.ttl")
-
-        tasks = [
-            [spdx_licenses_github, spdx_licenses_file, "spdx licenses"],
-            [dwc_terms_url, dwc_terms_file, "DwC terms"],
-            [oso_ontology_url, oso_ontology_file, "OSO"]
-        ]
+        self.edmo_codes = self.resource_manager.get("EDMO", "csv")
 
         if user_defined_specs_file:
             log.warning(f"Using custom specifications file: {user_defined_specs_file}")
-            emso_metadata_file = user_defined_specs_file
-
-        download_files(tasks)
-
-        tables = process_markdown_file(emso_metadata_file)
+            tables = process_markdown_file(user_defined_specs_file)
+        else:
+            tables = self.resource_manager.get("EMSO_Metadata_Specifications", "md")
 
         self.global_attr = tables["Global Attributes"]
         self.env_coordinate_attr = tables["Coordinate Variables"]
@@ -348,17 +169,17 @@ class EmsoMetadata:
         self.platform_variables_attr = tables["Platform Variables"]
         self.valid_coordinates = tables["Valid Coordinates"]
 
-        tables = process_markdown_file(oceansites_file)
+        tables = self.resource_manager.get("OceanSites_codes", "md")
         self.oceansites_sensor_mount = tables["Sensor Mount"]["sensor_mount"].to_list()
         self.oceansites_sensor_orientation = tables["Sensor Orientation"]["sensor_orientation"].to_list()
         self.oceansites_data_modes = tables["Data Modes"]["Value"].to_list()
         self.oceansites_data_types = tables["Data Types"]["Data type"].to_list()
         self.oceansites_param_codes = tables["Variable Names"]["Parameter"].to_list()
 
-        tables = process_markdown_file(datacite_codes_file)
+        tables = self.resource_manager.get("DataCite_codes", "md")
         self.datacite_contributor_roles = tables["DataCite Contributor Type"]["Type"].to_list()
 
-        tables = process_markdown_file(spdx_licenses_file)
+        tables = self.resource_manager.get("spdx_licenses", "file")
         t = tables["Licenses with Short Identifiers"]
 
         # remove extra '[' ']' in license identifiers
@@ -366,32 +187,67 @@ class EmsoMetadata:
         self.spdx_license_names = new_ids
         self.spdx_license_uris = {lic: f"https://spdx.org/licenses/{lic}" for lic in self.spdx_license_names}
 
-        df = pd.read_csv(dwc_terms_file)
+        df = self.resource_manager.get("dwc_terms", "file")
         df = df[["term_localName", "term_iri"]]
         df = df.rename(columns={"term_localName": "name", "term_iri": "uri"})
         self.dwc_terms = df
 
         # Convert P02 IDs to 4-letter codes
         self.sdn_p02_names = [code.split(":")[-1] for code in self.sdn_vocabs_ids["P02"]]
-        self.oso = OSO(oso_ontology_file)
-        gcmd = GCMD()
-        euroscivoc = EuroSciVoc()
-        gemet = GEMET()
-        P02 = SeaDataNetVocabulary("P02")
-        L05 = SeaDataNetVocabulary("L05")
-        L06 = SeaDataNetVocabulary("L06")
-        L22 = SeaDataNetVocabulary("L22")
-        P07 = SeaDataNetVocabulary("P07")
+
+        # Every vocabulary below is built from tables the ResourceManager already downloaded and parsed. The
+        # RDF graphs they used to be derived from are now processed upstream, in the specifications repository.
+        rm = self.resource_manager
+        self.oso = OSO(rm.get("OSO", "csv"), rm.get("OSO", "platforms"), rm.get("OSO", "sites"),
+                       rm.get("OSO", "rfs"), rm.get("OSO", "platform_metadata"))
+        gcmd = GCMD(rm.get("GCMD", "csv"))
+        euroscivoc = EuroSciVoc(rm.get("EuroSciVoc", "csv"))
+        gemet = GEMET(rm.get("GEMET", "csv"))
+        P02 = SeaDataNetVocabulary("P02", rm.get("P02", "csv"))
+        L05 = SeaDataNetVocabulary("L05", rm.get("L05", "csv"))
+        L06 = SeaDataNetVocabulary("L06", rm.get("L06", "csv"))
+        L22 = SeaDataNetVocabulary("L22", rm.get("L22", "csv"))
+        P07 = SeaDataNetVocabulary("P07", rm.get("P07", "csv"))
         self.keywords = KeywordValidator([gemet, euroscivoc, gcmd, P02, L05, L06, L22, P07, self.oso])
 
     @staticmethod
     def version():
+        """
+        Specifications version that will be used by the next EmsoMetadata. Once built, the resolved version is
+        available as EmsoMetadata().specs_version ("latest" is resolved against the manifest).
+        """
         return emso_version
 
     @staticmethod
+    def set_version(version: str):
+        """
+        Select the EMSO Metadata Specifications version. Accepts a version listed in manifest.json
+        ("v1.0.7", "develop"), the alias "latest", or the path to a local EMSO_Metadata_Specifications.md
+        used to override the published one during development.
+        """
+        assert_type(version, str)
+        global emso_version, user_defined_specs_file
+        if version.endswith(".md"):
+            assert os.path.isfile(version), f"File {version} does not exist"
+            user_defined_specs_file = version
+        elif version:
+            # "latest" is resolved by the ResourceManager against the manifest's default version
+            emso_version = version
+
+    @staticmethod
     def use_custom_file(filename):
+        """
+        Override the published specifications with a local Markdown file (development only).
+        """
         global user_defined_specs_file
         user_defined_specs_file = filename
+
+    @staticmethod
+    def available_versions():
+        """
+        Versions listed in the published manifest, most recent last.
+        """
+        return ResourceManager(version=emso_version).available_versions()
 
     @staticmethod
     def clear_downloads():
