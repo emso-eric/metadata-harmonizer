@@ -47,7 +47,7 @@ class EmsoMetadataTester:
         # Dict to store all erddap. KEY is the test identifier while value is the method
         logger.info("Setting up EMSO Metadata Tests...")
 
-        self.metadata = init_emso_metadata(force_update=True)
+        self.metadata = init_emso_metadata()
         self.context = None  # here info about the current attribute being tested will be stored
 
         self.implemented_tests = {}
@@ -77,8 +77,7 @@ class EmsoMetadataTester:
                 logging.error(f"ERROR test {test} not implemented!")
                 error = True
         if error:
-            pass # TODO implement tests and uncoment exception
-            # raise ValueError("Some tests are not implemented")
+            raise ValueError("Some tests are not implemented")
 
         # valid discrete sampling geometries from the Climate and Forecast conventions, more info at:
         # https://cfconventions.org/cf-conventions/cf-conventions.html#discrete-sampling-geometries
