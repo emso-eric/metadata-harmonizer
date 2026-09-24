@@ -1,10 +1,8 @@
 ## Version 1.1.0 ##
 1. Better management of resources.json file to avoid redundant downloads
-2. TODO: Selectable specifications version
-3. TODO: Clean EmsoMetadata building (specifically vocabularies)
-4. TODO: Clean WaterFrame to improve speed
-5. TODO: Make sure 
-6. TODO: Implement DwC Archive conversion (DwC-NetCDF-DwC).
+2. Selectable specifications version
+3. Clean EmsoMetadata building (specifically vocabularies), now everything downloads from emso-metadata-specs 
+4. Clean WaterFrame to improve speed
 
 ## Version 1.0.9 ##
 1. Fixing broken links in previous version
