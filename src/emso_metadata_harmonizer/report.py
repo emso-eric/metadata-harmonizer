@@ -44,7 +44,7 @@ def metadata_results_to_json(df: pd.DataFrame)-> dict:
             for _, row in sdf[sdf["attribute"] == attribute].iterrows():
                 message = row["message"]
                 if row["value"]:
-                    message += " (value='" + row["value"] + "')"
+                    message += " (value='" + str(row["value"]) + "')"
                 if row["required"]:
                     report = add_message(report, "ERRORS", variable, attribute, message)
                 else:
