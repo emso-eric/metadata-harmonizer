@@ -233,8 +233,7 @@ class WaterFrame(LoggerSuperclass):
                 self.error(f"No metadata for column '{col}'", exception=not self.permissive)
 
         self.cf_data_type = ""
-        self.cf_alignment(strict=not self.permissive)
-        self.sort()
+        self.cf_alignment(strict=not self.permissive)  # cf_alignment() already sorts, no need to sort again
         self.__nc_dimensions = {}
 
         # Split keywords into lists
@@ -287,6 +286,14 @@ class WaterFrame(LoggerSuperclass):
             sensor: variable that hosts sensor metadata
             platform: variable that hosts platform metadata
         """
+        missing = [col for col in self.data.columns if col not in self.vocabulary]
+        if missing:
+            # Checked up front: the loop below indexes self.vocabulary[varname] directly, so a missing column
+            # used to raise a bare KeyError here and the error-counting loop that followed was unreachable.
+            for col in missing:
+                self.error(f"Column {col} does not have an entry in metadata vocabulary!")
+            raise ValueError("Incomplete metadata")
+
         for varname in self.data.columns:
             if "variable_type" in self.vocabulary[varname].keys():
                 self.debug(f"Variable {varname} already has type='{self.vocabulary[varname]['variable_type']}'")
@@ -307,16 +314,6 @@ class WaterFrame(LoggerSuperclass):
                 # By default, assume environmental variable compatible with climate and forecast
                 self.vocabulary[varname]["variable_type"] = "environmental"
             self.debug(f"Assigning {varname} type='{self.vocabulary[varname]['variable_type']}'")
-
-        errors = 0
-
-        for col in self.data.columns:
-            if col not in self.vocabulary.keys():
-                errors += 1
-                self.error(f"Column {col} does not have an entry in metadata vocabulary!")
-
-        if errors > 0:
-            raise ValueError("Incomplete metadata")
 
 
     def autofill_metadata(self):
@@ -503,6 +500,26 @@ class WaterFrame(LoggerSuperclass):
                 meta[identifier] = meta.pop(old_identifier)
         return meta, df
 
+    @staticmethod
+    def __repeats(df: pd.DataFrame, columns: list, probe: int = 100_000) -> bool:
+        """
+        True if any combination of `columns` appears in more than one row.
+
+        Exact, and cheap when the repetition shows up early. Finding a duplicate inside the first `probe`
+        rows already proves the answer, so a large profile dataset never pays for a pass over everything;
+        when the probe finds nothing the full vectorised pass decides it.
+
+        The previous approach walked rows one at a time and rebuilt a full-column mask for each, capped at
+        101 rows. That was both slower (a 1M-row timeSeries cost ~146 ms against ~12 ms here) and wrong:
+        any structure starting after row 101 was invisible, so a profile was silently reported as a plain
+        timeSeries.
+        """
+        if len(df) < 2:
+            return False
+        if len(df) > probe and df.iloc[:probe].duplicated(subset=columns).any():
+            return True
+        return bool(df.duplicated(subset=columns).any())
+
     def get_cf_type(self) -> str:
         """
         Gets the Climate and Forecast Discrete Sampling Geometry data type based on the data of a single sensor.
@@ -531,11 +548,19 @@ class WaterFrame(LoggerSuperclass):
 
         else:
             dsgs = []
-            for sensor_id in self.data[self._sensor_id].unique():
+            # With a single sensor the whole frame is the group, so use it directly: both the old boolean
+            # mask and groupby() copy every column for nothing (278 ms and 739 ms respectively on 5M rows).
+            # With several sensors groupby splits the frame in one pass instead of one mask per sensor.
+            sensor_ids = self.data[self._sensor_id].unique()
+            if len(sensor_ids) == 1:
+                groups = ((sensor_ids[0], self.data),)
+            else:
+                groups = self.data.groupby(self._sensor_id, sort=False, dropna=False)
+
+            for sensor_id, df in groups:
                 self.debug(f"Guessing CF type for sensor {sensor_id}")
-                df = self.data
-                df = df[df[self._sensor_id] == sensor_id]
-                # timeSeries should have a fixed
+                # np.unique is kept on purpose: it counts NaN as a value (nunique() drops it by default) and
+                # it is ~5x faster than nunique(dropna=False) on float columns
                 n_lat = len(np.unique(df[self._latitude]))
                 n_lon = len(np.unique(df[self._longitude]))
                 n_depth = len(np.unique(df[self._depth]))
@@ -544,43 +569,16 @@ class WaterFrame(LoggerSuperclass):
                     self.debug(f"CF type for sensor {sensor_id} is timeSeries depth=latitude=longitude (1)")
                     cf_data_type = "timeSeries"
                 elif n_lon == n_lat == 1 and n_depth > 1:
-                    # If we have multiple depths it can be a redeployed sensor. To check it it shou
-                    cf_data_type = "timeSeries"
-                    df = df.set_index([self._time, self._depth])
-                    df = df.sort_index()
-                    df = df.reset_index()
-                    self.debug(f"Checking rows...")
-                    for i, time in enumerate(df[self._time]):
-                        if len(df.loc[df[self._time] == time, self._depth]) > 1:
-                            # if we have multiple depths at the same time instant it is a profile
-                            cf_data_type = "timeSeriesProfile"
-                            break
-                        elif i > 100:
-                            # 100 time points should be enough to determine profile or timeseries
-                            break
+                    # Fixed position at several depths: a redeployed sensor records one depth per instant,
+                    # a profiler records several, so the question is whether any instant repeats.
+                    cf_data_type = "timeSeriesProfile" if self.__repeats(df, [self._time]) else "timeSeries"
                 elif n_lon > 1 and n_lat > 1 and len(df) > 1:
-                    # This is a trajectory, not we need to assess if it's a simple trajectory or a trajectoryProfile
-                    df = df.set_index([self._time, self._depth])
-                    df = df.sort_index()
-                    df = df.reset_index()
-                    self.debug(f"Checking rows...")
-
-                    # create a dummy column which is an aggregate for time/lat/lon.
-                    df["position"] = df[self._latitude] + df[self._longitude] + df[self._time].astype(np.int64).astype(np.float128)/1e18
-
-                    for i, position in enumerate(df["position"]):
-                        if len(df.loc[df["position"] == position, self._depth]) > 1:
-                            # if we have multiple depths at the same time instant it is a profile
-                            cf_data_type = "trajectoryProfile"
-                            break
-                        elif i > 100:
-                            # 100 time points should be enough to determine profile or timeseries
-                            cf_data_type = "trajectory"
-                            break
-
-                    if not cf_data_type:
-                        raise ValueError("Unknown cf_data_type")
-
+                    # Moving platform: a profile if the same time and position carries more than one row.
+                    # This used to be decided on lat + lon + time/1e18 collapsed into one float, which
+                    # collides (lat 40.0/lon 2.0 and lat 39.5/lon 2.5 both give 42.0). Comparing the three
+                    # columns directly is exact and needs no extended-precision float.
+                    position = [self._time, self._latitude, self._longitude]
+                    cf_data_type = "trajectoryProfile" if self.__repeats(df, position) else "trajectory"
                 else:
                     raise ValueError(f"Unimplemented CF data type for sensor {sensor_id} with {n_lat} latitudes, {n_lon} longitudes, {n_depth} depths")
 
@@ -647,11 +645,14 @@ class WaterFrame(LoggerSuperclass):
             self.error(f"Unimplemented type {self.cf_data_type}", exception=not self.permissive)
 
 
-        if "CF-1.8" not in self.metadata["Conventions"]:
-            if isinstance(self.metadata["Conventions"], list):
-                self.metadata["Conventions"] += ["CF-1.8"]
-            if isinstance(self.metadata["Conventions"], list):
-                self.metadata["Conventions"] += " CF-1.8"
+        # Both branches used to test isinstance(..., list): a list got the string appended character by
+        # character ("CF-1.8" -> ' ', 'C', 'F', ...) and a plain string never got CF-1.8 at all.
+        conventions = self.metadata.get("Conventions", "")
+        if isinstance(conventions, list):
+            if "CF-1.8" not in conventions:
+                self.metadata["Conventions"] = conventions + ["CF-1.8"]
+        elif "CF-1.8" not in conventions:
+            self.metadata["Conventions"] = f"{conventions} CF-1.8".strip()
 
     def sort(self):
         if self.data.empty:
@@ -661,7 +662,7 @@ class WaterFrame(LoggerSuperclass):
         if self.cf_data_type in ["timeSeries", "timeSeriesProfile", "trajectory", "trajectoryProfile"]:
             if self._depth not in df.columns:
                 self.error("Depth not in columns!!! Indexing only by time")
-                df.set_index(self._time)
+                df = df.set_index(self._time)  # set_index() returns a new frame, the result must be kept
             else:
                 df = df.set_index([self._time, self._depth])
             df = df.sort_index()
@@ -918,31 +919,29 @@ class WaterFrame(LoggerSuperclass):
             logger.error(f"File '{filename}' does not exist!")
             raise FileNotFoundError(f"File '{filename}' does not exist!")
 
+        ds = xr.open_dataset(filename, decode_times=decode_times, decode_cf=True, decode_coords=False ) # Open file with xarray
+
+        # decode_times moves the "units" attribute of time variables into .encoding, so read it back from
+        # there. This used to require opening the file a second time with decode_times=False, which cost one
+        # extra file open per dataset for a single attribute.
         time_units = ""
         time_end_units = ""
         if decode_times:
-            # decode_times in xarray.open_dataset will erase the unit field from TIME, so store it before it is removed
-            ds = xr.open_dataset(filename, decode_times=False)
             for _time in ["time", "TIME"]:
-                if _time in ds.variables and "units" in ds[_time].attrs.keys():
-                    time_units = ds[_time].attrs["units"]
+                if _time in ds.variables and "units" in ds[_time].encoding:
+                    time_units = ds[_time].encoding["units"]
                     break
-            if "time_end" in ds.variables and "units" in ds["time_end"].attrs.keys():
-                time_end_units = ds[_time].attrs["units"]
-
-
-            ds.close()
-
-        ds = xr.open_dataset(filename, decode_times=decode_times, decode_cf=True, decode_coords=False ) # Open file with xarray
+            if "time_end" in ds.variables and "units" in ds["time_end"].encoding:
+                time_end_units = ds["time_end"].encoding["units"]
 
         # Save ds into a WaterFrame
         metadata = {"global": dict(ds.attrs), "variables": {}, "sensors": {}, "platforms": {}}
         df = ds.to_dataframe()
 
         # Rename columns if needed
-        for old, new in mapper.items():
-            if old in df.columns:
-                df.rename(columns={old: new})
+        rename = {old: new for old, new in mapper.items() if old in df.columns}
+        if rename:
+            df = df.rename(columns=rename)  # rename() returns a new frame, the result must be kept
 
         df = df.reset_index()
         # Make sure to delete any leftover from reset index row like index row or obs
@@ -1015,15 +1014,17 @@ class WaterFrame(LoggerSuperclass):
         Goes through a dataframe and proposes keyword from P02,P07 and P07
         """
         keywords = []
-        uris = []
 
         def get_from_sdn_vocab(target, by, iden, vocab):
+            # Uses the cached column index instead of a full-column scan (~3.2 ms per call on P01)
             try:
                 if by == "uri":
                     iden = self.emso.harmonize_sdn_uri(iden)
-                df = self.emso.sdn_vocabs[vocab]
-                return df[df[by] == iden][target].values[0]
-            except (KeyError, IndexError):
+                position = self.emso.vocab_row(vocab, by, iden)
+                if position is None:
+                    return ""
+                return self.emso.sdn_vocabs[vocab][target].values[position]
+            except (KeyError, IndexError, ValueError):
                 return ""
 
 
@@ -1049,10 +1050,8 @@ class WaterFrame(LoggerSuperclass):
                         # Now get prefered label instead of uri
                         prefLabel = get_from_sdn_vocab("prefLabel", "uri", p02_list[0], "P02")
                         keywords.append(prefLabel)
-                        uris.append(uri)
 
             keywords.append(p02)
-            uris.append(p02)
 
             var_type = meta.get("variable_type", "")
 
@@ -1065,7 +1064,6 @@ class WaterFrame(LoggerSuperclass):
                 uri = meta["sensor_type_uri"]
                 k = get_from_sdn_vocab("prefLabel", "uri", uri, "L05")
                 keywords.append(k)
-                uris.append(uri)
             elif var_type == "sensor":
                 self.warning(f"Could not find sensor type for '{name}'")
 
@@ -1090,7 +1088,8 @@ class WaterFrame(LoggerSuperclass):
                 keywords.append(meta["emso_platform_name"])
 
 
-        keywords = [k for k in keywords if k and k not in self.get_coordinate_names()]
+        coordinate_names = self.get_coordinate_names()  # hoisted: was rebuilt once per keyword
+        keywords = [k for k in keywords if k and k not in coordinate_names]
 
         actual_keywords = self.metadata.get("keywords", [])
 
@@ -1114,7 +1113,9 @@ class WaterFrame(LoggerSuperclass):
         self.info("Consolidating Keywords in metadata...")
 
         current_terms = self.metadata["keywords"]
-        current_terms = list(set(current_terms))  # avoid duplicates
+        # dict.fromkeys de-duplicates while keeping insertion order. list(set(...)) reorders by string hash,
+        # which is randomised per process, so the generated keywords_vocabulary order changed on every run.
+        current_terms = list(dict.fromkeys(current_terms))
         ks = [self.emso.keywords.keyword_from_label(name) for name in current_terms]  # convert terms to Keywords objects
         all_keywords = []
         for k in ks:

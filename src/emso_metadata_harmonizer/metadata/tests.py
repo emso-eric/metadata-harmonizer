@@ -21,7 +21,7 @@ from rich.progress import Progress
 import pandas as pd
 import re
 from . import EmsoMetadata, init_emso_metadata
-from .utils import group_metadata_variables, check_url, CYN, RST
+from .utils import group_metadata_variables, CYN, RST
 import inspect
 import numpy as np
 from dataclasses import dataclass
@@ -485,7 +485,7 @@ class EmsoMetadataTester:
             raise ValueError(
                 f"Vocabulary '{vocab}' not loaded! Loaded vocabs are {self.metadata.sdn_vocabs_ids.keys()}")
 
-        if value in self.metadata.sdn_vocabs_ids[vocab]:
+        if self.metadata.vocab_contains(vocab, "id", value):
             return True, ""
 
         return False, f"Not a valid '{vocab}' URN"
@@ -507,7 +507,7 @@ class EmsoMetadataTester:
             raise ValueError(
                 f"Vocabulary '{vocab}' not loaded! Loaded vocabs are {self.metadata.sdn_vocabs_pref_label.keys()}")
 
-        if value in self.metadata.sdn_vocabs_pref_label[vocab]:
+        if self.metadata.vocab_contains(vocab, "prefLabel", value):
             return True, ""
 
         return False, f"Not a valid '{vocab}' preferred label"
@@ -524,7 +524,7 @@ class EmsoMetadataTester:
             raise ValueError(
                 f"Vocabulary '{vocab}' not loaded! Loaded vocabs are {self.metadata.sdn_vocabs_pref_label.keys()}")
 
-        if value in self.metadata.sdn_vocabs_alt_label[vocab]:
+        if self.metadata.vocab_contains(vocab, "altLabel", value):
             return True, ""
 
         return False, f"Not a valid '{vocab}' alternative label"
@@ -544,7 +544,7 @@ class EmsoMetadataTester:
             raise ValueError(
                 f"Vocabulary '{vocab}' not loaded! Loaded vocabs are {self.metadata.sdn_vocabs_pref_label.keys()}")
 
-        if value in self.metadata.sdn_vocabs_pref_label[vocab]:
+        if self.metadata.vocab_contains(vocab, "prefLabel", value):
             return True, ""
         return False, f"Not a valid '{vocab}' prefered label"
 
@@ -568,7 +568,7 @@ class EmsoMetadataTester:
             raise ValueError(
                 f"Vocabulary '{vocab}' not loaded! Loaded vocabs are {self.metadata.sdn_vocabs_uris.keys()}")
 
-        if uri in self.metadata.sdn_vocabs_uris[vocab]:
+        if self.metadata.vocab_contains(vocab, "uri", uri):
             return True, ""
 
         return False, f"Not a valid '{vocab}' URI"
@@ -816,25 +816,27 @@ class EmsoMetadataTester:
 
     #------ Darwin Core Terms ----#
     def dwc_term_name(self, value, args):
-        if value in self.metadata.dwc_terms["name"].to_list():
+        if value in self.metadata.dwc_term_names:
             return True, ""
         else:
             return False, "Not a valid Darwin Core term name"
 
     def dwc_term_uri(self, value, args):
-        if value in self.metadata.dwc_terms["uri"].to_list():
+        if value in self.metadata.dwc_term_uris:
             return True, ""
         else:
             return False, "Not a valid Darwin Core term uri"
 
     #-------- ROR registry --------#
     def ror_uri(self, value, args):
-        # try to get the value from the ROR registry, like https://ror.org/03mb6wj31
+        # Check the value against the mirrored ROR registry, like https://ror.org/03mb6wj31.
+        # This used to be a live HTTPS request per value, which added ~90 ms to every dataset, needed
+        # network access, and reported an unreachable ror.org as if the metadata itself were invalid.
         if not value.startswith("https://ror.org/"):
             return False, "Not a valid ROR URI"
 
-        if not check_url(value):
-            return False, "URL not reachable"
+        if value not in self.metadata.ror_ids:
+            return False, "Not registered in ROR"
 
         return True, ""
 

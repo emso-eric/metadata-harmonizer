@@ -10,7 +10,7 @@ Resources come from two independent sources, because they have two different own
   vocabularies.json  Vocabularies governed by third parties (NVS/SeaDataNet, Copernicus). Refreshed on their
                      own cadence, independently of the specifications version, so there is a single current
                      snapshot shared by every version, published already parsed (CSV/JSON) so that no RDF
-                     toolchain is needed here. Cached under .emso/<sdn|edmo|copernicus|keywords|oso>/.
+                     toolchain is needed here. Cached under .emso/<sdn|edmo|copernicus|keywords|oso|ror>/.
 
 SPDX and DwC are listed in neither manifest and are downloaded from their upstream projects; they are
 version-independent and live at the root of the cache directory.
