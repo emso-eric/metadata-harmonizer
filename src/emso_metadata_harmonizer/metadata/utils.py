@@ -33,6 +33,10 @@ NRM = "\x1B[0m"
 PRL = "\033[95m"
 RST = "\033[0m"
 
+EMH_LOGGER_NAME = "emso_metadata_harmonizer"
+
+logger = logging.getLogger(EMH_LOGGER_NAME)
+
 
 def group_metadata_variables(metadata):
     """
@@ -147,12 +151,11 @@ def download_file(url: str, filename: str, headers: Optional[Dict[str, str]] = N
                 if chunk:
                     file.write(chunk)
     except (HTTPError, requests.exceptions.ConnectionError) as e:
-        log = logging.getLogger()
         if alternative:
-            log.warning(f"Failed to fetch URL, using alternative {alternative}")
+            logger.warning(f"Failed to fetch URL, using alternative {alternative}")
             download_file(alternative, filename, headers=headers, chunk_size=chunk_size, alternative="")
         else:
-            log.error(f"Failed to fetch URL {url}")
+            logger.error(f"Failed to fetch URL {url}")
             raise e
 
 
@@ -227,23 +230,21 @@ def get_dir_list(dir_name):
 
 
 class LoggerSuperclass:
-    def __init__(self, logger: logging.Logger, name: str, colour=NRM):
+    def __init__(self, name: str, colour=NRM):
         """
         SuperClass that defines logging as class methods adding a heading name
         """
         self._logger_name = name
-        self.__logger = logger
-        if not logger:
-            self.__logger = logging  # if not assign the generic module
+        self.logger = logging.getLogger(EMH_LOGGER_NAME)
         self._log_colour = colour
 
     def warning(self, *args):
         mystr = YEL + "[%s] " % self._logger_name + str(*args) + RST
-        self.__logger.warning(mystr)
+        self.logger.warning(mystr)
 
     def error(self, *args, exception: any = False):
         mystr = "[%s] " % self._logger_name + str(*args)
-        self.__logger.error(RED + mystr + RST)
+        self.logger.error(RED + mystr + RST)
         if exception:
             if isinstance(exception, bool):
                 raise ValueError(mystr)
@@ -252,14 +253,16 @@ class LoggerSuperclass:
 
     def debug(self, *args):
         mystr = self._log_colour + "[%s] " % self._logger_name + str(*args) + RST
-        self.__logger.debug(mystr)
+        self.logger.debug(mystr)
 
     def info(self, *args):
         mystr = self._log_colour + "[%s] " % self._logger_name + str(*args) + RST
-        self.__logger.info(mystr)
+        self.logger.info(mystr)
 
     def setLevel(self, level):
-        self.__logger.setLevel(level)
+        self.logger.setLevel(level)
+
+
 
 
 def setup_log(name, path="log", log_level="debug"):
@@ -298,7 +301,7 @@ def setup_log(name, path="log", log_level="debug"):
     if not filename.endswith(".log"):
         filename += ".log"
 
-    logger = logging.getLogger()
+    logger = logging.getLogger(EMH_LOGGER_NAME)
     logger.setLevel(level)
     log_formatter = logging.Formatter('%(asctime)s.%(msecs)03d %(levelname)-7s: %(message)s',
                                       datefmt='%Y-%m-%d %H:%M:%S')

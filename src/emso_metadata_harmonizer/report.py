@@ -24,8 +24,9 @@ from .metadata import  EmsoMetadata
 from .metadata.utils import threadify
 from .metadata.dataset import get_netcdf_metadata
 from .metadata.tests import EmsoMetadataTester
+from .metadata.utils import EMH_LOGGER_NAME
 
-logger = logging.getLogger("emso_metadata_harmonizer")
+logger = logging.getLogger(EMH_LOGGER_NAME)
 
 def metadata_results_to_json(df: pd.DataFrame)-> dict:
     report = {"ERRORS": {}, "WARNINGS": {}}

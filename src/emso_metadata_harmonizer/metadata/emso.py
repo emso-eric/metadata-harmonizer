@@ -12,14 +12,14 @@ created: 3/3/23
 import logging
 import os
 from .vocabularies import GEMET, GCMD, SeaDataNetVocabulary, EuroSciVoc, Keyword, OSO
-from .utils import get_file_list, assert_type
+from .utils import get_file_list, assert_type, EMH_LOGGER_NAME
 from .resource_manager import ResourceManager, process_markdown_file, load_json
 
 # Specifications version used when the caller does not ask for one. "develop" keeps the behaviour of previous
 # releases; set it to "latest" to follow the newest published tag instead.
 emso_version = "develop"
 
-log = logging.getLogger("emso_metadata_harmonizer")
+logger = logging.getLogger(EMH_LOGGER_NAME)
 
 user_defined_specs_file = ""  # used to overload online specifications, used for development only
 
@@ -94,7 +94,7 @@ class EmsoMetadata:
         :param version: EMSO Metadata Specifications version. Empty uses the module default (see emso_version)
         :param max_threads: size of the download thread pool
         """
-        log.info("Loading EMSO Metadata resources...")
+        logger.info("Loading EMSO Metadata resources...")
 
         # All downloading, caching and parsing is delegated to the ResourceManager, which resolves the
         # requested version against manifest.json and fetches everything in parallel.
@@ -137,7 +137,7 @@ class EmsoMetadata:
         # ==== Load all SDN vocabularies ==== #
         # Every file was already downloaded and parsed by the ResourceManager, so this is just a re-shuffle
         for vocab in list(self.sdn_vocabs.keys()):
-            log.debug(f"    loading SDN vocabulary {vocab}")
+            logger.debug(f"    loading SDN vocabulary {vocab}")
             df = self.resource_manager.get(vocab, "csv")
             self.sdn_vocabs[vocab] = df
             self.sdn_vocabs_narrower[vocab] = self.resource_manager.get(vocab, "narrower")
@@ -149,15 +149,15 @@ class EmsoMetadata:
             self.sdn_vocabs_uris[vocab] = df["uri"].values
 
         # ==== Load Copernicus Variables ==== #
-        log.debug(f"    loading Copernicus Parameters")
+        logger.debug(f"    loading Copernicus Parameters")
         tables = self.resource_manager.get("Copernicus Parameters", "md")
 
         self.copernicus_variables = tables["Copernicus variables"]["variable name"].to_list()
-        log.debug(f"    loading EDMO codes")
+        logger.debug(f"    loading EDMO codes")
         self.edmo_codes = self.resource_manager.get("EDMO", "csv")
 
         if user_defined_specs_file:
-            log.warning(f"Using custom specifications file: {user_defined_specs_file}")
+            logger.warning(f"Using custom specifications file: {user_defined_specs_file}")
             tables = process_markdown_file(user_defined_specs_file)
         else:
             tables = self.resource_manager.get("EMSO_Metadata_Specifications", "md")
@@ -325,8 +325,6 @@ class EmsoMetadata:
         """
         Search in vocab <vocab_id> for the element with matching uri and return element identified by key
         """
-        log = logging.getLogger()
-
         uri = self.harmonize_sdn_uri(uri)
         __allowed_keys = ["prefLabel", "id", "definition", "altLabel"]
         if key not in __allowed_keys:
@@ -335,7 +333,7 @@ class EmsoMetadata:
         position = self.vocab_row(vocab_id, "uri", uri)
         if position is None:
             #raise LookupError(f"Could not get {key} for '{uri}' in vocab {vocab_id}")
-            log.warning(f"Could not get {key} for '{uri}' in vocab {vocab_id}")
+            logger.warning(f"Could not get {key} for '{uri}' in vocab {vocab_id}")
             return
 
         return self.sdn_vocabs[vocab_id][key].values[position]
@@ -380,7 +378,6 @@ class EmsoMetadata:
         :param target_vocab: id of the vocabulary terms that we want to find
         :returns: list with matches
         """
-        log = logging.getLogger()
         __valid_relations = ["narrower", "broader", "related"]
         uri = self.harmonize_sdn_uri(uri)
 
@@ -397,7 +394,7 @@ class EmsoMetadata:
         try:
             uri_relations = relations[uri]
         except KeyError:
-            log.warning(f"relation {relation} for {uri} not found!")
+            logger.warning(f"relation {relation} for {uri} not found!")
             return ""
 
         if type(uri_relations) is str:  # make sure it's a list
@@ -413,10 +410,9 @@ class EmsoMetadata:
         """
         The same as get relations but throws an error if more than one element are found
         """
-        log = logging.getLogger()
         results = self.get_relations(vocab_id, uri, relation, target_vocab)
         if len(results) == 0:
-            log.warning(f"Could not find relation {relation} for {uri}")
+            logger.warning(f"Could not find relation {relation} for {uri}")
             return ""
         elif len(results) != 1:
             raise LookupError(f"Expected 1 value, got {len(results)}")

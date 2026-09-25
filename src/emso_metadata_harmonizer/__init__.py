@@ -1,3 +1,5 @@
+import logging
+
 from .erddap_config import erddap_config
 from .erddap import ERDDAP
 from .metadata.waterframe import WaterFrame
@@ -6,4 +8,6 @@ from .dataset_generator import generate_dataset
 from .metadata.waterframe import WaterFrame
 from .metadata import setup_log
 
-__version__ = "1.1.0dev0"
+logging.getLogger("emso_metadata_harmonizer").addHandler(logging.NullHandler())
+
+__version__ = "1.1.0dev1"

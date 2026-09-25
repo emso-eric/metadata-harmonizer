@@ -3,6 +3,7 @@
 2. Selectable specifications version
 3. Clean EmsoMetadata building (specifically vocabularies), now everything downloads from emso-metadata-specs 
 4. Clean WaterFrame to improve speed
+5. Consistent logging strategy, use always the same logger
 
 ## Version 1.0.9 ##
 1. Fixing broken links in previous version

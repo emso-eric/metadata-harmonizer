@@ -74,7 +74,7 @@ class EmsoMetadataTester:
         error = False
         for test in all_tests:
             if test not in self.implemented_tests.keys():
-                logging.error(f"ERROR test {test} not implemented!")
+                logger.error(f"ERROR test {test} not implemented!")
                 error = True
         if error:
             raise ValueError("Some tests are not implemented")
@@ -222,7 +222,7 @@ class EmsoMetadataTester:
 
         if attribute in metadata.keys():
             if test_name not in self.implemented_tests.keys():
-                logging.error(f"Test '{test_name}' not implemented!")
+                logger.error(f"Test '{test_name}' not implemented!")
 
             else:
                 implemented = True
@@ -257,7 +257,7 @@ class EmsoMetadataTester:
                     try:
                         p, m = test_method(v, args)  # apply test method
                     except Exception as e:
-                        logging.error(f"Error when executing test '{test_name}' with arguments '{args}' and value '{v}'")
+                        logger.error(f"Error when executing test '{test_name}' with arguments '{args}' and value '{v}'")
                         raise e
                     if not m:
                         m = "ok"  # instead of empty message just leave ok
@@ -340,7 +340,7 @@ class EmsoMetadataTester:
             multiple = row["Multiple"]
             annotation = row["annotations"]
             if not test_name:
-                logging.warning(f"WARNING: test for {attribute} not implemented!")
+                logger.warning(f"WARNING: test for {attribute} not implemented!")
                 continue
 
             args = []
@@ -382,7 +382,7 @@ class EmsoMetadataTester:
         else:
             dataset_id = global_attr["title"]
 
-        logging.info(f"==== Validating dataset '{CYN}{global_attr['title']}{RST}' ====")
+        logger.info(f"==== Validating dataset '{CYN}{global_attr['title']}{RST}' ====")
 
         # Test global attributes
         if "global" in variable_filter or not variable_filter:
@@ -445,7 +445,7 @@ class EmsoMetadataTester:
     # ------------ EDMO -------- #
     def edmo_code(self, value, args):
         if type(value) == str:
-            logging.warning("EDMO code should be integer! converting from string to int")
+            logger.warning("EDMO code should be integer! converting from string to int")
             try:
                 value = int(value)
             except ValueError:
