@@ -790,7 +790,9 @@ class EmsoMetadataTester:
             if section == "global":
                 continue
             for varname, v in self.context.metadata[section].items():
-                if v["variable_type"] == "quality_control": # it should not be possible to have TEMP_QC_QC
+                if "variable_name" not in v:
+                    return False, "variable_type not found in metadata, cannot evalutate"
+                elif v["variable_type"] == "quality_control": # it should not be possible to have TEMP_QC_QC
                     continue
                 if "ancillary_variables" in v.keys():
                     ancillary_vars += v["ancillary_variables"].split(" ")
