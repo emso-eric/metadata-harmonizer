@@ -21,7 +21,7 @@ from rich.progress import Progress
 import pandas as pd
 import re
 from . import EmsoMetadata, init_emso_metadata
-from .utils import group_metadata_variables, check_url, CYN, RST
+from .utils import group_metadata_variables, CYN, RST
 import inspect
 import numpy as np
 from dataclasses import dataclass
@@ -47,7 +47,7 @@ class EmsoMetadataTester:
         # Dict to store all erddap. KEY is the test identifier while value is the method
         logger.info("Setting up EMSO Metadata Tests...")
 
-        self.metadata = init_emso_metadata(force_update=True)
+        self.metadata = init_emso_metadata()
         self.context = None  # here info about the current attribute being tested will be stored
 
         self.implemented_tests = {}
@@ -74,11 +74,10 @@ class EmsoMetadataTester:
         error = False
         for test in all_tests:
             if test not in self.implemented_tests.keys():
-                logging.error(f"ERROR test {test} not implemented!")
+                logger.error(f"ERROR test {test} not implemented!")
                 error = True
         if error:
-            pass # TODO implement tests and uncoment exception
-            # raise ValueError("Some tests are not implemented")
+            raise ValueError("Some tests are not implemented")
 
         # valid discrete sampling geometries from the Climate and Forecast conventions, more info at:
         # https://cfconventions.org/cf-conventions/cf-conventions.html#discrete-sampling-geometries
@@ -223,7 +222,7 @@ class EmsoMetadataTester:
 
         if attribute in metadata.keys():
             if test_name not in self.implemented_tests.keys():
-                logging.error(f"Test '{test_name}' not implemented!")
+                logger.error(f"Test '{test_name}' not implemented!")
 
             else:
                 implemented = True
@@ -258,7 +257,7 @@ class EmsoMetadataTester:
                     try:
                         p, m = test_method(v, args)  # apply test method
                     except Exception as e:
-                        logging.error(f"Error when executing test '{test_name}' with arguments '{args}' and value '{v}'")
+                        logger.error(f"Error when executing test '{test_name}' with arguments '{args}' and value '{v}'")
                         raise e
                     if not m:
                         m = "ok"  # instead of empty message just leave ok
@@ -341,7 +340,7 @@ class EmsoMetadataTester:
             multiple = row["Multiple"]
             annotation = row["annotations"]
             if not test_name:
-                logging.warning(f"WARNING: test for {attribute} not implemented!")
+                logger.warning(f"WARNING: test for {attribute} not implemented!")
                 continue
 
             args = []
@@ -383,7 +382,7 @@ class EmsoMetadataTester:
         else:
             dataset_id = global_attr["title"]
 
-        logging.info(f"==== Validating dataset '{CYN}{global_attr['title']}{RST}' ====")
+        logger.info(f"==== Validating dataset '{CYN}{global_attr['title']}{RST}' ====")
 
         # Test global attributes
         if "global" in variable_filter or not variable_filter:
@@ -446,7 +445,7 @@ class EmsoMetadataTester:
     # ------------ EDMO -------- #
     def edmo_code(self, value, args):
         if type(value) == str:
-            logging.warning("EDMO code should be integer! converting from string to int")
+            logger.warning("EDMO code should be integer! converting from string to int")
             try:
                 value = int(value)
             except ValueError:
@@ -486,7 +485,7 @@ class EmsoMetadataTester:
             raise ValueError(
                 f"Vocabulary '{vocab}' not loaded! Loaded vocabs are {self.metadata.sdn_vocabs_ids.keys()}")
 
-        if value in self.metadata.sdn_vocabs_ids[vocab]:
+        if self.metadata.vocab_contains(vocab, "id", value):
             return True, ""
 
         return False, f"Not a valid '{vocab}' URN"
@@ -508,7 +507,7 @@ class EmsoMetadataTester:
             raise ValueError(
                 f"Vocabulary '{vocab}' not loaded! Loaded vocabs are {self.metadata.sdn_vocabs_pref_label.keys()}")
 
-        if value in self.metadata.sdn_vocabs_pref_label[vocab]:
+        if self.metadata.vocab_contains(vocab, "prefLabel", value):
             return True, ""
 
         return False, f"Not a valid '{vocab}' preferred label"
@@ -525,7 +524,7 @@ class EmsoMetadataTester:
             raise ValueError(
                 f"Vocabulary '{vocab}' not loaded! Loaded vocabs are {self.metadata.sdn_vocabs_pref_label.keys()}")
 
-        if value in self.metadata.sdn_vocabs_alt_label[vocab]:
+        if self.metadata.vocab_contains(vocab, "altLabel", value):
             return True, ""
 
         return False, f"Not a valid '{vocab}' alternative label"
@@ -545,7 +544,7 @@ class EmsoMetadataTester:
             raise ValueError(
                 f"Vocabulary '{vocab}' not loaded! Loaded vocabs are {self.metadata.sdn_vocabs_pref_label.keys()}")
 
-        if value in self.metadata.sdn_vocabs_pref_label[vocab]:
+        if self.metadata.vocab_contains(vocab, "prefLabel", value):
             return True, ""
         return False, f"Not a valid '{vocab}' prefered label"
 
@@ -569,7 +568,7 @@ class EmsoMetadataTester:
             raise ValueError(
                 f"Vocabulary '{vocab}' not loaded! Loaded vocabs are {self.metadata.sdn_vocabs_uris.keys()}")
 
-        if uri in self.metadata.sdn_vocabs_uris[vocab]:
+        if self.metadata.vocab_contains(vocab, "uri", uri):
             return True, ""
 
         return False, f"Not a valid '{vocab}' URI"
@@ -791,7 +790,9 @@ class EmsoMetadataTester:
             if section == "global":
                 continue
             for varname, v in self.context.metadata[section].items():
-                if v["variable_type"] == "quality_control": # it should not be possible to have TEMP_QC_QC
+                if "variable_name" not in v:
+                    return False, "variable_type not found in metadata, cannot evalutate"
+                elif v["variable_type"] == "quality_control": # it should not be possible to have TEMP_QC_QC
                     continue
                 if "ancillary_variables" in v.keys():
                     ancillary_vars += v["ancillary_variables"].split(" ")
@@ -817,25 +818,27 @@ class EmsoMetadataTester:
 
     #------ Darwin Core Terms ----#
     def dwc_term_name(self, value, args):
-        if value in self.metadata.dwc_terms["name"].to_list():
+        if value in self.metadata.dwc_term_names:
             return True, ""
         else:
             return False, "Not a valid Darwin Core term name"
 
     def dwc_term_uri(self, value, args):
-        if value in self.metadata.dwc_terms["uri"].to_list():
+        if value in self.metadata.dwc_term_uris:
             return True, ""
         else:
             return False, "Not a valid Darwin Core term uri"
 
     #-------- ROR registry --------#
     def ror_uri(self, value, args):
-        # try to get the value from the ROR registry, like https://ror.org/03mb6wj31
+        # Check the value against the mirrored ROR registry, like https://ror.org/03mb6wj31.
+        # This used to be a live HTTPS request per value, which added ~90 ms to every dataset, needed
+        # network access, and reported an unreachable ror.org as if the metadata itself were invalid.
         if not value.startswith("https://ror.org/"):
             return False, "Not a valid ROR URI"
 
-        if not check_url(value):
-            return False, "URL not reachable"
+        if value not in self.metadata.ror_ids:
+            return False, "Not registered in ROR"
 
         return True, ""
 

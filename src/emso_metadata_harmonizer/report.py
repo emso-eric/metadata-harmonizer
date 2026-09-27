@@ -24,8 +24,9 @@ from .metadata import  EmsoMetadata
 from .metadata.utils import threadify
 from .metadata.dataset import get_netcdf_metadata
 from .metadata.tests import EmsoMetadataTester
+from .metadata.utils import EMH_LOGGER_NAME
 
-logger = logging.getLogger("emso_metadata_harmonizer")
+logger = logging.getLogger(EMH_LOGGER_NAME)
 
 def metadata_results_to_json(df: pd.DataFrame)-> dict:
     report = {"ERRORS": {}, "WARNINGS": {}}
@@ -44,7 +45,7 @@ def metadata_results_to_json(df: pd.DataFrame)-> dict:
             for _, row in sdf[sdf["attribute"] == attribute].iterrows():
                 message = row["message"]
                 if row["value"]:
-                    message += " (value='" + row["value"] + "')"
+                    message += " (value='" + str(row["value"]) + "')"
                 if row["required"]:
                     report = add_message(report, "ERRORS", variable, attribute, message)
                 else:
@@ -90,7 +91,7 @@ def create_json_report(dataset_id: str,
 def metadata_report(target,
                     verbose: bool = False,
                     output: str = "",
-                    specifications="",
+                    specs_version="latest",
                     variables=[],
                     ignore_ok=False,
                     keywords=False,
@@ -120,8 +121,8 @@ def metadata_report(target,
         logger.error("ERDDAP URL, NetCDF file or JSON file required!")
         exit()
 
-    if specifications:
-        EmsoMetadata.use_custom_file(specifications)
+    if specs_version:
+        EmsoMetadata.set_version(specs_version)
 
     datasets = [
         # {"file": filename, "url": "http://my.server.com/erddap", "dataset_id": "MyDataset"}

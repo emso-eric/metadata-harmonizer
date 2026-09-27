@@ -54,12 +54,10 @@ def generate_erddap_dataset(wf: WaterFrame, directory, dataset_id, recursive: bo
     assert isinstance(wf, WaterFrame), f"Expected WaterFrame (got {type(wf)})"
     assert isinstance(directory, str), f"Expected str for directory (got {type(directory)})"
 
-    log = logging.getLogger()
-
     vocab = wf.vocabulary
     if mapping:
         # convert from array to a dict with source as the key
-        log.info(f"Using user-supplied variable mapping")
+        logger.info(f"Using user-supplied variable mapping")
         var_mapping = {d["source"]: d for d in mapping["mapping"]["variables"]}
         attr_mapping = mapping["mapping"]["attributes"]
     else:

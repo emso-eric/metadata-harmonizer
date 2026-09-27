@@ -21,7 +21,7 @@ if __name__ == "__main__":
     argparser.add_argument("-c", "--csv",  type=str, help="Folder to store CSV files with the report of each dataset", default="")
     argparser.add_argument("-i", "--ignore-ok", action="store_true", help="do not show tests with positive outcome")
     argparser.add_argument("-V", "--variables", nargs="+", help="Run test only for a variable subset", default=[])
-    argparser.add_argument("--specs", type=str, help="Use this file as EMSO Metadata specifications source (use only for development)", default="")
+    argparser.add_argument("--specs", type=str, help="EMSO Metadata Specifications version or .md file", default="latest")
     argparser.add_argument("-l", "--log-level", type=str, help="Setting log level (debug, info, warn, error or critical)", required=False, default="")
     argparser.add_argument("-k", "--keywords", action="store_true", help="Check the keywords")
     argparser.add_argument("-s", "--summary", action="store_true", help="Prints a summary of all datasets")
@@ -41,7 +41,7 @@ if __name__ == "__main__":
         args.target,
         verbose=args.verbose,
         output=args.output,
-        specifications=args.specs,
+        specs_version=args.specs,
         variables=args.variables,
         ignore_ok=args.ignore_ok,
         csv_folder=args.csv,

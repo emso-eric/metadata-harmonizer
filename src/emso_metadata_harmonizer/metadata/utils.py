@@ -33,6 +33,10 @@ NRM = "\x1B[0m"
 PRL = "\033[95m"
 RST = "\033[0m"
 
+EMH_LOGGER_NAME = "emso_metadata_harmonizer"
+
+logger = logging.getLogger(EMH_LOGGER_NAME)
+
 
 def group_metadata_variables(metadata):
     """
@@ -147,12 +151,11 @@ def download_file(url: str, filename: str, headers: Optional[Dict[str, str]] = N
                 if chunk:
                     file.write(chunk)
     except (HTTPError, requests.exceptions.ConnectionError) as e:
-        log = logging.getLogger()
         if alternative:
-            log.warning(f"Failed to fetch URL, using alternative {alternative}")
+            logger.warning(f"Failed to fetch URL, using alternative {alternative}")
             download_file(alternative, filename, headers=headers, chunk_size=chunk_size, alternative="")
         else:
-            log.error(f"Failed to fetch URL {url}")
+            logger.error(f"Failed to fetch URL {url}")
             raise e
 
 
@@ -227,23 +230,21 @@ def get_dir_list(dir_name):
 
 
 class LoggerSuperclass:
-    def __init__(self, logger: logging.Logger, name: str, colour=NRM):
+    def __init__(self, name: str, colour=NRM):
         """
         SuperClass that defines logging as class methods adding a heading name
         """
         self._logger_name = name
-        self.__logger = logger
-        if not logger:
-            self.__logger = logging  # if not assign the generic module
+        self.logger = logging.getLogger(EMH_LOGGER_NAME)
         self._log_colour = colour
 
     def warning(self, *args):
         mystr = YEL + "[%s] " % self._logger_name + str(*args) + RST
-        self.__logger.warning(mystr)
+        self.logger.warning(mystr)
 
     def error(self, *args, exception: any = False):
         mystr = "[%s] " % self._logger_name + str(*args)
-        self.__logger.error(RED + mystr + RST)
+        self.logger.error(RED + mystr + RST)
         if exception:
             if isinstance(exception, bool):
                 raise ValueError(mystr)
@@ -252,14 +253,16 @@ class LoggerSuperclass:
 
     def debug(self, *args):
         mystr = self._log_colour + "[%s] " % self._logger_name + str(*args) + RST
-        self.__logger.debug(mystr)
+        self.logger.debug(mystr)
 
     def info(self, *args):
         mystr = self._log_colour + "[%s] " % self._logger_name + str(*args) + RST
-        self.__logger.info(mystr)
+        self.logger.info(mystr)
 
     def setLevel(self, level):
-        self.__logger.setLevel(level)
+        self.logger.setLevel(level)
+
+
 
 
 def setup_log(name, path="log", log_level="debug"):
@@ -298,7 +301,7 @@ def setup_log(name, path="log", log_level="debug"):
     if not filename.endswith(".log"):
         filename += ".log"
 
-    logger = logging.getLogger()
+    logger = logging.getLogger(EMH_LOGGER_NAME)
     logger.setLevel(level)
     log_formatter = logging.Formatter('%(asctime)s.%(msecs)03d %(levelname)-7s: %(message)s',
                                       datefmt='%Y-%m-%d %H:%M:%S')
@@ -413,3 +416,115 @@ def get_file_md5(filename):
             md5_hash.update(chunk)
 
     return md5_hash.hexdigest()
+
+
+import os
+import subprocess
+import tempfile
+from datetime import datetime
+
+
+def get_tags_by_date(owner, repo, newest_first=True, timeout=120):
+    """Return a list of (tag_name, datetime) for a public GitHub repo."""
+    url = f"https://github.com/{owner}/{repo}.git"
+    env = {**os.environ, "GIT_TERMINAL_PROMPT": "0"}  # never hang on a login prompt
+    sort = "-creatordate" if newest_first else "creatordate"
+
+    with tempfile.TemporaryDirectory() as tmp:
+        def git(*args):
+            return subprocess.run(
+                ["git", *args], cwd=tmp, env=env, timeout=timeout,
+                check=True, capture_output=True, text=True,
+            ).stdout
+
+        git("init", "--quiet", "--bare")
+        git("fetch", "--quiet", "--depth=1", "--filter=tree:0", "--no-tags",
+            url, "refs/tags/*:refs/tags/*")
+        # creatordate = tagger date for annotated tags, commit date otherwise
+        out = git("for-each-ref", f"--sort={sort}",
+                  "--format=%(refname:short)%09%(creatordate:iso-strict)",
+                  "refs/tags")
+
+    tags = []
+    for line in out.splitlines():
+        name, _, date = line.partition("\t")
+        tags.append((name, datetime.fromisoformat(date) if date else None))
+    return tags
+
+"""Get the highest x.y.z version tag of a public GitHub repo.
+
+No clone, no token, no third-party packages, no git executable needed:
+pure Python standard library, so it runs the same on Windows, macOS and Linux.
+
+It reads Git's own "smart HTTP" ref advertisement - the same endpoint
+`git ls-remote` uses. It lists every tag name in a single small request and
+is not subject to the GitHub REST API's 60-requests/hour anonymous limit.
+"""
+import re
+import shutil
+import subprocess
+import urllib.request
+
+# Accepts "1.2.3" and "v1.2.3"; rejects "1.2", "1.2.3-rc1", "1.2.3.dev0", etc.
+VERSION_RE = re.compile(r"^v?(\d+)\.(\d+)\.(\d+)$")
+
+
+def _tags_via_http(owner, repo, timeout):
+    url = f"https://github.com/{owner}/{repo}.git/info/refs?service=git-upload-pack"
+    req = urllib.request.Request(url, headers={"User-Agent": "git/2.0 (python)"})
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        data = resp.read()
+
+    # Parse Git pkt-line format: 4 hex digits = length (incl. those 4), "0000" = flush.
+    tags, pos = [], 0
+    while pos + 4 <= len(data):
+        length = int(data[pos:pos + 4], 16)
+        if length == 0:
+            pos += 4
+            continue
+        line = data[pos + 4:pos + length].decode("utf-8", "replace")
+        pos += length
+        line = line.split("\0", 1)[0].rstrip("\n")  # drop capabilities
+        _, _, ref = line.partition(" ")
+        if ref.startswith("refs/tags/") and not ref.endswith("^{}"):
+            tags.append(ref[len("refs/tags/"):])
+    return tags
+
+
+def _tags_via_git(owner, repo, timeout):
+    out = subprocess.run(
+        ["git", "ls-remote", "--tags", "--refs",
+         f"https://github.com/{owner}/{repo}.git"],
+        capture_output=True, text=True, check=True, timeout=timeout,
+        env={**__import__("os").environ, "GIT_TERMINAL_PROMPT": "0"},
+    ).stdout
+    return [line.split("refs/tags/", 1)[1] for line in out.splitlines()
+            if "refs/tags/" in line]
+
+
+def list_tags(owner, repo, timeout=30):
+    """All tag names. Pure HTTP first; `git ls-remote` as fallback if installed."""
+    try:
+        return _tags_via_http(owner, repo, timeout)
+    except Exception as http_err:
+        if shutil.which("git"):
+            try:
+                return _tags_via_git(owner, repo, timeout)
+            except Exception:
+                pass
+        raise RuntimeError(
+            f"Could not list tags for {owner}/{repo} "
+            "(repo missing/private, or no network)") from http_err
+
+
+def git_latest_version(owner, repo, timeout=30):
+    """Return the tag with the highest x.y.z version (e.g. 'v2.34.2'), or None."""
+    best_key, best_tag = None, None
+    for tag in list_tags(owner, repo, timeout):
+        m = VERSION_RE.match(tag)
+        if m:
+            key = tuple(int(n) for n in m.groups())  # numeric: 1.10.0 > 1.9.0
+            if best_key is None or key > best_key:
+                best_key, best_tag = key, tag
+    return best_tag
+
