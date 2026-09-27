@@ -4,10 +4,12 @@
 3. Clean EmsoMetadata building (specifically vocabularies), now everything downloads from emso-metadata-specs 
 4. Clean WaterFrame to improve speed
 5. Consistent logging strategy, use always the same logger
+6. HTTP / Connectivity errors are raised directly
+7. fix crash when variable_type not present in QC variables
 
 ## Version 1.0.9 ##
 1. Fixing broken links in previous version
-
+[validation-gate.yaml](../emso-validation-gate/validation-gate.yaml)
 ## Version 1.0.8 ##
 1. Adding --json to produce JSON-based reports
 
