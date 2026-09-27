@@ -13,13 +13,13 @@ import logging
 import rich
 import pandas as pd
 import yaml
-import os
+
 from .metadata import EmsoMetadata
 from .metadata.dataset import load_data
-from .metadata.utils import assert_type, get_file_list
+from .metadata.utils import assert_type, EMH_LOGGER_NAME
 from .metadata.waterframe import WaterFrame, get_coordinates_from_dataframe
 
-logger = logging.getLogger("emso_metadata_harmonizer")
+logger = logging.getLogger(EMH_LOGGER_NAME)
 
 global_elements = (
     # Array with attribute_name, type, mandatory (True, False), additional_checks

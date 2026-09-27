@@ -15,8 +15,9 @@ import rich
 
 from .erddap.datasets_xml import generate_erddap_dataset, add_dataset
 from .metadata.waterframe import WaterFrame
+from .metadata.utils import EMH_LOGGER_NAME
 
-logger = logging.getLogger("emso_metadata_harmonizer")
+logger = logging.getLogger(EMH_LOGGER_NAME)
 
 def erddap_config(file: str, dataset_id: str, source_path: str, output: str = "", datasets_xml_file: str = "",
                   mapping: dict={}, filename_regex=".*", recursive=False):

@@ -12,7 +12,7 @@ created: 6/6/24
 import datetime
 import logging
 import os.path
-from typing import List, Tuple
+from typing import List, Tuple, Dict, Any
 from .utils import assert_type
 import numpy as np
 import pandas as pd
@@ -20,13 +20,13 @@ import netCDF4 as nc
 import xarray as xr
 import rich
 import warnings
+import requests
+
 from .metadata_templates import time_valid_names, depth_valid_names, latitude_valid_names, longitude_valid_names, sensor_id_valid_names, platform_id_valid_names, is_coordinate
 from . import init_emso_metadata
 from .constants import iso_time_format
 from .metadata_templates import dimension_metadata, quality_control_metadata
-from .utils import LoggerSuperclass, CYN
-import requests
-
+from .utils import LoggerSuperclass, CYN, EMH_LOGGER_NAME
 from .vocabularies import Keyword
 
 try:
@@ -37,7 +37,7 @@ except ImportError:
 
 emso = None  # Global variable used to avoid duplicated EMSO metadata objects in different waterframes
 
-logger = logging.getLogger("emso_metadata_harmonizer")
+logger = logging.getLogger(EMH_LOGGER_NAME)
 
 
 # Make sure that we have all the coordinates
@@ -89,7 +89,7 @@ class WaterFrame(LoggerSuperclass):
         self._time, self._depth, self._latitude, self._longitude, self._sensor_id, self._platform_id = \
             get_coordinates_from_dataframe(df)
 
-        LoggerSuperclass.__init__(self, logger, "WF", colour=CYN)
+        LoggerSuperclass.__init__(self, "WF", colour=CYN)
         global emso
         if not emso:
             emso = init_emso_metadata()
@@ -888,7 +888,6 @@ class WaterFrame(LoggerSuperclass):
 
     @staticmethod
     def from_erddap(url, dataset_id, protocol="tabledap", permissive=True, data_from="") -> "WaterFrame":
-        logger = logging.getLogger()
         url = f"{url}/{protocol}/{dataset_id}.nc"
 
         if data_from and isinstance(data_from, pd.Timestamp):
@@ -1259,127 +1258,181 @@ def collect_sensor_metadata(metadata:dict, df: pd.DataFrame) -> dict:
 def collect_platform_metadata(metadata:dict, df: pd.DataFrame) -> dict:
     return __collect_metadata(metadata, df, "platform")
 
+def operational_tests(wf: WaterFrame, quiet=False, verbose=False) -> Tuple[bool, dict]:
+    return OperationalTester(quiet=quiet, verbose=verbose).validate(wf)
 
 
-def operational_tests(wf: WaterFrame, quiet=False) -> Tuple[bool, dict]:
+class OperationalTester:
     """
-    Ensures that the current WaterFrame is operationally sound. The following tests are preformed:
-        1. All variables have the variable_type attribute with a valid value
-        2. Ensure that we have coordinates with the following names: time, depth, latitude, longitude, sensor_id, platform_id
-        3. sensor_id and platform_id values are resolvable identifiers of sensors and platforms metadata variables
+    Ensures that a WaterFrame is operationally sound by checking variable types,
+    mandatory coordinates, P01 parameter codes, standard names, and sensor/platform IDs.
     """
-    errors = []
-    warnings = []
-    infos = []
-    __valid_coordinates = ["time", "depth", "latitude", "longitude", "sensor_id", "platform_id", "precise_latitude", "precise_longitude", "time_end"]
-    __mandatory_coords = ["time", "depth", "latitude", "longitude", "sensor_id", "platform_id"]
-    __valid_variable_types = ["environmental", "biological", "technical", "coordinate", "quality_control", "sensor", "platform"]
 
-    for varname, meta in wf.vocabulary.items():
-        if "variable_type" not in meta.keys():
-            errors.append(f"variable '{varname}' does not have the mandatory variable_type attribute")
-        elif  meta["variable_type"] not in __valid_variable_types:
-            errors.append(f"variable '{varname}' does not have a valid variable_type attribute: '{meta['variable_type']}'")
-        elif meta["variable_type"] == "coordinate" and varname not in __valid_coordinates:
-            errors.append(f"not a valid coordinate name: '{varname}'")
+    VALID_COORDINATES = [
+        "time", "depth", "latitude", "longitude", "sensor_id",
+        "platform_id", "precise_latitude", "precise_longitude", "time_end"
+    ]
+    MANDATORY_COORDS = [
+        "time", "depth", "latitude", "longitude", "sensor_id", "platform_id"
+    ]
+    VALID_VARIABLE_TYPES = [
+        "environmental", "biological", "technical", "coordinate",
+        "quality_control", "sensor", "platform"
+    ]
 
-    # check mandatory coordinates
-    for man in __mandatory_coords:
-        if man not in wf.data.keys():
-            errors.append(f"Mandatory coordinate '{man}' not found in sensors metadata")
+    def __init__(self, quiet: bool = False, verbose: bool = False):
+        """
+        :param quiet: if True, nothing is written to stdout; outcome is reported via logger instead
+        :param verbose: if True, extra information is written to stdout (has no effect if quiet is set)
+        """
+        self.quiet = quiet
+        self.verbose = verbose
+        self.errors = []
+        self.warnings = []
+        self.infos = []
 
+    # ------------------------------------------------------------------ #
+    #                           output helpers                           #
+    # ------------------------------------------------------------------ #
+    def __print(self, message: str = "", end: str = "\n"):
+        """Prints a message unless the validator is in quiet mode"""
+        if not self.quiet:
+            rich.print(message, end=end)
 
-    # check unique P01 codes across variables
-    p01 = {}
-    for varname, meta in wf.vocabulary.items():
-        if "sdn_parameter_uri" in meta.keys():
-            code = meta["sdn_parameter_uri"]
+    def __print_verbose(self, message: str = "", end: str = "\n"):
+        """Prints a message only in verbose mode"""
+        if self.verbose:
+            self.__print(message, end=end)
 
-            if code not in p01.keys():
-                p01[code] = []
+    def __error(self, error: str, message: str = "", end: str = "\n"):
+        """Registers an error and prints it."""
+        self.errors.append(error)
+        self.__print(message if message else f"[red]    ERROR: {error}[/red]", end=end)
 
-            if code:  # avoid nulls
-                p01[code].append(varname)
+    def __warning(self, warning: str, message: str = "", end: str = "\n"):
+        """Registers a warning and prints it."""
+        self.warnings.append(warning)
+        self.__print(message if message else f"[yellow]    WARNING: {warning}[/yellow]", end=end)
 
-    for key, values in p01.items():
-        if len(values) > 1:
-            errors.append(f"P01 code shared across variables {values} ({key})")
+    def __info(self, info: str, message: str = "", end: str = "\n"):
+        """Registers an info message and prints it."""
+        self.infos.append(info)
+        self.__print(message if message else f"[cyan]    INFO: {info}[/cyan]", end=end)
 
-    # check unique standard_names across variables
-    std_names = {}
-    for varname, meta in wf.vocabulary.items():
-        if "standard_name" in meta.keys():
-            code = meta["standard_name"]
+    # ------------------------------------------------------------------ #
+    #                            public  API                             #
+    # ------------------------------------------------------------------ #
+    def validate(self, wf: WaterFrame) -> Tuple[bool, Dict[str, Any]]:
+        """
+        Validates the operational soundness of a WaterFrame. Previous results are discarded.
 
-            if code not in std_names.keys():
-                std_names[code] = []
+        :param wf: WaterFrame to be checked
+        :returns: Tuple (success: bool, report: dict)
+        """
+        self.errors = []
+        self.warnings = []
+        self.infos = []
 
-            if code:  # avoid nulls
-                std_names[code].append(varname)
+        self.__validate(wf)
 
-    for key, values in std_names.items():
-        if len(values) > 1:
-            errors.append(f"standard_name attributes shared across variables {values} ({key})")
+        success = len(self.errors) == 0
 
-    # Check that sensor_id values are resolvable
+        if self.quiet:
+            if success:
+                logger.info("Operational tests: ✅ the NetCDF file is operationally sound!")
+            else:
+                logger.info("Operational tests: ❌ the NetCDF file is not operationally valid")
 
-    if "sensor_id" in wf.data.keys():
-        sensor_ids = wf.data["sensor_id"].unique().astype(str)
-        for sensor_id in sensor_ids:
-            if sensor_id not in wf.sensors.keys():
-                errors.append(f"sensor_id not found in sensors metadata: '{sensor_id}'")
-
-    # Check that sensor_id values are resolvable
-    if "platform_id" in wf.data.keys():
-        platform_ids = wf.data["platform_id"].unique().astype(str)
-        for platform_id in platform_ids:
-            if platform_id not in wf.platforms.keys():
-                errors.append(f"not a valid platform_id: '{platform_id}'")
-
-    if len(errors) > 0:
-        print(wf)
-
-    success = True
-    if len(errors) > 0:
-        success = False
-
-    if not quiet:
-        rich.print("[cyan]=========== Running Operational tests ===========")
-        rich.print(f"ERRORS: {len(errors)}")
-        for e in errors:
-            rich.print(f"[red]    ERROR: {e}[/red]")
-
-        rich.print(f"WARNINGS: {len(warnings)}")
-        for w in warnings:
-            rich.print(f"[yellow]{w}")
-
-        rich.print(f"INFO: {len(warnings)}")
-        for i in infos:
-            rich.print(f"[cyan]{i}")
-
-        if success:
-            rich.print(f"✅ the NetCDF file is operationally sound!")
-        else:
-            rich.print(f"❌ the NetCDF file is not operationally valid")
-
-        rich.print("[cyan]=================================================\n")
-
-    else:
-        if success:
-            logger.info(f"Operational tests: ✅ the NetCDF file is operationally sound!")
-        else:
-            logger.info("Operational tests: ❌ the NetCDF file is not operationally valid")
-
-    report = {
-        "valid": success,
-        "report": {
-            "errors": errors,
-            "warnings": warnings,
-            "infos": infos
+        report = {
+            "valid": success,
+            "report": {
+                "errors": self.errors,
+                "warnings": self.warnings,
+                "infos": self.infos,
+            },
         }
-    }
-    return success, report
 
+        return success, report
+
+    # ------------------------------------------------------------------ #
+    #                          internal  checks                          #
+    # ------------------------------------------------------------------ #
+    def __validate(self, wf: WaterFrame):
+        """Runs all operational tests on the given WaterFrame."""
+        self.__print("[cyan]=========== Running Operational tests ===========")
+
+        # 1. Check variable_type attributes
+        for varname, meta in wf.vocabulary.items():
+            if "variable_type" not in meta:
+                self.__error(f"variable '{varname}' does not have the mandatory variable_type attribute")
+            elif meta["variable_type"] not in self.VALID_VARIABLE_TYPES:
+                self.__error(
+                    f"variable '{varname}' does not have a valid variable_type attribute: '{meta['variable_type']}'"
+                )
+            elif meta["variable_type"] == "coordinate" and varname not in self.VALID_COORDINATES:
+                self.__error(f"not a valid coordinate name: '{varname}'")
+
+        # 2. Check mandatory coordinates
+        for man in self.MANDATORY_COORDS:
+            if man not in wf.data.keys():
+                self.__error(f"Mandatory coordinate '{man}' not found in sensors metadata")
+
+        # 3. Check unique P01 codes across variables
+        p01 = {}
+        for varname, meta in wf.vocabulary.items():
+            if "sdn_parameter_uri" in meta:
+                code = meta["sdn_parameter_uri"]
+                if code not in p01:
+                    p01[code] = []
+                if code:  # avoid nulls
+                    p01[code].append(varname)
+
+        for key, values in p01.items():
+            if len(values) > 1:
+                self.__error(f"P01 code shared across variables {values} ({key})")
+
+        # 4. Check unique standard_names across variables
+        std_names = {}
+        for varname, meta in wf.vocabulary.items():
+            if "standard_name" in meta:
+                code = meta["standard_name"]
+                if code not in std_names:
+                    std_names[code] = []
+                if code:  # avoid nulls
+                    std_names[code].append(varname)
+
+        for key, values in std_names.items():
+            if len(values) > 1:
+                self.__error(f"standard_name attributes shared across variables {values} ({key})")
+
+        # 5. Check resolvable sensor_id values
+        if "sensor_id" in wf.data.keys():
+            sensor_ids = wf.data["sensor_id"].unique().astype(str)
+            for sensor_id in sensor_ids:
+                if sensor_id not in wf.sensors.keys():
+                    self.__error(f"sensor_id not found in sensors metadata: '{sensor_id}'")
+
+        # 6. Check resolvable platform_id values
+        if "platform_id" in wf.data.keys():
+            platform_ids = wf.data["platform_id"].unique().astype(str)
+            for platform_id in platform_ids:
+                if platform_id not in wf.platforms.keys():
+                    self.__error(f"not a valid platform_id: '{platform_id}'")
+
+        success = len(self.errors) == 0
+
+        # Print summary section if not quiet
+        if not self.quiet:
+            self.__print_verbose(f"ERRORS: {len(self.errors)}")
+            self.__print_verbose(f"WARNINGS: {len(self.warnings)}")
+            self.__print_verbose(f"INFO: {len(self.infos)}")
+
+            if success:
+                self.__print("✅ the NetCDF file is operationally sound!")
+            else:
+                self.__print("❌ the NetCDF file is not operationally valid")
+
+            self.__print("[cyan]=================================================\n")
 
 class KeywordTester:
     """
@@ -1441,11 +1494,10 @@ class KeywordTester:
 
         if self.quiet:
             # stdout is disabled, so report the outcome through the logger
-            log = logging.getLogger()
             if self.errors or self.warnings:
-                log.info("Keywords check: ❌ errors encountered")
+                logger.info("Keywords check: ❌ errors encountered")
             else:
-                log.info("Keywords check: ✅ passed")
+                logger.info("Keywords check: ✅ passed")
 
         return self.errors, self.warnings
 

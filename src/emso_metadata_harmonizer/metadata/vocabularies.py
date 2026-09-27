@@ -9,15 +9,15 @@ structures, so the harmonizer needs no RDF toolchain and no downloads of its own
 """
 import logging
 import pandas as pd
-from .utils import LoggerSuperclass, BLU
+from .utils import LoggerSuperclass, BLU, EMH_LOGGER_NAME
 
+logger = logging.getLogger(EMH_LOGGER_NAME)
 
 
 class GenericVocabulary(LoggerSuperclass):
     def __init__(self, code, name, uri) -> None:
 
-        log = logging.getLogger()
-        LoggerSuperclass.__init__(self, log, code, colour=BLU)
+        LoggerSuperclass.__init__(self, code, colour=BLU)
 
         self.labels = []  # labels as they are
         self.labels_lc = []  # labels as lower case for easier comparison
@@ -204,8 +204,6 @@ class OSO(GenericVocabulary):
     def get_uri_from_name(self, name, cls):
         assert cls in ["rfs", "sites", "platforms"]
 
-        log = logging.getLogger()
-
         if cls == "rfs":
             df = self.rfs
         elif cls == "sites":
@@ -215,16 +213,14 @@ class OSO(GenericVocabulary):
         try:
             uri = df.loc[df["label"] == name]["uri"].values[0]
         except (KeyError, IndexError):
-            log.error(f"ERROR: OSO does not have any '{cls}' with label '{name}', valid names:")
+            self.error(f"ERROR: OSO does not have any '{cls}' with label '{name}', valid names:")
             for a in df['label'].unique():
-                log.error(f"    - '{a}'")
+                self.error(f"    - '{a}'")
             return ""
         return str(uri)
 
     def get_name_from_uri(self, uri, cls):
         assert cls in ["rfs", "sites", "platforms"]
-
-        log = logging.getLogger()
 
         if cls == "rfs":
             df = self.rfs
@@ -235,9 +231,9 @@ class OSO(GenericVocabulary):
         try:
             uri = df.loc[df["uri"] == uri]["label"].values[0]
         except (KeyError, IndexError):
-            log.error(f"ERROR: OSO does not have any '{cls}' with uri '{uri}', valid uris:")
+            self.error(f"ERROR: OSO does not have any '{cls}' with uri '{uri}', valid uris:")
             for a in df['uri'].unique():
-                log.info(f"    - '{a}'")
+                self.info(f"    - '{a}'")
             return ""
         return str(uri)
 
@@ -288,7 +284,7 @@ class Keyword:
         }
         r =  mapping.get(title, "undefined")
         if r == "undefined":
-            logging.warning(f"Could not find type for '{self.name}' ({self.vocab_code})")
+            logger.warning(f"Could not find type for '{self.name}' ({self.vocab_code})")
         return r
 
     def __repr__(self) -> str:

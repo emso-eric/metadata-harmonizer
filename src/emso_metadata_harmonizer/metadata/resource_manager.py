@@ -34,9 +34,9 @@ from concurrent.futures import ThreadPoolExecutor
 import pandas as pd
 import requests
 
-from .utils import download_file, get_file_md5
+from .utils import download_file, get_file_md5, EMH_LOGGER_NAME
 
-log = logging.getLogger("emso_metadata_harmonizer")
+logger = logging.getLogger(EMH_LOGGER_NAME)
 
 DEFAULT_CACHE_DIR = ".emso"
 
@@ -190,10 +190,10 @@ class Resource:
         could not be established.
         """
         if not force and self.is_cached(known_md5=known_md5):
-            log.debug(f"    {self.label} is up to date")
+            logger.debug(f"    {self.label} is up to date")
             return self.md5 if self.md5 else known_md5
 
-        log.info(f"    downloading {self.label} to {self.filename}...")
+        logger.info(f"    downloading {self.label} to {self.filename}...")
         os.makedirs(os.path.dirname(self.filename) or ".", exist_ok=True)
         download_file(self.url, self.filename)
         self.downloaded = True
@@ -202,7 +202,7 @@ class Resource:
         if self.md5 and local_md5 != self.md5:
             # The vocabulary snapshot tracks a mutable branch: a mismatch means it moved between publishing the
             # manifest and this download, not that the file is corrupt.
-            log.warning(f"{self.label}: md5 mismatch (expected {self.md5}, got {local_md5}). "
+            logger.warning(f"{self.label}: md5 mismatch (expected {self.md5}, got {local_md5}). "
                         f"The upstream snapshot probably moved; the downloaded file is used anyway.")
         return local_md5
 
@@ -218,7 +218,7 @@ class Resource:
         elif extension == ".json":
             self.dict = load_json(self.filename)
         else:
-            log.debug(f"    {self.label}: extension '{extension}' not parsed, keeping file as-is")
+            logger.debug(f"    {self.label}: extension '{extension}' not parsed, keeping file as-is")
 
     def process(self, force=False, known_md5=None):
         """
@@ -231,7 +231,7 @@ class Resource:
             return local_md5
         except Exception as e:
             self.error = e
-            log.error(f"Could not process {self.label}: {e}")
+            logger.error(f"Could not process {self.label}: {e}")
             return None
 
     def get(self):
@@ -282,7 +282,7 @@ class ResourceManager:
         self.vocabularies = self.get_vocabularies()
 
         self.version = self.resolve_version(version)
-        log.info(f"Using EMSO Metadata Specifications {self.version}")
+        logger.info(f"Using EMSO Metadata Specifications {self.version}")
 
         self.resources = {}  # name -> {key: Resource}
         self.__build_resources()
@@ -302,7 +302,7 @@ class ResourceManager:
         if cached and not self.force_update:
             age = time.time() - os.path.getmtime(filename)
             if age < manifest_max_age:
-                log.debug(f"{what} is recent enough ({age / 3600:.1f} h), not checking upstream")
+                logger.debug(f"{what} is recent enough ({age / 3600:.1f} h), not checking upstream")
                 return cached
 
         for url in urls:
@@ -311,7 +311,7 @@ class ResourceManager:
                 response.raise_for_status()
                 document = response.json()
             except (requests.exceptions.RequestException, ValueError) as e:
-                log.debug(f"Could not fetch {what} from {url}: {e}")
+                logger.debug(f"Could not fetch {what} from {url}: {e}")
                 continue
 
             os.makedirs(os.path.dirname(filename) or ".", exist_ok=True)
@@ -319,11 +319,11 @@ class ResourceManager:
             with open(tmp, "w", encoding="utf-8") as f:
                 json.dump(document, f, indent=2)
             os.replace(tmp, filename)  # single atomic write
-            log.debug(f"{what} updated from {url}")
+            logger.debug(f"{what} updated from {url}")
             return document
 
         if cached:
-            log.warning(f"Could not reach any {what} URL, using the cached copy")
+            logger.warning(f"Could not reach any {what} URL, using the cached copy")
             os.utime(filename, None)  # back off instead of retrying on every call
             return cached
 
@@ -402,7 +402,7 @@ class ResourceManager:
         thread pool is the right tool here.
         """
         resources = self.__all_resources()
-        log.info(f"Loading {len(resources)} EMSO metadata resources ({self.max_threads} threads)...")
+        logger.info(f"Loading {len(resources)} EMSO metadata resources ({self.max_threads} threads)...")
         t = time.time()
 
         def worker(resource):
@@ -425,7 +425,7 @@ class ResourceManager:
         self.__save_state()
 
         downloaded = sum(1 for r in resources if r.downloaded)
-        log.info(f"Loaded {len(resources)} resources in {time.time() - t:.02f} s "
+        logger.info(f"Loaded {len(resources)} resources in {time.time() - t:.02f} s "
                  f"({downloaded} downloaded, {len(resources) - downloaded} from cache)")
 
     def __save_state(self):
@@ -435,7 +435,7 @@ class ResourceManager:
                 json.dump(self.__state, f, indent=2)
             os.replace(tmp, self.__state_file)
         except OSError as e:
-            log.debug(f"Could not write the cache state file: {e}")  # purely an optimisation, never fatal
+            logger.debug(f"Could not write the cache state file: {e}")  # purely an optimisation, never fatal
 
     # ------------------------------------------------------------------ accessors
     def __contains__(self, name):

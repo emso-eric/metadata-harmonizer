@@ -30,12 +30,8 @@ class ERDDAP:
     @staticmethod
     def get(url,  headers={"Content-Type": "application/json"}):
         r = requests.get(url, headers=headers)
-        if r.status_code != 200:
-            rich.print(f"[red]HTTP Error: {r.status_code}")
-            rich.print(f"[red]{r.text}")
-            raise ValueError("exit")
-        else:
-            return json.loads(r.text)
+        r.raise_for_status()
+        return json.loads(r.text)
 
     @staticmethod
     def process_url(target):
