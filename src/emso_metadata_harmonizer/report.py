@@ -206,10 +206,10 @@ def metadata_report(target,
             except KeyError:
                 data_from = None
             try:
-                wf = WaterFrame.from_erddap(d["url"], d["dataset_id"], data_from = data_from)
-            except requests.exceptions.RequestException:
-                logger.critical("Could not retrieve dataset from ERDDAP, aborting report")
-                return
+                wf = WaterFrame.from_erddap(d["url"], d["dataset_id"], data_from=data_from)
+            except requests.exceptions.RequestException as e:
+                logger.error(f"Could not retrieve dataset {d['dataset_id']} from ERDDAP: {e}. Skipping dataset.")
+                continue
 
         operation_pass, operational_report = operational_tests(wf, quiet=quiet)
         oper_tests.append(operation_pass)
