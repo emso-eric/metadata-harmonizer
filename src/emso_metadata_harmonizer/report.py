@@ -173,11 +173,11 @@ def metadata_report(target,
     if csv_folder:
         os.makedirs(csv_folder, exist_ok=True)
 
-    if json and not keywords:
+    if json_out and not keywords:
         logger.warning("Forcing keywords=True for complete JSON output")
         keywords = True
 
-    if len(datasets) != 1 and json:
+    if len(datasets) != 1 and json_out:
         logger.error("--json option only available with one dataset!")
         raise ValueError("--json option only available with one dataset!")
 
