@@ -359,7 +359,7 @@ class EmsoMetadata:
         """
         Search in vocab <vocab_id> for the element with matching uri and return element identified by key
         """
-        return self.__vocab_tuple(vocab_id, self.harmonize_sdn_uri(urn))
+        return self.__vocab_tuple(vocab_id, urn)
 
     def get_relations(self, vocab_id, uri, relation, target_vocab):
         """
