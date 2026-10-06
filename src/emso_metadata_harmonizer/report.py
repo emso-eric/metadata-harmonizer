@@ -177,7 +177,7 @@ def metadata_report(target,
         logger.warning("Forcing keywords=True for complete JSON output")
         keywords = True
 
-    if len(datasets) != 1 and json_out:
+    if len(datasets) != 1 and json_out  :
         logger.error("--json option only available with one dataset!")
         raise ValueError("--json option only available with one dataset!")
 

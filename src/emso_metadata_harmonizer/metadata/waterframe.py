@@ -880,9 +880,9 @@ class WaterFrame(LoggerSuperclass):
         self.metadata["geospatial_lat_min"] = self.data[self._latitude].min()
         self.metadata["geospatial_lat_max"] = self.data[self._latitude].max()
         self.metadata["geospatial_lon_min"] = self.data[self._longitude].min()
-        self.metadata["geospatial_lon_max"] = self.data[self._longitude].min()
+        self.metadata["geospatial_lon_max"] = self.data[self._longitude].max()
         self.metadata["geospatial_vertical_min"] = int(self.data[self._depth].min())
-        self.metadata["geospatial_vertical_max"] = int(self.data[self._depth].min())
+        self.metadata["geospatial_vertical_max"] = int(self.data[self._depth].max())
         self.metadata["time_coverage_start"] = self.data[self._time].min().strftime(iso_time_format)
         self.metadata["time_coverage_end"] = self.data[self._time].max().strftime(iso_time_format)
 
