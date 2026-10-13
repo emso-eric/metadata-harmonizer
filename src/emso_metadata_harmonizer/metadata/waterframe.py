@@ -358,10 +358,22 @@ class WaterFrame(LoggerSuperclass):
             meta["emso_site_uri"] = uri_from_name(meta["emso_site_name"], "sites")
 
         # SPDX license
-        if "license_uri" not in meta.keys() and "license" in meta.keys():
-            meta["license_uri"] = "https://spdx.org/licenses/" + meta["license"]
-        if "license" not in meta.keys() and "license_uri" in meta.keys():
+        license = meta.get("license", "")
+        license_uri = meta.get("license_uri", "")
+
+        if not license and license_uri:
+            # Fill metadata from uri
             meta["license"] = meta["license"].split("/")[-1]
+        elif not license_uri and license:
+            meta["license_uri"] = "https://spdx.org/licenses/" + license
+        elif not license and not license_uri:
+            self.error("No license info detected!")
+
+        if meta["license"] and meta["license"] not in self.emso.spdx_license_uris.keys():
+            self.error(f"License '{meta['license']}' not in SPDX")
+
+        if meta["license_uri"] and meta["license_uri"] not in self.emso.spdx_license_uris.values():
+            self.error(f"license_uri '{meta['license_uri']}' not in SPDX")
 
         # Fill partially defined vocabularies
         for varname, variable in self.vocabulary.items():

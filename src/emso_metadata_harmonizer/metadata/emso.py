@@ -143,8 +143,11 @@ class EmsoMetadata:
             self.sdn_vocabs_narrower[vocab] = self.resource_manager.get(vocab, "narrower")
             self.sdn_vocabs_broader[vocab] = self.resource_manager.get(vocab, "broader")
             self.sdn_vocabs_related[vocab] = self.resource_manager.get(vocab, "related")
-            self.sdn_vocabs_pref_label[vocab] = df["prefLabel"].values
-            self.sdn_vocabs_alt_label[vocab] = df["altLabel"].values
+
+            # Make sure we do not have commas in the labels
+
+            self.sdn_vocabs_pref_label[vocab] = df["prefLabel"].replace(",", ";").values
+            self.sdn_vocabs_alt_label[vocab] = df["altLabel"].replace(",", ";").values
             self.sdn_vocabs_ids[vocab] = df["id"].values
             self.sdn_vocabs_uris[vocab] = df["uri"].values
 
