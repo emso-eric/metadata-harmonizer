@@ -145,9 +145,11 @@ class EmsoMetadata:
             self.sdn_vocabs_related[vocab] = self.resource_manager.get(vocab, "related")
 
             # Make sure we do not have commas in the labels
-
-            self.sdn_vocabs_pref_label[vocab] = df["prefLabel"].replace(",", ";").values
-            self.sdn_vocabs_alt_label[vocab] = df["altLabel"].replace(",", ";").values
+            for k in ["prefLabel", "altLabel"]:
+                df[k] = df[k].astype(str)
+                df[k] = df[k].str.replace(",", ";").values
+            self.sdn_vocabs_pref_label[vocab] = df["prefLabel"].values
+            self.sdn_vocabs_alt_label[vocab] = df["altLabel"].values
             self.sdn_vocabs_ids[vocab] = df["id"].values
             self.sdn_vocabs_uris[vocab] = df["uri"].values
 

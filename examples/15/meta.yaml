@@ -27,18 +27,21 @@ global:
   data_processing_steps: "L0a L1a L1b"
   doi: "https://doi.org/10.5281/zenodo.20071769"
   keywords:
+    - "Alkalinity, acidity and pH of the water column"   # found in "SeaDataNet Parameter Discovery Vocabulary"
     - "Balearic Sea"   # found in "Observatories of the Seas Ontology"
     - "Electrical conductivity of the water column"   # found in "SeaDataNet Parameter Discovery Vocabulary"
     - "OBSEA"   # found in "Observatories of the Seas Ontology"
     - "Salinity of the water column"   # found in "SeaDataNet Parameter Discovery Vocabulary"
     - "Temperature of the water column"   # found in "SeaDataNet Parameter Discovery Vocabulary"
     - "sea_water_electrical_conductivity"   # found in "Climate and Forecast Standard Names"
+    - "sea_water_ph_reported_on_total_scale"   # found in "Climate and Forecast Standard Names"
     - "sea_water_pressure"   # found in "Climate and Forecast Standard Names"
     - "sea_water_temperature"   # found in "Climate and Forecast Standard Names"
     # GCMD Science keywords
     - "EARTH SCIENCE > OCEANS > SALINITY/DENSITY > SALINITY"
     - "EARTH SCIENCE > OCEANS > OCEAN TEMPERATURE > WATER TEMPERATURE"
     - "EARTH SCIENCE > OCEANS > OCEAN PRESSURE > WATER PRESSURE"
+    - "EARTH SCIENCE > OCEANS > OCEAN CHEMISTRY > PH"
     # GEMET
     - "physical oceanography"
 
@@ -81,6 +84,16 @@ sensors:
     sensor_reference: ""
     comment: "This is dummy sensor variable is used when we do not know which sensor took the measurement"
 
+  C3_SN2300991:
+    long_name: "Turner Designs C3 submersible fluorometer"  # human-readable name
+    sensor_serial_number: "2300991"
+    sensor_mount: "mounted_on_seafloor_structure"  # mounting from a controlled list
+    sdn_instrument_uri: "http://vocab.nerc.ac.uk/collection/L22/current/TOOL1907/"
+    sensor_manufacturer_uri: "http://vocab.nerc.ac.uk/collection/L35/current/MAN0080/"
+    sensor_type_uri: "http://vocab.nerc.ac.uk/collection/L05/current/113/"
+    sensor_reference: "https://files.obsea.es/other/sensors/C3-SN2300642/998-2300.pdf"
+    comment: "Turner Designs C3 fluorometer identity reused here against a PHPH measurement for example purposes; the real sensor family is a fluorometer, not a pH probe (see mmapi sensors/pH/ANB_AQ50 for the actual OBSEA pH sensor)"
+
 variables:
   TEMP:
     long_name: "sea water temperature"
@@ -111,3 +124,9 @@ variables:
     sdn_parameter_uri: "http://vocab.nerc.ac.uk/collection/P01/current/SVELCT01"
     sdn_uom_uri: "http://vocab.nerc.ac.uk/collection/P06/current/UVAA/"
     standard_name: "speed_of_sound_in_sea_water"
+
+  PHPH:
+    long_name: "sea water pH reported on total scale"
+    sdn_parameter_uri: "http://vocab.nerc.ac.uk/collection/P01/current/PHXXZZXX"
+    sdn_uom_uri: "http://vocab.nerc.ac.uk/collection/P06/current/UUPH/"
+    standard_name: "sea_water_ph_reported_on_total_scale"

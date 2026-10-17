@@ -652,6 +652,7 @@ class WaterFrame(LoggerSuperclass):
         elif self.cf_data_type == "trajectoryProfile":
             self.metadata["featureType"] = "trajectoryProfile"
             self.vocabulary[self._platform_id]["cf_role"] = "trajectory_id"
+            self.vocabulary[self._time]["cf_role"] = "profile_id"
 
         else:
             self.error(f"Unimplemented type {self.cf_data_type}", exception=not self.permissive)
@@ -1124,6 +1125,9 @@ class WaterFrame(LoggerSuperclass):
         self.info("Consolidating Keywords in metadata...")
 
         current_terms = self.metadata["keywords"]
+        # Make sure we don't have commas in the keywords, it would break the array
+        current_terms = [k.replace(",", ";") for k in current_terms]
+
         # dict.fromkeys de-duplicates while keeping insertion order. list(set(...)) reorders by string hash,
         # which is randomised per process, so the generated keywords_vocabulary order changed on every run.
         current_terms = list(dict.fromkeys(current_terms))
