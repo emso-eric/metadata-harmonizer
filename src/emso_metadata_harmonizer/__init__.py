@@ -10,4 +10,4 @@ from .metadata import setup_log
 
 logging.getLogger("emso_metadata_harmonizer").addHandler(logging.NullHandler())
 
-__version__ = "1.1.1a1"
+__version__ = "1.1.1"
