@@ -318,14 +318,21 @@ python3 erddap_config.py examples/./14/OS_W1M3A_20250731_R_SIMPLIFIED.nc example
 
 
 ###  Example 15: Dataset with an unknown sensor    
-Simple dataset with two CTDs, but the information of one of them has been lost and it is recorded as unknown    
+Simple dataset with two CTDs, but the information of one of them has been lost and it is recorded as unknown.
+Additionally, the CSV file has an extra column not listed in the metadata, called `USELESS_COLUMN`. This columns
+should be ignored during the dataset generation with the flag `-i` or `--ignore-extra-cols`.
+
+A third sensor, `SA8065_SN74354`, has been added to measure `PHPH` (sea water pH), `TUR4` (turbidity) and `WBRX`
+(redox potential). Its serial number is invented, but its model/manufacturer/instrument-type metadata is reused from
+the real B&C Electronics SA8065.101 multiparameter probe (mmapi sensors/multiparameter_probe/SA8065-SN0000); only
+these three of its channels are used here.
   
-**sensors**: Sea-Bird Scientific SBE37 SMP CTD Sensor, Unknown sensor, this information has been lost    
+**sensors**: Sea-Bird Scientific SBE37 SMP CTD Sensor, Unknown sensor (this information has been lost), B&C Electronics SA8065.101 multiparameter probe (PHPH, TUR4 and WBRX channels)    
 **platforms**: OBSEA seabed station    
   
 NetCDF generation command:  
 ```bash
-python3 generator.py -m examples/15/*.yaml -d examples/15/*.csv --out example15.nc  
+python3 generator.py -m examples/15/*.yaml -d examples/15/*.csv --out example15.nc --ignore-extra-cols  
 ```
   
 ERDDAP configuration:  

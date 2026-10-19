@@ -45,10 +45,7 @@ raw_github = f"https://raw.githubusercontent.com/{owner_repo}"
 
 # manifest.json is published on main at release time. While a release is still in preparation it only exists on
 # develop, so both are tried in order.
-manifest_urls = [
-    f"{raw_github}/refs/heads/main/external-resources/manifest.json",
-    f"{raw_github}/refs/heads/develop/external-resources/manifest.json",
-]
+manifest_urls = [f"{raw_github}/refs/heads/develop/external-resources/manifest.json"]
 
 # The vocabulary snapshot always tracks develop, whatever specifications version was requested.
 vocabularies_urls = [f"{raw_github}/refs/heads/develop/external-resources/vocabularies.json"]
