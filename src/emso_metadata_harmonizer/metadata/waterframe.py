@@ -469,34 +469,47 @@ class WaterFrame(LoggerSuperclass):
             "sdn_units_uri": "http://vocab.nerc.ac.uk/collection/P06/current/UTBB/",
             "sdn_units_urn": "SDN::P06:UTBB"
             "sdn_units_name": "Decibars"
+
+        A single attribute may hold several terms (e.g. sensor_type_* for a multiparameter probe not
+        covered by one L05 term, per the EMSO Metadata Specifications' Multiple Attributes convention).
+        meta[uri_key]/meta[urn_key] may then be a list instead of a single string; each term is resolved
+        individually and the results are returned as a list in the same order.
         """
         uri_key = prefix + "_uri"
         urn_key = prefix + "_urn"
         name_key = prefix + "_name"
 
         if uri_key in meta.keys():
-            try:
-                uri, urn, preflabel, _ = self.emso.get_vocab_by_uri(vocab_id, meta[uri_key])
-            except LookupError:
-                return
+            values, lookup = meta[uri_key], self.emso.get_vocab_by_uri
         elif urn_key in meta.keys():
-            try:
-                uri, urn, preflabel, _ = self.emso.get_vocab_by_urn(vocab_id, meta[urn_key])
-            except LookupError:
-                return
+            values, lookup = meta[urn_key], self.emso.get_vocab_by_urn
         elif exception:
             self.error(f"Could not autofill metadata attribute {prefix} from {vocab_id}", exception=LookupError)
+            return
         else:
             return
 
+        multiple = isinstance(values, list)
+        value_list = values if multiple else [values]
+
+        uris, urns, preflabels = [], [], []
+        for value in value_list:
+            try:
+                uri, urn, preflabel, _ = lookup(vocab_id, value)
+            except LookupError:
+                return
+            uris.append(uri)
+            urns.append(urn)
+            preflabels.append(preflabel)
+
         if uri_key not in meta.keys():
-            meta[uri_key] = uri
+            meta[uri_key] = uris if multiple else uris[0]
 
         if urn_key not in meta.keys():
-            meta[urn_key] = urn
+            meta[urn_key] = urns if multiple else urns[0]
 
         if name_key not in meta.keys():
-            meta[name_key] = preflabel
+            meta[name_key] = preflabels if multiple else preflabels[0]
 
 
     def process_identifiers(self, meta, df, key) -> (dict, pd.DataFrame):
@@ -696,7 +709,7 @@ class WaterFrame(LoggerSuperclass):
 
             if isinstance(value, list):
                 value = [str(s) for s in value]
-                value = " ".join(value)
+                value = self.emso.list_to_str(key, value)
             var.setncattr(key, value)
 
     def __metadata_from_dict(self, var: nc.Variable, meta: dict, ignore=[]):
@@ -707,7 +720,7 @@ class WaterFrame(LoggerSuperclass):
             if key in ignore:  # just ignore this field
                 continue
             if isinstance(value, list):
-                value = " ".join(value)
+                value = self.emso.list_to_str(key, [str(s) for s in value])
             var.setncattr(key, value)
 
     def nc_set_global_attributes(self, ncfile):
@@ -1071,11 +1084,16 @@ class WaterFrame(LoggerSuperclass):
             if "standard_name" in meta.keys():
                 keywords.append(meta["standard_name"])
 
-            # Get the sensor name
+            # Get the sensor name(s); sensor_type_uri may hold multiple L05 terms (one per sensing element,
+            # per the EMSO Metadata Specifications' Multiple Attributes convention), authored in meta.yaml
+            # either as a blank-separated string or a YAML list, same as populate_var_metadata() accepts
             if "sensor_type_uri" in meta.keys():
-                uri = meta["sensor_type_uri"]
-                k = get_from_sdn_vocab("prefLabel", "uri", uri, "L05")
-                keywords.append(k)
+                uris = meta["sensor_type_uri"]
+                if isinstance(uris, str):
+                    uris = uris.split()
+                for uri in uris:
+                    k = get_from_sdn_vocab("prefLabel", "uri", uri, "L05")
+                    keywords.append(k)
             elif var_type == "sensor":
                 self.warning(f"Could not find sensor type for '{name}'")
 

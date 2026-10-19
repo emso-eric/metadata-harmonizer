@@ -4,8 +4,8 @@
 3. Fix bug in autofill_coverage
 4. Fix bug in get_vocab_by_urn
 5. Fix bug in trajectoryProfile
-6. Fix bug in keywords containing commas
-
+6. Fix bug in keywords containing commas (automatically replace by `-`)
+7. Implementing variable lookups in lists for `sensor_type_*` multiplicity
 
 ## Version 1.1.0 ##
 1. Better management of resources.json file to avoid redundant downloads
