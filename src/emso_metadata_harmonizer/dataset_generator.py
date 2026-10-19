@@ -67,9 +67,11 @@ sensor_elements = (
     ("sensor_manufacturer_uri", str, False),
     ("sensor_manufacturer_urn", str, False),
     ("sensor_manufacturer_name", str, False),
-    ("sensor_type_uri", str, False),
-    ("sensor_type_urn", str, False),
-    ("sensor_type_name", str, False),
+    # Multiple: true in the spec (one L05 term per sensing element for a multiparameter probe not
+    # covered by a single term) - may be a blank-separated str or, as authored in YAML, a list
+    ("sensor_type_uri", (str, list), False),
+    ("sensor_type_urn", (str, list), False),
+    ("sensor_type_name", (str, list), False),
     ("sensor_reference", str, False),
 )
 

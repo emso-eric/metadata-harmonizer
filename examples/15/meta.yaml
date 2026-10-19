@@ -27,18 +27,21 @@ global:
   data_processing_steps: "L0a L1a L1b"
   doi: "https://doi.org/10.5281/zenodo.20071769"
   keywords:
+    - "Alkalinity, acidity and pH of the water column"   # found in "SeaDataNet Parameter Discovery Vocabulary"
     - "Balearic Sea"   # found in "Observatories of the Seas Ontology"
     - "Electrical conductivity of the water column"   # found in "SeaDataNet Parameter Discovery Vocabulary"
     - "OBSEA"   # found in "Observatories of the Seas Ontology"
     - "Salinity of the water column"   # found in "SeaDataNet Parameter Discovery Vocabulary"
     - "Temperature of the water column"   # found in "SeaDataNet Parameter Discovery Vocabulary"
     - "sea_water_electrical_conductivity"   # found in "Climate and Forecast Standard Names"
+    - "sea_water_ph_reported_on_total_scale"   # found in "Climate and Forecast Standard Names"
     - "sea_water_pressure"   # found in "Climate and Forecast Standard Names"
     - "sea_water_temperature"   # found in "Climate and Forecast Standard Names"
     # GCMD Science keywords
     - "EARTH SCIENCE > OCEANS > SALINITY/DENSITY > SALINITY"
     - "EARTH SCIENCE > OCEANS > OCEAN TEMPERATURE > WATER TEMPERATURE"
     - "EARTH SCIENCE > OCEANS > OCEAN PRESSURE > WATER PRESSURE"
+    - "EARTH SCIENCE > OCEANS > OCEAN CHEMISTRY > PH"
     # GEMET
     - "physical oceanography"
 
@@ -81,6 +84,19 @@ sensors:
     sensor_reference: ""
     comment: "This is dummy sensor variable is used when we do not know which sensor took the measurement"
 
+  SA8065_SN74354:
+    long_name: "B&C Electronics SA8065.101 multiparameter probe"  # human-readable name
+    sensor_serial_number: "74354"
+    sensor_mount: "mounted_on_seafloor_structure"  # mounting from a controlled list
+    sdn_instrument_uri: "http://vocab.nerc.ac.uk/collection/L22/current/TOOL2289/"
+    sensor_manufacturer_uri: "http://vocab.nerc.ac.uk/collection/L35/current/MAN0385/"
+    sensor_type_uri: # No single terms for this sensor package found in L05, using 3 separated terms
+      - "http://vocab.nerc.ac.uk/collection/L05/current/355/"  # pH
+      - "http://vocab.nerc.ac.uk/collection/L05/current/123/"  # optical backscatter (turbidity)
+      - "http://vocab.nerc.ac.uk/collection/L05/current/356/"  # redox
+    sensor_reference: "https://files.obsea.es/other/sensors/SA8065-SN0000/SA8065.pdf"
+    comment: "Sensor type (L05) terms per reported channel (pH sensors, optical backscatter sensors, redox potential sensors) since no single L05 term covers a multiparameter probe"
+
 variables:
   TEMP:
     long_name: "sea water temperature"
@@ -111,3 +127,22 @@ variables:
     sdn_parameter_uri: "http://vocab.nerc.ac.uk/collection/P01/current/SVELCT01"
     sdn_uom_uri: "http://vocab.nerc.ac.uk/collection/P06/current/UVAA/"
     standard_name: "speed_of_sound_in_sea_water"
+
+  PHPH:
+    long_name: "sea water pH reported on total scale"
+    sdn_parameter_uri: "http://vocab.nerc.ac.uk/collection/P01/current/PHXXZZXX"
+    sdn_uom_uri: "http://vocab.nerc.ac.uk/collection/P06/current/UUPH/"
+    standard_name: "sea_water_ph_reported_on_total_scale"
+
+  TUR4:
+    long_name: "turbidity of water in the water body"
+    sdn_parameter_uri: "https://vocab.nerc.ac.uk/collection/P01/current/TURBXXXX/"
+    sdn_uom_uri: "https://vocab.nerc.ac.uk/collection/P06/current/USTU/"
+    standard_name: "sea_water_turbidity"
+
+  WBRX:
+    long_name: "redox potential of the water column"
+    sdn_parameter_uri: "http://vocab.nerc.ac.uk/collection/P01/current/RPTWBZZ1/"
+    sdn_uom_uri: "https://vocab.nerc.ac.uk/collection/P06/current/UUMV/"
+    standard_name: ""
+    comment: "No CF standard name exists for this parameter; left blank rather than invented"

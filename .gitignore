@@ -10,3 +10,6 @@ BACKUPS
 do-not-sync
 dist
 src/emso_metadata_harmonizer.egg-info/*
+
+# Local agent orientation file (not shared)
+AGENTS.md

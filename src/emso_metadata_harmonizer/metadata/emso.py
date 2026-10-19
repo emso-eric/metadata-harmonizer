@@ -143,6 +143,11 @@ class EmsoMetadata:
             self.sdn_vocabs_narrower[vocab] = self.resource_manager.get(vocab, "narrower")
             self.sdn_vocabs_broader[vocab] = self.resource_manager.get(vocab, "broader")
             self.sdn_vocabs_related[vocab] = self.resource_manager.get(vocab, "related")
+
+            # Make sure we do not have commas in the labels
+            for k in ["prefLabel", "altLabel"]:
+                df[k] = df[k].astype(str)
+                df[k] = df[k].str.replace(",", "-").values
             self.sdn_vocabs_pref_label[vocab] = df["prefLabel"].values
             self.sdn_vocabs_alt_label[vocab] = df["altLabel"].values
             self.sdn_vocabs_ids[vocab] = df["id"].values
@@ -274,10 +279,11 @@ class EmsoMetadata:
                 os.remove(f)
 
     @staticmethod
-    def harmonize_sdn_uri(uri):
+    def harmonize_sdn_uri(uri: str):
         """
         Takes a SDN URI and make sure that uses http instead of https and that it finishes with a /
         """
+        assert_type(uri, str)
         if uri.startswith("https"):
             uri = uri.replace("https", "http")
 
@@ -321,7 +327,7 @@ class EmsoMetadata:
         """
         return self.vocab_index(vocab_id, column).get(value)
 
-    def vocab_get(self, vocab_id, uri, key):
+    def vocab_get(self, vocab_id: str, uri: str, key: str):
         """
         Search in vocab <vocab_id> for the element with matching uri and return element identified by key
         """
@@ -359,7 +365,7 @@ class EmsoMetadata:
         """
         Search in vocab <vocab_id> for the element with matching uri and return element identified by key
         """
-        return self.__vocab_tuple(vocab_id, self.harmonize_sdn_uri(urn))
+        return self.__vocab_tuple(vocab_id, urn)
 
     def get_relations(self, vocab_id, uri, relation, target_vocab):
         """
@@ -423,18 +429,27 @@ class EmsoMetadata:
 
         """
         Converts list to string. Check if the attribute is expected to use comma as a separator or will use just a blank space.
+
+        Looks up <attr> across every attribute table parsed from the EMSO Metadata Specifications (global,
+        coordinate/environmental/biological/QC/technical variables, sensors, platforms), not just global
+        attributes, so it also covers "Multiple: true" attributes like sensor_type_name.
         """
         assert_type(attr, str)
         assert_type(value, list)
         if not value:
             return ""
-        df = self.global_attr
-        separator = " "
-        if attr in df["Global Attributes"].to_list():
-            # Get the annotation value in the table, if it is 1 means comma separator, otherwise space
-            annotation = df[df["Global Attributes"] == attr]["annotations"].values[0]
-            if annotation == 1: # annotation "1" means comma-separated
-                separator = ", "
 
-        return separator.join(value)
+        separator = " "
+        for df in (self.global_attr, self.cor_variables_attr, self.env_variables_attr, self.bio_variables_attr,
+                   self.qc_variables_attr, self.tec_variables_attr, self.sensor_variables_attr,
+                   self.platform_variables_attr):
+            name_col = df.columns[0]
+            if attr in df[name_col].to_list():
+                # Get the annotation value in the table, if it is 1 means comma separator, otherwise space
+                annotation = df[df[name_col] == attr]["annotations"].values[0]
+                if annotation == 1:  # annotation "1" means comma-separated
+                    separator = ", "
+                break
+
+        return separator.join([str(v) for v in value])
 

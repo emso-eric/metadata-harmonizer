@@ -1,15 +1,24 @@
+## Version 1.1.1 ##
+1. Fix json collision error (json vs json_out)
+2. Fix variable_name instead of variable_type
+3. Fix bug in autofill_coverage
+4. Fix bug in get_vocab_by_urn
+5. Fix bug in trajectoryProfile
+6. Fix bug in keywords containing commas (automatically replace by `-`)
+7. Implementing variable lookups in lists for `sensor_type_*` multiplicity
+
 ## Version 1.1.0 ##
 1. Better management of resources.json file to avoid redundant downloads
 2. Selectable specifications version
-3. Clean EmsoMetadata building (specifically vocabularies), now everything downloads from emso-metadata-specs 
-4. Clean WaterFrame to improve speed
+3. Clean EmsoMetadata build (specifically vocabularies), now everything downloads from emso-metadata-specs 
+4. Clean WaterFrame to improve execution speed
 5. Consistent logging strategy, use always the same logger
 6. HTTP / Connectivity errors are raised directly
 7. fix crash when variable_type not present in QC variables
 
 ## Version 1.0.9 ##
 1. Fixing broken links in previous version
-[validation-gate.yaml](../emso-validation-gate/validation-gate.yaml)
+
 ## Version 1.0.8 ##
 1. Adding --json to produce JSON-based reports
 

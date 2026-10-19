@@ -3,8 +3,13 @@ Simple dataset with two CTDs, but the information of one of them has been lost a
 Additionally, the CSV file has an extra column not listed in the metadata, called `USELESS_COLUMN`. This columns 
 should be ignored during the dataset generation with the flag `-i` or `--ignore-extra-cols`.
 
-  
-**sensors**: Sea-Bird Scientific SBE37 SMP CTD Sensor, Unknown sensor, this information has been lost    
+A third sensor, `SA8065_SN74354`, has been added to measure `PHPH` (sea water pH), `TUR4` (turbidity) and `WBRX`
+(redox potential). Its serial number is invented, but its model/manufacturer/instrument-type metadata is reused from
+the real B&C Electronics SA8065.101 multiparameter probe (mmapi sensors/multiparameter_probe/SA8065-SN0000); only
+these three of its channels are used here.
+
+ 
+**sensors**: Sea-Bird Scientific SBE37 SMP CTD Sensor, Unknown sensor (this information has been lost), B&C Electronics SA8065.101 multiparameter probe (PHPH, TUR4 and WBRX channels)    
 **platforms**: OBSEA seabed station    
   
 NetCDF generation command:  

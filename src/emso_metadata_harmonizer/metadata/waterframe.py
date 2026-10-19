@@ -358,10 +358,22 @@ class WaterFrame(LoggerSuperclass):
             meta["emso_site_uri"] = uri_from_name(meta["emso_site_name"], "sites")
 
         # SPDX license
-        if "license_uri" not in meta.keys() and "license" in meta.keys():
-            meta["license_uri"] = "https://spdx.org/licenses/" + meta["license"]
-        if "license" not in meta.keys() and "license_uri" in meta.keys():
+        license = meta.get("license", "")
+        license_uri = meta.get("license_uri", "")
+
+        if not license and license_uri:
+            # Fill metadata from uri
             meta["license"] = meta["license"].split("/")[-1]
+        elif not license_uri and license:
+            meta["license_uri"] = "https://spdx.org/licenses/" + license
+        elif not license and not license_uri:
+            self.error("No license info detected!")
+
+        if meta["license"] and meta["license"] not in self.emso.spdx_license_uris.keys():
+            self.error(f"License '{meta['license']}' not in SPDX")
+
+        if meta["license_uri"] and meta["license_uri"] not in self.emso.spdx_license_uris.values():
+            self.error(f"license_uri '{meta['license_uri']}' not in SPDX")
 
         # Fill partially defined vocabularies
         for varname, variable in self.vocabulary.items():
@@ -457,34 +469,47 @@ class WaterFrame(LoggerSuperclass):
             "sdn_units_uri": "http://vocab.nerc.ac.uk/collection/P06/current/UTBB/",
             "sdn_units_urn": "SDN::P06:UTBB"
             "sdn_units_name": "Decibars"
+
+        A single attribute may hold several terms (e.g. sensor_type_* for a multiparameter probe not
+        covered by one L05 term, per the EMSO Metadata Specifications' Multiple Attributes convention).
+        meta[uri_key]/meta[urn_key] may then be a list instead of a single string; each term is resolved
+        individually and the results are returned as a list in the same order.
         """
         uri_key = prefix + "_uri"
         urn_key = prefix + "_urn"
         name_key = prefix + "_name"
 
         if uri_key in meta.keys():
-            try:
-                uri, urn, preflabel, _ = self.emso.get_vocab_by_uri(vocab_id, meta[uri_key])
-            except LookupError:
-                return
+            values, lookup = meta[uri_key], self.emso.get_vocab_by_uri
         elif urn_key in meta.keys():
-            try:
-                uri, urn, preflabel, _ = self.emso.get_vocab_by_urn(vocab_id, meta[urn_key])
-            except LookupError:
-                return
+            values, lookup = meta[urn_key], self.emso.get_vocab_by_urn
         elif exception:
             self.error(f"Could not autofill metadata attribute {prefix} from {vocab_id}", exception=LookupError)
+            return
         else:
             return
 
+        multiple = isinstance(values, list)
+        value_list = values if multiple else [values]
+
+        uris, urns, preflabels = [], [], []
+        for value in value_list:
+            try:
+                uri, urn, preflabel, _ = lookup(vocab_id, value)
+            except LookupError:
+                return
+            uris.append(uri)
+            urns.append(urn)
+            preflabels.append(preflabel)
+
         if uri_key not in meta.keys():
-            meta[uri_key] = uri
+            meta[uri_key] = uris if multiple else uris[0]
 
         if urn_key not in meta.keys():
-            meta[urn_key] = urn
+            meta[urn_key] = urns if multiple else urns[0]
 
         if name_key not in meta.keys():
-            meta[name_key] = preflabel
+            meta[name_key] = preflabels if multiple else preflabels[0]
 
 
     def process_identifiers(self, meta, df, key) -> (dict, pd.DataFrame):
@@ -640,6 +665,7 @@ class WaterFrame(LoggerSuperclass):
         elif self.cf_data_type == "trajectoryProfile":
             self.metadata["featureType"] = "trajectoryProfile"
             self.vocabulary[self._platform_id]["cf_role"] = "trajectory_id"
+            self.vocabulary[self._time]["cf_role"] = "profile_id"
 
         else:
             self.error(f"Unimplemented type {self.cf_data_type}", exception=not self.permissive)
@@ -683,7 +709,7 @@ class WaterFrame(LoggerSuperclass):
 
             if isinstance(value, list):
                 value = [str(s) for s in value]
-                value = " ".join(value)
+                value = self.emso.list_to_str(key, value)
             var.setncattr(key, value)
 
     def __metadata_from_dict(self, var: nc.Variable, meta: dict, ignore=[]):
@@ -694,7 +720,7 @@ class WaterFrame(LoggerSuperclass):
             if key in ignore:  # just ignore this field
                 continue
             if isinstance(value, list):
-                value = " ".join(value)
+                value = self.emso.list_to_str(key, [str(s) for s in value])
             var.setncattr(key, value)
 
     def nc_set_global_attributes(self, ncfile):
@@ -880,9 +906,9 @@ class WaterFrame(LoggerSuperclass):
         self.metadata["geospatial_lat_min"] = self.data[self._latitude].min()
         self.metadata["geospatial_lat_max"] = self.data[self._latitude].max()
         self.metadata["geospatial_lon_min"] = self.data[self._longitude].min()
-        self.metadata["geospatial_lon_max"] = self.data[self._longitude].min()
+        self.metadata["geospatial_lon_max"] = self.data[self._longitude].max()
         self.metadata["geospatial_vertical_min"] = int(self.data[self._depth].min())
-        self.metadata["geospatial_vertical_max"] = int(self.data[self._depth].min())
+        self.metadata["geospatial_vertical_max"] = int(self.data[self._depth].max())
         self.metadata["time_coverage_start"] = self.data[self._time].min().strftime(iso_time_format)
         self.metadata["time_coverage_end"] = self.data[self._time].max().strftime(iso_time_format)
 
@@ -1058,11 +1084,16 @@ class WaterFrame(LoggerSuperclass):
             if "standard_name" in meta.keys():
                 keywords.append(meta["standard_name"])
 
-            # Get the sensor name
+            # Get the sensor name(s); sensor_type_uri may hold multiple L05 terms (one per sensing element,
+            # per the EMSO Metadata Specifications' Multiple Attributes convention), authored in meta.yaml
+            # either as a blank-separated string or a YAML list, same as populate_var_metadata() accepts
             if "sensor_type_uri" in meta.keys():
-                uri = meta["sensor_type_uri"]
-                k = get_from_sdn_vocab("prefLabel", "uri", uri, "L05")
-                keywords.append(k)
+                uris = meta["sensor_type_uri"]
+                if isinstance(uris, str):
+                    uris = uris.split()
+                for uri in uris:
+                    k = get_from_sdn_vocab("prefLabel", "uri", uri, "L05")
+                    keywords.append(k)
             elif var_type == "sensor":
                 self.warning(f"Could not find sensor type for '{name}'")
 
@@ -1112,6 +1143,9 @@ class WaterFrame(LoggerSuperclass):
         self.info("Consolidating Keywords in metadata...")
 
         current_terms = self.metadata["keywords"]
+        # Make sure we don't have commas in the keywords, it would break the array
+        current_terms = [k.replace(",", ";") for k in current_terms]
+
         # dict.fromkeys de-duplicates while keeping insertion order. list(set(...)) reorders by string hash,
         # which is randomised per process, so the generated keywords_vocabulary order changed on every run.
         current_terms = list(dict.fromkeys(current_terms))

@@ -245,8 +245,9 @@ def generate_erddap_dataset(wf: WaterFrame, directory, dataset_id, recursive: bo
         additional_attributes["cdm_trajectory_variables"] = "platform_id"
         subset_vars_str = ",".join(["platform_id", "sensor_id"] + qc_vars)
     elif cf_feature_type == "trajectoryProfile":
-        cdm_data_type = "trajectory"
+        cdm_data_type = "trajectoryProfile"
         additional_attributes["cdm_trajectory_variables"] = "platform_id"
+        additional_attributes["cdm_profile_variables"] = "time"
         subset_vars_str = ",".join(["platform_id", "sensor_id"] + qc_vars)
 
     else:

@@ -512,6 +512,10 @@ cndc2 = 5 + np.sin(2*np.pi*t)
 psal2 = 36 + np.sin(2*np.pi*t)
 pres2 = 20 + 2 * np.sin(365*2*np.pi*t)
 
+ph = 7 + np.sin(2*np.pi*t)
+turb = 100 + 50*np.sin(2*np.pi*t)
+orp = 300 + 10*np.sin(2*np.pi*t)
+
 df1 = pd.DataFrame({
     "time": times,
     "depth": 10.0,
@@ -534,6 +538,17 @@ df2 = pd.DataFrame({
 })
 
 
+df3 = pd.DataFrame({
+    "time": times,
+    "depth": 20.0,
+    "sensor_id": "SA8065_SN74354",
+    "PHPH": ph, "TEMP_QC": 1,
+    "TUR4": turb, "TUR4_QC": 1,
+    "WBRX": turb, "WBRX_QC": 1
+})
+
+
 to_csv(df1, folder, "SBE16.csv")
 to_csv(df2, folder, "SBE37.csv")
+to_csv(df2, folder, "SA8065.csv")
 guess_command(folder)
