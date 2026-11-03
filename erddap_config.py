@@ -30,6 +30,8 @@ if __name__ == "__main__":
                            help="Regex expression to be passed to ERDDAP's fileNameRegexCreate (default .*)", default=".*")
     argparser.add_argument("-R", "--recursive", type=str, help="Tell ERDDAP to scan the data directory recursively", default=False)
     argparser.add_argument("-l", "--log-level", type=str, help="Setting log level (debug, info, warn, error or critical)", required=False, default="")
+    argparser.add_argument("-s", "--subset-variables", type=str, nargs="+",
+                           help="Additional variable names to append to ERDDAP's subsetVariables attribute", default=[])
 
     args = argparser.parse_args()
     log = setup_log("emh", "log", log_level="info")
@@ -50,4 +52,5 @@ if __name__ == "__main__":
                   datasets_xml_file=args.xml,
                   mapping=mapping,
                   filename_regex=args.regex,
-                  recursive=args.recursive)
+                  recursive=args.recursive,
+                  subset_variables=args.subset_variables)

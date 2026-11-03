@@ -29,6 +29,31 @@ import emso_metadata_harmonizer as emh
 emh.generate_dataset(["data.csv"], ["meta.yaml"], output="dataset.nc")
 ```
 
+`generate_dataset()` also accepts in-memory objects instead of file paths, to skip the disk
+round-trip when data is already loaded:
+* `data_files` accepts a `pandas.DataFrame` (or a list mixing paths and DataFrames) in place of a
+  CSV/NetCDF path. **All required fields (time, depth, sensor_id, platform_id, variables) must be
+  regular columns, not the DataFrame index** — if time is in the index instead of a column,
+  generation fails with `Could not find valid time key!`. Call `.reset_index()` first if needed.
+* `metadata_files` accepts a `dict` (or a list mixing paths and dicts) in place of a YAML path.
+
+```python3
+import emso_metadata_harmonizer as emh
+import pandas as pd
+
+df = pd.DataFrame({
+    "time": pd.to_datetime(["2024-01-01T00:00:00", "2024-01-01T01:00:00"]),
+    "depth": [10.0, 10.0],
+    "sensor_id": ["SBE16", "SBE16"],
+    "platform_id": ["OBSEA", "OBSEA"],
+    "TEMP": [15.2, 15.3],
+})  # data in columns, not in the index
+
+meta = {"sensors": {...}, "platforms": {...}, "global": {...}, "variables": {...}}
+
+emh.generate_dataset([df], [meta], output="dataset.nc")
+```
+
 Full example with data and metadata from the [example 2](https://github.com/emso-eric/metadata-harmonizer/tree/develop/examples/02)
 
 ```python3
@@ -81,6 +106,15 @@ be passed via the `datasets_xml_file` parameter.
 import emso_metadata_harmonizer as emh
 
 emh.erddap_config("dataset.nc", "MyDatasetIdentifier", "/path/to/dataset/files", datasets_xml_file="path/to/datasets.xml")
+```
+
+To append additional variables to ERDDAP's `subsetVariables` attribute (on top of the ones EMH always adds based on
+the dataset's `featureType`), use the `subset_variables` parameter:
+
+```python3
+import emso_metadata_harmonizer as emh
+
+emh.erddap_config("dataset.nc", "MyDatasetIdentifier", "/path/to/dataset/files", subset_variables=["depth_qc", "my_variable"])
 ```
 
 
