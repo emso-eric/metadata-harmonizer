@@ -9,7 +9,7 @@ lxml==6.0.2
 markdown-it-py==4.0.0
 mdurl==0.1.2
 netCDF4==1.7.3
-numpy==2.4.0
+numpy==2.4.1
 packaging==25.0
 pandas==2.3.3
 Pygments==2.19.2

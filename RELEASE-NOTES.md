@@ -1,3 +1,7 @@
+## Version 1.1.2 ##
+1. Accept DataFrame and dict as data inputs to speed up integration
+2. Interpret missing values in string columns as empty string rather than NaNs
+
 ## Version 1.1.1 ##
 1. Fix json collision error (json vs json_out)
 2. Fix variable_name instead of variable_type
