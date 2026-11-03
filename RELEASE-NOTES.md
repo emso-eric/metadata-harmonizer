@@ -1,6 +1,7 @@
 ## Version 1.1.2 ##
 1. Accept DataFrame and dict as data inputs to speed up integration
 2. Interpret missing values in string columns as empty string rather than NaNs
+3. Add subset_variables as an extra parameter when configuring an erddap dataset
 
 ## Version 1.1.1 ##
 1. Fix json collision error (json vs json_out)
