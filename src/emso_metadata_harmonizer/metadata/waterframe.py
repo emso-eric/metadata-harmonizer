@@ -833,6 +833,7 @@ class WaterFrame(LoggerSuperclass):
     @staticmethod
     def __nc_compatible_string(series: pd.Series) -> (np.ndarray, int):
         assert_type(series, pd.Series)
+        
         assert pd.api.types.is_string_dtype(series), f"Series '{series.name}' is not a string!"
         if series.empty:
             strlen = 2
@@ -881,6 +882,7 @@ class WaterFrame(LoggerSuperclass):
         elif pd.api.types.is_string_dtype(dtype):
             # Strings are special in Climate and Forecast, they need to be a matrix of chars with a strlen dimension
             # ["car", "dog"] -> [['c', 'a', 'r'], ['d', 'o', 'g']],
+            series = series.fillna("")
             values, strlen = self.__nc_compatible_string(series)
             dimension_name = str(series.name) + "_strlen"
             if dimension_name not in self.__nc_dimensions.keys():

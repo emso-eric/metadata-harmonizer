@@ -20,7 +20,7 @@ from .metadata.utils import EMH_LOGGER_NAME
 logger = logging.getLogger(EMH_LOGGER_NAME)
 
 def erddap_config(file: str, dataset_id: str, source_path: str, output: str = "", datasets_xml_file: str = "",
-                  mapping: dict={}, filename_regex=".*", recursive=False):
+                  mapping: dict={}, filename_regex=".*", recursive=False, subset_variables: list=[]):
     """
     Configures an ERDDAP dataset based on an input NetCDF file compliant with the EMSO Metadata Specifications. The
     configuration is the excerpt of the 'datasets.xml' file (check ERDDAP docs for more info). By default, the XML
@@ -35,6 +35,7 @@ def erddap_config(file: str, dataset_id: str, source_path: str, output: str = ""
     :param mapping: mapping file with the source/destination links for mapped datasets (empty by default).
     :param filename_regex: Specify special regex rules for the files included in your dataset (default '.*').
     :param recursive: Scan recursively source directory.
+    :param subset_variables: list of additional variable names to append to ERDDAP's subsetVariables attribute (empty by default).
     """
 
     wf = WaterFrame.from_netcdf(file, permissive=True)
@@ -44,7 +45,8 @@ def erddap_config(file: str, dataset_id: str, source_path: str, output: str = ""
             mapping = yaml.safe_load(f)
 
     xml_chunk = generate_erddap_dataset(wf, source_path, dataset_id=dataset_id, recursive=recursive,
-                                        filename_regex=filename_regex, mapping=mapping)
+                                        filename_regex=filename_regex, mapping=mapping,
+                                        subset_variables=subset_variables)
 
     if output:
         with open(output, "w") as f:

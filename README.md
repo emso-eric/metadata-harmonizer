@@ -114,6 +114,7 @@ for more information.
 * `-r` or `--regex`: Allows you to specify a custom regex expression for ERDDAP's fileNameRegexCreate (defaults to ".*").
 * `-R` or `--recursive`: A flag to instruct ERDDAP to scan the source data directory recursively (defaults to `false`)
 * `-l` or `--log-level`: define the log level (`debug`, `info`, `warning` or `error`)
+* `-s` or `--subset-variables`: one or more additional variable names to append to ERDDAP's `subsetVariables` attribute (e.g. `-s depth_qc my_variable`)
 
 The `--mapping` option allows you to create EMSO-compliant datasets from NetCDF files that do not follow the EMSO Metadata
 Specifications. This achieved by specifying the source and destination variable names and by adding/overloading 
@@ -169,6 +170,6 @@ provides a binary output, whether the dataset is operationally valid or not.
 ### Contact info ###
 
 * **author**: Enoc Martínez  
-* **version**: v1.1.1
+* **version**: v1.1.2
 * **organization**: Universitat Politècnica de Catalunya (UPC)    
 * **contact**: enoc.martinez@upc.edu  

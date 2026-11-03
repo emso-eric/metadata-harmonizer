@@ -11,5 +11,7 @@ do-not-sync
 dist
 src/emso_metadata_harmonizer.egg-info/*
 
+# Do not include generated NetCDF file
+examples/*.nc
 # Local agent orientation file (not shared)
 AGENTS.md

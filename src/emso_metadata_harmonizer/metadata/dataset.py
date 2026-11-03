@@ -24,6 +24,8 @@ def load_csv_data(filename, sep=",") -> (pd.DataFrame, list):
 
     header_lines = csv_detect_header(filename, separator=sep)
     df = pd.read_csv(filename, skiprows=header_lines, sep=sep)
+    obj_cols = df.select_dtypes(include="object").columns
+    df[obj_cols] = df[obj_cols].fillna("")
     return df
 
 def csv_detect_header(filename, separator=","):
@@ -49,17 +51,11 @@ def csv_detect_header(filename, separator=","):
     return i
 
 
-def load_data(file: str) -> pd.DataFrame:
+def process_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Opens a CSV or NetCDF data and returns a DataFrame
+    Detects and parses the time column(s) of an already-loaded DataFrame. Shared by load_data()
+    (CSV/NetCDF paths) and by resolve_data_source() for DataFrames passed in directly.
     """
-    if file.endswith(".csv"):
-        df = load_csv_data(file)
-    elif file.endswith(".nc"):
-        df = nc_to_dataframe(file)
-    else:
-        raise ValueError("Unimplemented file format for data!")
-
     time_found = False
     # Get any valid time key
     for _time in time_valid_names:
@@ -77,6 +73,33 @@ def load_data(file: str) -> pd.DataFrame:
         raise ValueError(f"Could not find valid time key! Column names: {list(df.columns)}")
 
     return df
+
+
+def load_data(file: str) -> pd.DataFrame:
+    """
+    Opens a CSV or NetCDF data and returns a DataFrame
+    """
+    if file.endswith(".csv"):
+        df = load_csv_data(file)
+    elif file.endswith(".nc"):
+        df = nc_to_dataframe(file)
+    else:
+        raise ValueError("Unimplemented file format for data!")
+
+    return process_dataframe(df)
+
+
+def resolve_data_source(source) -> pd.DataFrame:
+    """
+    Accepts either a path to a CSV/NetCDF file or an in-memory pandas DataFrame, returning a
+    DataFrame ready for WaterFrame. Passing a DataFrame directly skips the disk round-trip; it is
+    copied first so the caller's object is never mutated by downstream processing.
+    """
+    if isinstance(source, pd.DataFrame):
+        return process_dataframe(source.copy())
+    if isinstance(source, str):
+        return load_data(source)
+    raise TypeError(f"data source must be a file path (str) or a pandas DataFrame, got {type(source)}")
 
 
 def semicolon_to_list(attr: str):

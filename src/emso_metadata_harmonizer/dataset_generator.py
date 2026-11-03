@@ -9,13 +9,14 @@ email: enoc.martinez@upc.edu
 license: MIT
 created: 13/4/23
 """
+import copy
 import logging
 import rich
 import pandas as pd
 import yaml
 
 from .metadata import EmsoMetadata
-from .metadata.dataset import load_data
+from .metadata.dataset import resolve_data_source
 from .metadata.utils import assert_type, EMH_LOGGER_NAME
 from .metadata.waterframe import WaterFrame, get_coordinates_from_dataframe
 
@@ -148,12 +149,25 @@ def validate_metadata(metadata: dict, section: str, rules: tuple, errors: list, 
                 continue
             debug_metadata_tests(f"[green]success")
 
+def resolve_metadata_source(source) -> dict:
+    """
+    Accepts either a path to a YAML metadata file or an in-memory dict, returning a dict ready for
+    merging. A dict is deep-copied so the in-place updates generate_dataset() makes later (e.g.
+    consolidate_keywords) never mutate the caller's object, so it can be reused across calls.
+    """
+    if isinstance(source, dict):
+        return copy.deepcopy(source)
+    if isinstance(source, str):
+        with open(source) as f:
+            return yaml.safe_load(f)
+    raise TypeError(f"metadata source must be a file path (str) or a dict, got {type(source)}")
+
+
 def consolidate_metadata(metadata_files: list):
     assert len(metadata_files) > 0, "Expected at least one metadata file!"
     metadata = {}
     for meta_file in metadata_files:
-        with open(meta_file) as f:
-            contents = yaml.safe_load(f)
+        contents = resolve_metadata_source(meta_file)
         metadata.update(contents)
     assert "sensors" in metadata.keys(), f"Sensors not found in metadata"
     assert "platforms" in metadata.keys(), f"Platforms not found in metadata"
@@ -162,12 +176,16 @@ def consolidate_metadata(metadata_files: list):
     return metadata
 
 
-def generate_dataset(data_files: list, metadata_files: list, output: str, keep_names=False, no_keywords=False,
+def generate_dataset(data_files, metadata_files, output: str, keep_names=False, no_keywords=False,
                      ignore_extra_cols=False, specs_version="latest", clear_downloads=False):
     """
     Generates an EMSO-compliant NetCDF dataset from the input data and metadata
-    :param data_files: list of csv data files
-    :param metadata_files: list of metadata yaml files
+    :param data_files: csv/NetCDF data file path(s), as a single path or a list. Also accepts a
+        pandas DataFrame (or a list mixing paths and DataFrames) to skip the disk read when the
+        data is already in memory.
+    :param metadata_files: metadata yaml file path(s), as a single path or a list. Also accepts a
+        dict (or a list mixing paths and dicts) to skip the disk read when the metadata is already
+        in memory.
     :param output: output NetCDF file
     :param no_keywords: Do not guess additional keywords based on existing metadata
     :param ignore_extra_cols: Ignore all data columns not listed in metadata
@@ -180,17 +198,21 @@ def generate_dataset(data_files: list, metadata_files: list, output: str, keep_n
 
     logger.info(f"Generating NetCDF dataset {output}")
     logger.debug("Checking arguments...")
-    assert_type(data_files, list)
-    [assert_type(f, str) for f in data_files]
-    [assert_type(f, str) for f in metadata_files]
+
+    if not isinstance(data_files, list):
+        data_files = [data_files]
+    if not isinstance(metadata_files, list):
+        metadata_files = [metadata_files]
+
+    [assert_type(f, (str, pd.DataFrame)) for f in data_files]
+    [assert_type(f, (str, dict)) for f in metadata_files]
     assert len(metadata_files) > 0, "Expected at least one metadata file!"
 
     metadata = consolidate_metadata(metadata_files)
 
     if len(data_files) > 0:
-        dataframes = [load_data(d) for d in data_files]
+        dataframes = [resolve_data_source(d) for d in data_files]
         df = pd.concat(dataframes)
-        pass
     else:
         columns = {
             "time": pd.Series(dtype='datetime64[ns]'),

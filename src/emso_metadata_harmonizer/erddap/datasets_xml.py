@@ -36,7 +36,7 @@ def get_erddap_data_type(series: pd.Series):
         dtype = "double"
     return dtype
 
-def generate_erddap_dataset(wf: WaterFrame, directory, dataset_id, recursive: bool =False, file_access=True, filename_regex=".*", mapping={}):
+def generate_erddap_dataset(wf: WaterFrame, directory, dataset_id, recursive: bool =False, file_access=True, filename_regex=".*", mapping={}, subset_variables=[]):
     """
     Generates a XML chunk to add it into ERDDAP's datasets.xml. The Variables are going to be ordered as follows:
     1. Coordinates
@@ -48,6 +48,7 @@ def generate_erddap_dataset(wf: WaterFrame, directory, dataset_id, recursive: bo
     :param dataset_id: datsetID to identify the dataset
     :param file_access: toggles on/off the direct file access
     :param mapping: dictionary containing mapping info to rename variables and/or override attributes
+    :param subset_variables: list of additional variable names to append to ERDDAP's subsetVariables attribute
     :param params: extra global configuration options
     returns: a string containing the datasets.xml chunk to setup the dataset
     """
@@ -252,6 +253,10 @@ def generate_erddap_dataset(wf: WaterFrame, directory, dataset_id, recursive: bo
 
     else:
         raise ValueError(f"Unimplemented CF feature type {cf_feature_type}")
+
+    if subset_variables:  # Add user subset variables to the list
+        subset_vars_str = ",".join(dict.fromkeys(subset_vars_str.split(",") + list(subset_variables)))
+
     if attr_mapping:
         additional_attributes.update(attr_mapping)  # Add mapping global attributes
 
